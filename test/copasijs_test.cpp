@@ -35,49 +35,10 @@ TEST_CASE("Test version", "[copasijs]") {
     std::string version = getVersion();
     CAPTURE(version);
     REQUIRE(!version.empty());
-    // getVersion();
-    // getMessages();
-    // convertDataHandlerToJSON();
-    // convertTimeSeriesToJSON();
-    // fillStream();
-    // cpsFree();
-    // setSelectionList();
-    // getSelectionList();
-    // buildModelInfo();
-    // getModelInfo();
-    // loadCommon();
-    // loadFromFile();
-    // loadModel();
-    // reset();
-    // applyYaml();
-    // ensureModel();
-    // getSimulationResults2D();
-    // steadyState();
-    // simulateJSON();
-    // simulateYaml();
-    // simulate();
-    // getTimeCourseSettings();
-    // setTimeCourseSettings();
-    // simulateEx();
-    // getReactionNames();
-    // getReactionRates();
-    // getFloatingSpeciesNames();
-    // getFloatingSpeciesConcentrations();
-    // getRatesOfChange();
-    // getBoundarySpeciesNames();
-    // getBoundarySpeciesConcentrations();
-    // getCompartmentNames();
-    // getCompartmentSizes();
-    // getGlobalParameterNames();
-    // getGlobalParameterValues();
-    // getLocalParameterNames();
-    // getLocalParameterValues();
-    // oneStep();
-    // getSelectionList();
-    // getSelectionValues();
 }
 
-TEST_CASE("Load Model", "[copasijs]") {
+TEST_CASE("Load Model", "[copasijs]") 
+{
     std::string model = loadFromFile(getTestFile("../example_files/brusselator.cps"));
     REQUIRE(!model.empty());
     REQUIRE(model != "Error loading model");
@@ -123,4 +84,7 @@ TEST_CASE("Load Model", "[copasijs]") {
     auto json = nlohmann::json::parse(data);
     REQUIRE(json["titles"][0] == "Time");
     REQUIRE(json["columns"][0].size() == 11);
+
+    // once done destroy the API
+    destroyAPI();
 }

@@ -51,7 +51,9 @@ if (APPLE)
 endif()
 
 add_test(NAME copasijs_test_run COMMAND copasijs_test)
-set_tests_properties(copasijs_test_run PROPERTIES ENVIRONMENT 
-	"srcdir=${CMAKE_CURRENT_SOURCE_DIR}")
+set_tests_properties(copasijs_test_run PROPERTIES 
+  ENVIRONMENT "srcdir=${CMAKE_CURRENT_SOURCE_DIR}/test"
+  WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+)
 
 endif()

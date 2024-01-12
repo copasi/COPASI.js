@@ -42,8 +42,13 @@ Additionally this project uses:
 * <https://github.com/catchorg/Catch2>
 
 ## Testing
-It is possible to compile the simulation wrapper as C++ library, that is also used for testing using the [catch2 framework](https://github.com/catchorg/Catch2). For this, you can just use: 
+Once the dependencies are compiled as above and installed into `dependencies`, you can
+run the standalone test runner like so: 
 
 ```bash
-cmake -DDEPENDENCIES_DIR=<path to where the dependencies are>
+git clone https://github.com/copasi/COPASI.js.git
+cmake -DDEPENDENCIES_DIR=dependencies -S COPASI.js -B build-copasijs
+cmake --build build-copasijs --config=Release
+cd build-copasijs && ctest -V
 ```
+

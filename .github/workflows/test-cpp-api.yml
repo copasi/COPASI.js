@@ -5,7 +5,11 @@ name: Test C++ API
 on:
   push:
     paths:
-        - "**"
+        - "src/**"
+        - "test/**"
+        - "CMakeModules/**"
+        - "CMakeLists.txt"
+        - "VERSION.txt"
         - "!.github/**"
         - "!docs/**"
         - ".github/workflows/test-cpp-api.yml"

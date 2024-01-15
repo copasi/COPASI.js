@@ -108,6 +108,8 @@ COPASIJS version ${COPASIJS_DOTTED_VERSION}
      CXXFLAGS                        = ${CMAKE_CXX_FLAGS}
      LDFLAGS                         = ${CMAKE_EXE_LINKER_FLAGS}
 
+   Dependencies directory            = ${COPASIJS_DEPENDENCY_DIR}
+
    COPASISE configuration:
      Version                         = ${LibCOPASISE_VERSION}
      Libraries                       = ${LibCOPASISE_LIBRARY}

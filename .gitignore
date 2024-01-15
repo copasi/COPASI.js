@@ -32,4 +32,17 @@
 *.app
 
 /build/
-.vscode/settings.json
+/build-copasi/
+/build-dependencies/
+/dependencies/
+/.vscode/
+
+/COPASI/
+/copasi-dependencies/
+
+/Testing/
+/CMakeFiles/
+/CMakeCache.txt
+/DartConfiguration.tcl
+
+/run.sh

@@ -39,6 +39,7 @@ set(_PROJECT_DEPENDENCY_DIR ${_UPPER_PROJECT_NAME}_DEPENDENCY_DIR)
 if (NOT ${LibCOPASISE_LIBRARY_NAME}_FOUND)
   find_package(${LibCOPASISE_LIBRARY_NAME} CONFIG QUIET
   CONFIGS ${LibCOPASISE_LIBRARY_NAME}-config.cmake
+        libcopasise-static-config.cmake
   PATHS $ENV{LibCOPASISE_DIR}/${CMAKE_INSTALL_LIBDIR}/cmake
         $ENV{LibCOPASISE_DIR}/lib/cmake
         ${${_PROJECT_DEPENDENCY_DIR}}/${CMAKE_INSTALL_LIBDIR}/cmake
@@ -54,6 +55,10 @@ if (NOT ${LibCOPASISE_LIBRARY_NAME}_FOUND)
 endif()
 
 if (${LibCOPASISE_LIBRARY_NAME}_FOUND)
+
+if (TARGET lib${LibCOPASISE_LIBRARY_NAME} AND NOT TARGET ${LibCOPASISE_LIBRARY_NAME})
+  set(LibCOPASISE_LIBRARY_NAME lib${LibCOPASISE_LIBRARY_NAME})
+endif()
 
 get_target_property(LibCOPASISE_INCLUDE_DIR ${LibCOPASISE_LIBRARY_NAME} INTERFACE_INCLUDE_DIRECTORIES)
 get_target_property(LibCOPASISE_LIBRARY ${LibCOPASISE_LIBRARY_NAME} IMPORTED_LOCATION_RELEASE)
@@ -82,7 +87,7 @@ if (NOT LibCOPASISE_INTERFACE_LINK_LIBRARIES)
 endif()
 
 set (COPASI_DEPENDENCY_TARGTES)
-
+message(VERBOSE "LibCOPASISE_INTERFACE_LINK_LIBRARIES: ${LibCOPASISE_INTERFACE_LINK_LIBRARIES}")
 # remove dependent projects from link library list
 foreach (library ${LibCOPASISE_INTERFACE_LINK_LIBRARIES})
   
@@ -111,13 +116,20 @@ foreach (library ${LibCOPASISE_INTERFACE_LINK_LIBRARIES})
     else()
       # if library is one of 'libsbml', 'libsedml', 'libCombine-static'
       # then we can try to find it
-      if (${library} STREQUAL "libsbml" OR ${library} STREQUAL "libsbml-static")
+      if (${library} STREQUAL "libsbml" 
+          OR ${library} STREQUAL "libsbml-static" 
+          OR ${library} STREQUAL "sbml-static"
+          OR ${library} STREQUAL "sbml")
         find_package(LIBSBML)
-      elseif (${library} STREQUAL "libsedml")
+      elseif (${library} STREQUAL "libsedml" 
+          OR ${library} STREQUAL "libsedml-static" 
+          OR ${library} STREQUAL "sedml-static"
+          OR ${library} STREQUAL "sedml")
         if (NOT TARGET LibSEDML)
           find_package(LIBSEDML)
         endif()
-      elseif (${library} STREQUAL "libCombine-static")
+      elseif (${library} STREQUAL "libCombine-static" 
+          OR ${library} STREQUAL "Combine-static" )
         find_package(LIBCOMBINE)
       elseif (${library} STREQUAL "CodeGen")
         find_package(NATIVEJIT)
@@ -138,75 +150,6 @@ foreach (library ${LibCOPASISE_INTERFACE_LINK_LIBRARIES})
   set(LibCOPASISE_LIBRARY ${LibCOPASISE_LIBRARY} ${LibCOPASISE_INTERFACE_LINK_LIBRARIES})
   endif (LibCOPASISE_INTERFACE_LINK_LIBRARIES)
 
-
-
-else()
-  # Fallback if no CONFIG is found
-
-  find_path(LibCOPASISE_INCLUDE_DIR combine/combinearchive.h
-    PATHS $ENV{LibCOPASISE_DIR}/include
-          $ENV{LibCOPASISE_DIR}
-          ${${_PROJECT_DEPENDENCY_DIR}}/include
-          ${${_PROJECT_DEPENDENCY_DIR}}
-          
-    NO_DEFAULT_PATH)
-
-  if (NOT LibCOPASISE_INCLUDE_DIR)
-    find_path(LibCOPASISE_INCLUDE_DIR combine/combinearchive.h
-          $ENV{LibCOPASISE_DIR}/include
-          $ENV{LibCOPASISE_DIR}
-          ${${_PROJECT_DEPENDENCY_DIR}}/include
-          ${${_PROJECT_DEPENDENCY_DIR}}
-          ~/Library/Frameworks
-          /Library/Frameworks
-          /sw/include        # Fink
-          /opt/local/include # MacPorts
-          /opt/csw/include   # Blastwave
-          /opt/include
-          /usr/freeware/include
-          CMAKE_FIND_ROOT_PATH_BOTH)
-  endif (NOT LibCOPASISE_INCLUDE_DIR)
-
-  if (NOT LibCOPASISE_INCLUDE_DIR)
-    message(FATAL_ERROR "LibCOPASISE include dir not found not found! Consider defining ${_PROJECT_DEPENDENCY_DIR} variable: ${${_PROJECT_DEPENDENCY_DIR}}")
-  endif (NOT LibCOPASISE_INCLUDE_DIR)
-
-  find_library(LibCOPASISE_LIBRARY 
-    NAMES ${LibCOPASISE_LIBRARY_NAME}
-    PATHS $ENV{LibCOPASISE_DIR}/lib
-          $ENV{LibCOPASISE_DIR}
-          ${${_PROJECT_DEPENDENCY_DIR}}/${CMAKE_INSTALL_LIBDIR}
-          ${${_PROJECT_DEPENDENCY_DIR}}/lib
-          ${${_PROJECT_DEPENDENCY_DIR}}
-          ${CONAN_LIB_DIRS_LibCOPASISE}
-          ~/Library/Frameworks
-          /Library/Frameworks
-          /sw/lib         Fink
-          /opt/local/lib  MacPorts
-          /opt/csw/lib    Blastwave
-          /opt/lib
-          /usr/freeware/lib64
-          CMAKE_FIND_ROOT_PATH_BOTH
-    NO_DEFAULT_PATH)
-    
-  if (NOT LibCOPASISE_LIBRARY)
-    find_library(LibCOPASISE_LIBRARY 
-        NAMES ${LibCOPASISE_LIBRARY_NAME}
-        PATHS $ENV{LibCOPASISE_DIR}/lib
-        $ENV{LibCOPASISE_DIR}
-        ${${_PROJECT_DEPENDENCY_DIR}}/${CMAKE_INSTALL_LIBDIR}
-        ${${_PROJECT_DEPENDENCY_DIR}}/lib
-        ${${_PROJECT_DEPENDENCY_DIR}}
-        ${CONAN_LIB_DIRS_LibCOPASISE}
-        ~/Library/Frameworks
-        /Library/Frameworks
-        /sw/lib         Fink
-        /opt/local/lib  MacPorts
-        /opt/csw/lib    Blastwave
-        /opt/lib
-        /usr/freeware/lib64
-        CMAKE_FIND_ROOT_PATH_BOTH)
-  endif (NOT LibCOPASISE_LIBRARY)
 endif(${LibCOPASISE_LIBRARY_NAME}_FOUND)
 
 if (NOT LibCOPASISE_LIBRARY)

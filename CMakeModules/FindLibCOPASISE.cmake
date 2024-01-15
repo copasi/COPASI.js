@@ -168,7 +168,7 @@ else()
   endif (NOT LibCOPASISE_INCLUDE_DIR)
 
   if (NOT LibCOPASISE_INCLUDE_DIR)
-    message(FATAL_ERROR "LibCOPASISE include dir not found not found!")
+    message(FATAL_ERROR "LibCOPASISE include dir not found not found! Consider defining ${_PROJECT_DEPENDENCY_DIR} variable: ${${_PROJECT_DEPENDENCY_DIR}}")
   endif (NOT LibCOPASISE_INCLUDE_DIR)
 
   find_library(LibCOPASISE_LIBRARY 
@@ -210,7 +210,7 @@ else()
 endif(${LibCOPASISE_LIBRARY_NAME}_FOUND)
 
 if (NOT LibCOPASISE_LIBRARY)
-    message(FATAL_ERROR "LibCOPASISE library not found!")
+    message(FATAL_ERROR "LibCOPASISE library not found! Consider defining ${_PROJECT_DEPENDENCY_DIR} variable: ${${_PROJECT_DEPENDENCY_DIR}}")
 endif (NOT LibCOPASISE_LIBRARY)
 
 if (NOT TARGET LibCOPASISE)

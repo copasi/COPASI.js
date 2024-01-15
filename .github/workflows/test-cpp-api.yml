@@ -44,10 +44,11 @@ jobs:
                 -DBUILD_NativeJIT=OFF \
                 -DBUILD_clapack=ON
 
-        cmake --build build-dependencies --config=Release
+        cmake --build build-dependencies --config=${{env.BUILD_TYPE}}
 
         git clone https://github.com/copasi/COPASI
         cd COPASI && gitTools/UpdateCopasiVersion --force && cd ..
+        cd COPASI && git checkout release/Version-4.43 && cd ..
 
         cp COPASI/copasi/lapack/f2c.h dependencies/include 
         cp COPASI/copasi/lapack/blaswrap.h dependencies/include
@@ -61,8 +62,8 @@ jobs:
                 -DCMAKE_INSTALL_PREFIX=dependencies \
                 -DCOPASI_DEPENDENCY_DIR=dependencies \
                 -DCMAKE_PREFIX_PATH=dependencies \
-                -DF2C_INTEGER=int \
-                -DF2C_LOGICAL=int
+                -DF2C_INTEGER=long \
+                -DF2C_LOGICAL=long
 
         cmake --build ${{github.workspace}}/build-copasi --config=${{env.BUILD_TYPE}}
         cmake --install ${{github.workspace}}/build-copasi --config=${{env.BUILD_TYPE}}

@@ -28,19 +28,19 @@ struct CModelElement
 };
 
 static CDataModel *pDataModel = NULL;
-static std::map<std::string, CModelElement> mFloatingSpecies;
-static std::map<std::string, CModelElement> mBoundarySpecies;
-static std::map<std::string, CModelElement> mCompartments;
-static std::map<std::string, CModelElement> mReactions;
-static std::map<std::string, CModelElement> mLocalParameters;
-static std::map<std::string, CModelElement> mGlobalParameters;
-static std::vector<std::string> mSelectionList;
-static std::vector<const double*> mSelectedValues;
+static std::map<std::string, CModelElement> mFloatingSpecies = {};
+static std::map<std::string, CModelElement> mBoundarySpecies = {};
+static std::map<std::string, CModelElement> mCompartments = {};
+static std::map<std::string, CModelElement> mReactions = {};
+static std::map<std::string, CModelElement> mLocalParameters = {};
+static std::map<std::string, CModelElement> mGlobalParameters = {};
+static std::vector<std::string> mSelectionList = {};
+static std::vector<const double*> mSelectedValues = {};
 static CDataHandler *mpDataHandler = NULL;
 
-static std::string mLastSimulationJSON; 
-static std::vector<std::vector<double>> mLastSimulationResults2D;
-static ordered_json mLastSimulationResults;
+static std::string mLastSimulationJSON = ""; 
+static std::vector<std::vector<double>> mLastSimulationResults2D = {};
+static ordered_json mLastSimulationResults = {};
 
 ordered_json convertGroupToJson(CCopasiParameterGroup* pGroup, bool basicOnly /* = true*/)
 {
@@ -124,8 +124,25 @@ int initCps()
 
 void destroyAPI()
 {
+    mFloatingSpecies.clear();
+    mBoundarySpecies.clear();
+    mCompartments.clear();
+    mReactions.clear();
+    mLocalParameters.clear();
+    mGlobalParameters.clear();
+    mSelectionList.clear();
+    mSelectedValues.clear();
+
+    mLastSimulationJSON = "";
+    mLastSimulationResults2D.clear();
+    mLastSimulationResults.clear();
+
+    if (mpDataHandler != NULL)
+        delete mpDataHandler;
+
     if (pDataModel != NULL)
         CRootContainer::removeDatamodel(pDataModel);
+
     pDataModel = NULL;
     CRootContainer::destroy();
 }
@@ -337,6 +354,7 @@ ordered_json buildModelInfo()
     mLocalParameters.clear();
     mSelectionList.clear();
     mSelectionList.push_back("Time");
+    mSelectedValues.clear();
 
 
     ordered_json modelInfo;

@@ -51,6 +51,16 @@ set(CMAKE_EXECUTABLE_SUFFIX ".js")
 set_target_properties(copasijs PROPERTIES COMPILE_FLAGS "-Os")
 set_target_properties(copasijs PROPERTIES LINK_FLAGS    "-Os -s WASM=1 -s MODULARIZE -s 'EXPORT_NAME=createCpsModule' --no-entry --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/example_files")
 
+install(
+  FILES 
+    ${CMAKE_CURRENT_BINARY_DIR}/copasijs.js 
+    ${CMAKE_CURRENT_BINARY_DIR}/copasijs.data
+    ${CMAKE_CURRENT_BINARY_DIR}/copasijs.wasm
+    ${CMAKE_CURRENT_SOURCE_DIR}/js/copasi.js
+
+  DESTINATION ${CMAKE_INSTALL_PREFIX}
+)
+
 else()
 add_library(copasijs src/copasijs.cpp src/copasijs.h src/)
 endif()

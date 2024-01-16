@@ -2,6 +2,7 @@
 #include <emscripten.h>
 #include <emscripten/bind.h>
 using namespace emscripten;
+#define COPASI_MAIN
 #endif 
 
 #include "copasijs.h"

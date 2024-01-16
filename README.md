@@ -53,32 +53,35 @@ rm em-dependencies/lib/libuuid.la*
 
 git clone https://github.com/copasi/copasi-dependencies
 emcmake cmake -G Ninja -B em-build-dependencies -S copasi-dependencies \
- -DCMAKE_INSTALL_PREFIX=em-dependencies \
- -DCMAKE_BUILD_TYPE=Release \
- -DBUILD_UI_DEPS=OFF \
- -DBUILD_zlib=ON \
- -DBUILD_archive=OFF \
- -DBUILD_NativeJIT=OFF \
- -DBUILD_clapack=ON \
- -DCMAKE_PREFIX_PATH=em-dependencies
+  -DCMAKE_INSTALL_PREFIX=em-dependencies \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_UI_DEPS=OFF \
+  -DBUILD_zlib=ON \
+  -DBUILD_archive=OFF \
+  -DBUILD_NativeJIT=OFF \
+  -DBUILD_clapack=ON \
+  -DCMAKE_PREFIX_PATH=em-dependencies
 cmake --build em-build-dependencies --config=Release
+
+git clone https://github.com/copasi/COPASI
+cd COPASI && gitTools/UpdateCopasiVersion --force && cd ..
+cd COPASI && git checkout release/Version-4.43 && cd ..
 
 cp COPASI/copasi/lapack/f2c.h em-dependencies/include 
 cp COPASI/copasi/lapack/blaswrap.h em-dependencies/include
 
-git clone https://github.com/copasi/COPASI
 emcmake cmake -G Ninja -B em-build-copasi -S COPASI \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DBUILD_GUI=OFF \
-      -DENABLE_JIT:BOOL=OFF \
-      -DDATAVALUE_NEEDS_SIZE_T_MEMBERS=1 \
-      -DCOPASI_INSTALL_C_API=ON \
-      -DCMAKE_INSTALL_PREFIX=em-dependencies \
-      -DCOPASI_DEPENDENCY_DIR=em-dependencies \
-      -DCMAKE_PREFIX_PATH=em-dependencies \
-      -DDISABLE_STACK_PROTECTOR=ON \
-      -DF2C_INTEGER=int \
-      -DF2C_LOGICAL=int
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_GUI=OFF \
+  -DENABLE_JIT:BOOL=OFF \
+  -DDATAVALUE_NEEDS_SIZE_T_MEMBERS=1 \
+  -DCOPASI_INSTALL_C_API=ON \
+  -DCMAKE_INSTALL_PREFIX=em-dependencies \
+  -DCOPASI_DEPENDENCY_DIR=em-dependencies \
+  -DCMAKE_PREFIX_PATH=em-dependencies \
+  -DDISABLE_STACK_PROTECTOR=ON \
+  -DF2C_INTEGER=int \
+  -DF2C_LOGICAL=int
 
 cmake --build em-build-copasi --config=Release
 cmake --install em-build-copasi --config=Release
@@ -118,30 +121,34 @@ The best way to set this up, is to just install the COPASI dependencies first in
 ```bash
 git clone https://github.com/copasi/copasi-dependencies
 cmake -G Ninja -B build-dependencies -S copasi-dependencies \
- -DCMAKE_INSTALL_PREFIX=dependencies \
- -DCMAKE_BUILD_TYPE=Release \
-        -DBUILD_UI_DEPS=OFF \
-        -DBUILD_zlib=ON \
-        -DBUILD_archive=OFF \
-        -DBUILD_NativeJIT=OFF \
-        -DBUILD_clapack=ON
+  -DCMAKE_INSTALL_PREFIX=dependencies \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_UI_DEPS=OFF \
+  -DBUILD_zlib=ON \
+  -DBUILD_archive=OFF \
+  -DBUILD_NativeJIT=OFF \
+  -DBUILD_clapack=ON
 cmake --build build-dependencies --config=Release
+
+
+git clone https://github.com/copasi/COPASI
+cd COPASI && gitTools/UpdateCopasiVersion --force && cd ..
+cd COPASI && git checkout release/Version-4.43 && cd ..
 
 cp COPASI/copasi/lapack/f2c.h dependencies/include 
 cp COPASI/copasi/lapack/blaswrap.h dependencies/include
 
-git clone https://github.com/copasi/COPASI
 cmake -G Ninja -B build-copasi -S COPASI \
-      -DCMAKE_BUILD_TYPE=Release \
-      -DBUILD_GUI=OFF \
-      -DENABLE_JIT:BOOL=OFF \
-      -DDATAVALUE_NEEDS_SIZE_T_MEMBERS=0 \
-      -DCOPASI_INSTALL_C_API=ON \
-      -DCMAKE_INSTALL_PREFIX=dependencies \
-      -DCOPASI_DEPENDENCY_DIR=dependencies \
-      -DCMAKE_PREFIX_PATH=dependencies \
-      -DF2C_INTEGER=int \
-      -DF2C_LOGICAL=int
+  -DCMAKE_BUILD_TYPE=Release \
+  -DBUILD_GUI=OFF \
+  -DENABLE_JIT:BOOL=OFF \
+  -DDATAVALUE_NEEDS_SIZE_T_MEMBERS=0 \
+  -DCOPASI_INSTALL_C_API=ON \
+  -DCMAKE_INSTALL_PREFIX=dependencies \
+  -DCOPASI_DEPENDENCY_DIR=dependencies \
+  -DCMAKE_PREFIX_PATH=dependencies \
+  -DF2C_INTEGER=int \
+  -DF2C_LOGICAL=int
 
 cmake --build build-copasi --config=Release
 cmake --install build-copasi --config=Release

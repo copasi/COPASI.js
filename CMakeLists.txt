@@ -42,7 +42,18 @@ find_package(LibCOPASISE REQUIRED)
 # /Users/frank/Development/se-dependencies/dependencies
 
 # Add library target
+if (EMSCRIPTEN)
+add_executable(copasijs src/copasijs.cpp src/copasijs.h src/)
+
+target_link_libraries(copasijs PUBLIC embind)
+set(CMAKE_EXECUTABLE_SUFFIX ".js")
+
+set_target_properties(copasijs PROPERTIES COMPILE_FLAGS "-Os")
+set_target_properties(copasijs PROPERTIES LINK_FLAGS    "-Os -s WASM=1 -s MODULARIZE -s 'EXPORT_NAME=createCpsModule' --no-entry --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/example_files")
+
+else()
 add_library(copasijs src/copasijs.cpp src/copasijs.h src/)
+endif()
 
 # Add include directory from dependencies
 target_include_directories(copasijs PRIVATE ${CMAKE_SOURCE_DIR}/src)
@@ -51,8 +62,7 @@ target_include_directories(copasijs PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(copasijs PUBLIC LibCOPASISE)
 
 
-if (EMSCRIPTEN)
-else()
+if (NOT EMSCRIPTEN)
 # compile a test executable
 Include(FetchContent)
 

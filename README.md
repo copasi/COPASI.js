@@ -6,6 +6,36 @@ of SBML/COPASI models.
 Main use of this project is as JavaScript wrapper of the
 simulation API. For that we use Emscripten. 
 
+## Using from node.js
+The API is wrapped in the `copasi.js` file. So after loading the 
+wasm module, you pass the module to the constructor of the COPASI
+class:
+
+```javascript
+var createApi = require('./copasijs.js');
+var COPASI = require('./copasi.js');
+var fs = require("fs");
+
+createApi().then((Module) => {
+
+    // instantiate COPASI simulator
+    var instance = new COPASI(Module);
+
+    // check version
+    console.log('Using COPASI: ', instance.version);
+
+    // load a local file using the filesystem 
+    var data = fs.readFileSync(process.argv[2], 'utf8');
+
+    // print model structure
+    console.log(instance.loadModel(data));
+    
+    // simulate the model
+    console.log(instance.simulateEx(0, 10, 11));
+  
+});
+```
+
 ## Emscripten build
 To build from a clone we use the following (ensuring that you first have initialized the [Emscripten sdk](https://emscripten.org/docs/getting_started/downloads.html)): 
 
@@ -58,10 +88,18 @@ cmake --install em-build-copasi --config=Release
 
 ```bash
 git clone https://github.com/copasi/COPASI.js.git
-emcmake -DCOPASIJS_DEPENDENCY_DIR=em-dependencies -S COPASI.js -B em-build-copasijs
-emcmake --build em-build-copasijs --config=Release
-cd em-build-copasijs && ctest -V
+emcmake cmake -DCOPASIJS_DEPENDENCY_DIR=em-dependencies -S COPASI.js -B em-build-copasijs -DCMAKE_INSTALL_PREFIX=bin-js
+cmake --build em-build-copasijs --config=Release
+cmake --install em-build-copasijs --config=Release
 
+```
+
+Now that the files are in `bin-js`, we can run test programs with for example nodejs: 
+
+```bash
+cp COPASI.js/test/load_and_simulate.js bin-js
+cd bin-js
+node load_and_simulate.js COPASI.js/example_files/oscli.xml
 ```
 
 ## Dependencies

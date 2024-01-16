@@ -1,0 +1,96 @@
+# This starter workflow is for a CMake project running on a single platform. There is a different starter workflow if you need cross-platform coverage.
+# See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-multi-platform.yml
+name: CMake on a single platform
+
+on:
+  push:
+    paths:
+        - "src/**"
+        - "test/**"
+        - "CMakeModules/**"
+        - "CMakeLists.txt"
+        - "VERSION.txt"
+        - "!.github/**"
+        - "!docs/**"
+        - ".github/workflows/emscripten.yml"
+        
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
+    # You can convert this to a matrix build if you need cross-platform coverage.
+    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - uses: seanmiddleditch/gha-setup-ninja@master
+
+    - uses: mymindstorm/setup-emsdk@v13
+    
+    - name: Compile Dependencies
+      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
+      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
+      run: |
+        cd ${{github.workspace}}
+        curl -L -O http://downloads.sourceforge.net/libuuid/libuuid-1.0.3.tar.gz 
+        tar -zxf libuuid-1.0.3.tar.gz
+        cd libuuid-1.0.3
+        emconfigure ./configure --prefix=$PWD/../em-dependencies --disable-dependency-tracking --with-pic --enable-static=yes --enable-shared=no CFLAGS='-fPIC'
+        emmake make
+        emmake make install
+        cd ..
+        rm em-dependencies/lib/libuuid.la
+
+        
+        git clone https://github.com/copasi/copasi-dependencies
+        emcmake cmake -G Ninja -B em-build-dependencies -S copasi-dependencies \
+          -DCMAKE_INSTALL_PREFIX=em-dependencies \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DBUILD_UI_DEPS=OFF \
+          -DBUILD_zlib=ON \
+          -DBUILD_archive=OFF \
+          -DBUILD_NativeJIT=OFF \
+          -DBUILD_clapack=ON \
+          -DCMAKE_PREFIX_PATH=em-dependencies
+        cmake --build em-build-dependencies --config=Release
+        
+        git clone https://github.com/copasi/COPASI
+        cd COPASI && gitTools/UpdateCopasiVersion --force && cd ..
+        cd COPASI && git checkout release/Version-4.43 && cd ..
+        
+        cp COPASI/copasi/lapack/f2c.h em-dependencies/include 
+        cp COPASI/copasi/lapack/blaswrap.h em-dependencies/include
+        
+        emcmake cmake -G Ninja -B em-build-copasi -S COPASI \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DBUILD_GUI=OFF \
+          -DENABLE_JIT:BOOL=OFF \
+          -DDATAVALUE_NEEDS_SIZE_T_MEMBERS=1 \
+          -DCOPASI_INSTALL_C_API=ON \
+          -DCMAKE_INSTALL_PREFIX=em-dependencies \
+          -DCOPASI_DEPENDENCY_DIR=em-dependencies \
+          -DCMAKE_PREFIX_PATH=em-dependencies \
+          -DDISABLE_STACK_PROTECTOR=ON \
+          -DF2C_INTEGER=int \
+          -DF2C_LOGICAL=int
+        
+        cmake --build em-build-copasi --config=Release
+        cmake --install em-build-copasi --config=Release
+
+        
+    - name: Configure CMake
+      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
+      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
+      run: emcmake cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCOPASIJS_DEPENDENCY_DIR=${{github.workspace}}/dependencies -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/bin-js
+
+    - name: Build
+      # Build your program with the given configuration
+      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+
+  

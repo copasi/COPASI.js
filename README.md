@@ -15,7 +15,7 @@ To build from a clone we use the following (ensuring that you first have initial
 curl -L -O http://downloads.sourceforge.net/libuuid/libuuid-1.0.3.tar.gz 
 tar -zxf libuuid-1.0.3.tar.gz
 cd libuuid-1.0.3
-emconfigure ./configure --prefix=$PWD/../em-dependencies --disable-dependency-tracking --with-pic --enable-static=yes --enable-shared=no
+emconfigure ./configure --prefix=$PWD/../em-dependencies --disable-dependency-tracking --with-pic --enable-static=yes --enable-shared=no CFLAGS='-fPIC'
 emmake make
 emmake make install
 cd ..

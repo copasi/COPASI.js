@@ -63,7 +63,7 @@ extensions = [ "breathe", "sphinx_js" ]
 breathe_default_project = "copasijs"
 
 # Sphinx-js Configuration
-js_source_path = '../src'
+js_source_path = '../js'
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

@@ -97,4 +97,18 @@ jobs:
       # Build your program with the given configuration
       run: cmake --install ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
-  
+    - name: dependencies archive
+      uses: actions/upload-artifact@v2
+      with:
+        name: dependencies
+        path: ${{github.workspace}}/em-dependencies/*
+        retention-days: 90
+        if-no-files-found: error
+    
+    - name: copasiji archive
+      uses: actions/upload-artifact@v2
+      with:
+        name: copasiji
+        path: ${{github.workspace}}/bin-js/*
+        retention-days: 90
+        if-no-files-found: error

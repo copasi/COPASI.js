@@ -1,5 +1,5 @@
 # COPASI.js
-This project hosts a simplification of the COPASI API used
+This project hosts a wrapper for the COPASI API used
 primarily for running simulations and steady state analysis 
 of SBML/COPASI models. 
 

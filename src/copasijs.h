@@ -126,6 +126,7 @@ void reset();
 ///    }
 /// }
 /// ```
+///
 ///  where `name` would be the display name of the element to change. If no 
 /// specific reference is used, the initial concentration will be changed 
 /// for species, and initial values for all other model entities. 
@@ -167,6 +168,7 @@ double steadyState();
 ///     ]
 /// }
 /// ```
+///
 std::string simulateYaml(const std::string& processingYaml);
 
 /// @brief runs a simulation and returns the result as json string
@@ -194,6 +196,7 @@ std::string simulateYaml(const std::string& processingYaml);
 ///     ]
 /// }
 /// ```
+///
 std::string simulate();
 
 /// @brief runs a simulation and returns the result as json string
@@ -220,6 +223,7 @@ std::string simulate();
 ///     ]
 /// }
 /// ```
+///
 std::string simulateEx(double timeStart, double timeEnd, int numPoints);
 
 /// @brief runs a simulation for one outputstep
@@ -256,6 +260,8 @@ double oneStep(double startTime, double stepSize);
 ///   "Max Internal Step Size": 0.0,
 ///   "name": "Deterministic (LSODA)"
 /// }
+/// ```
+///
 std::string getTimeCourseSettings();
 
 /// @brief sets the time course settings from a json string
@@ -375,6 +381,7 @@ void loadCommon();
 ///     ]
 /// }
 /// ```
+///
 std::string simulateJSON(nlohmann::ordered_json& yaml);
 #pragma endregion
 

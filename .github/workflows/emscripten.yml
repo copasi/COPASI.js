@@ -6,6 +6,7 @@ on:
   push:
     paths:
         - "src/**"
+        - "js/**"
         - "test/**"
         - "CMakeModules/**"
         - "CMakeLists.txt"

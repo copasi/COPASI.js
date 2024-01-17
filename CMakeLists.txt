@@ -36,27 +36,33 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${COPASIJS_DEPENDENCY_DIR}/share/cop
 
 find_package(LibCOPASISE REQUIRED)
 
-# current setup: 
-# /Users/frank/Development/emscripten/install_dependencies
-# /Users/frank/Development/copasi-dependencies/bin
-# /Users/frank/Development/se-dependencies/dependencies
-
 # Add library target
 if (EMSCRIPTEN)
+option(COPASIJS_INCLUDE_EXAMPLE_FILES "Include example files in the build" OFF)
+set (COPASIJS_ENVIRONMENT "web" CACHE STRING "Environment for which to build one of: web, node")
+
+set (EXPORTED_FUNCTIONS "ccall,cwrap,allocateUTF8,UTF8ToString")
+set (PRELOAD_FILE)
+set (DATA_FILE)
+if (COPASIJS_INCLUDE_EXAMPLE_FILES)
+  set (EXPORTED_FUNCTIONS "${EXPORTED_FUNCTIONS},FS")
+  set (PRELOAD_FILE "--preload-file ${CMAKE_CURRENT_SOURCE_DIR}/example_files@/")
+  set (DATA_FILE "${CMAKE_CURRENT_BINARY_DIR}/copasijs.data") 
+endif ()
+
 add_executable(copasijs src/copasijs.cpp src/copasijs.h src/)
 
 target_link_libraries(copasijs PUBLIC embind)
 set(CMAKE_EXECUTABLE_SUFFIX ".js")
 
 set_target_properties(copasijs PROPERTIES COMPILE_FLAGS "-Os")
-set_target_properties(copasijs PROPERTIES LINK_FLAGS    "-Os -s WASM=1 -s MODULARIZE -s 'EXPORT_NAME=createCpsModule' --no-entry --preload-file ${CMAKE_CURRENT_SOURCE_DIR}/example_files")
+set_target_properties(copasijs PROPERTIES LINK_FLAGS    "-Os -sASSERTIONS -sENVIRONMENT=${COPASIJS_ENVIRONMENT} -sSINGLE_FILE=1 -sEXPORT_ES6=0 -sUSE_ES6_IMPORT_META=0 -s WASM=1 -s MODULARIZE -s 'EXPORT_NAME=createCpsModule' --no-entry ${PRELOAD_FILE} -sEXPORTED_RUNTIME_METHODS=${EXPORTED_FUNCTIONS}")
 
 install(
   FILES 
-    ${CMAKE_CURRENT_BINARY_DIR}/copasijs.js 
-    ${CMAKE_CURRENT_BINARY_DIR}/copasijs.data
-    ${CMAKE_CURRENT_BINARY_DIR}/copasijs.wasm
+    ${CMAKE_CURRENT_BINARY_DIR}/copasijs.js
     ${CMAKE_CURRENT_SOURCE_DIR}/js/copasi.js
+    ${DATA_FILE}
 
   DESTINATION ${CMAKE_INSTALL_PREFIX}
 )

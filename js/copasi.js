@@ -290,16 +290,13 @@ class COPASI {
 
     /**
      * @property {object} timeCourseSettings returns the time course settings as json object
+     * 
+     * @param {object|string} arg the time course settings to set
      */
     get timeCourseSettings() {
         return JSON.parse(this.Module.getTimeCourseSettings());
     }
 
-    /**
-     * Sets the time course settings from a json object or string
-     * 
-     * @param {object|string} arg the time course settings
-     */
     set timeCourseSettings(arg) {
         // test wether arg is string, otherwise stringify
         if (typeof arg !== 'string') {
@@ -325,23 +322,18 @@ class COPASI {
         return this._vectorToArray(this.Module.getSelectionList());
     }
 
-    /**
-     * @property {number[]} selectedValues returns the selected values
-     */
-    get selectedValues() {
-        return this._vectorToArray(this.Module.getSelectedValues());
-    }
-
-    /**
-     * setter for selection list
-     * 
-     * @param {string[]} arg the selection list
-     */
     set selectionList(arg) 
     {
         var vector = new this.Module.StringVector();
         arg.forEach((item) => vector.push_back(item));
         return this.Module.setSelectionList(vector);
+    }
+
+    /**
+     * @property {number[]} selectedValues returns the selected values
+     */
+    get selectedValues() {
+        return this._vectorToArray(this.Module.getSelectedValues());
     }
 }
 

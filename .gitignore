@@ -33,6 +33,7 @@
 
 /docs/Doxyfile
 /docs/build/
+/out/
 
 /build/
 /build-copasi/

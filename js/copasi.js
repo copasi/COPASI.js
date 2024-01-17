@@ -1,6 +1,16 @@
+/**
+ * @class COPASI
+ * 
+ * This class wraps all the functions exported from
+ * emscripten and provides a more convenient interface.
+ */
 class COPASI {
 
-    // add enum for method names
+    /**
+     * @enum {string} TC
+     * 
+     * enum for method names
+     */
     static get TC() {
         return {
             LSODA: 'Deterministic (LSODA)',
@@ -11,6 +21,11 @@ class COPASI {
         };
     }
 
+    /**
+     * Constructs a new COPASI instance from the WASM module
+     * @param Module the WASM module
+     * 
+     */
     constructor(Module) {
         this.Module = Module;
 
@@ -26,6 +41,12 @@ class COPASI {
         this.initCps();
     }
 
+    /**
+     * loads an example (if the WASM module was compiled with FS support)
+     * 
+     * @param {string} path 
+     * @returns model information as an object
+     */
     loadExample(path) 
     {
         this.Module.destroy();
@@ -33,6 +54,13 @@ class COPASI {
         return JSON.parse(this.Module.loadFromFile(path));
     }
 
+    /**
+     * Loads a model from a string containing the model in 
+     * SBML or COPASI format. 
+     * 
+     * @param {string} modelCode in SBML or COPASI format
+     * @returns model information as an object
+     */
     loadModel(modelCode)
     {
         this.Module.destroy();
@@ -78,7 +106,17 @@ class COPASI {
         this.Module.reset();
     }
 
+
     // add a property version with the contents of `getVersion`
+    /**
+     * @property {string} version returns the COPASI version
+     * 
+     * @example
+     * var copasi = new COPASI(Module);
+     * console.log(copasi.version);
+     * // prints something like:
+     * // 4.32.284
+     */
     get version() {
         return this.Module.getVersion();
     }

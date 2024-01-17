@@ -2,12 +2,14 @@
 API Documentation
 =================
 
-JS API documentation
+JavaScript 
+----------
 
 .. js:autoclass:: COPASI
    :members:
 
-C++ API documentation
+C++
+---
 
 .. doxygenindex::
    :project: copasijs

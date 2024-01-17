@@ -2,7 +2,7 @@
 API Documentation
 =================
 
-Here the full API documentation
+Here the API documentation
 
 .. doxygenindex::
-   :project: cpsapi
+   :project: copasijs

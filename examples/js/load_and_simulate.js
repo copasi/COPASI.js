@@ -1,4 +1,3 @@
-//const XMLHttpRequest = require("xmlhttprequest").XMLHttpRequest
 var createApi = require('./copasijs.js');
 var COPASI = require('./copasi.js');
 var fs = require("fs");
@@ -20,5 +19,4 @@ createApi().then((Module) => {
     // simulate the model
     console.log(instance.simulateEx(0, 10, 11));
   
-}
-);
+});

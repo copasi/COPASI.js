@@ -85,18 +85,28 @@ jobs:
         cmake --install em-build-copasi --config=Release
 
         
-    - name: Configure CMake
-      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
-      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: emcmake cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCOPASIJS_DEPENDENCY_DIR=${{github.workspace}}/em-dependencies -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/bin-js
+    - name: Configure and build for node
+      run: |
+       emcmake cmake -B ${{github.workspace}}/build \
+              -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+              -DCOPASIJS_DEPENDENCY_DIR=${{github.workspace}}/em-dependencies \
+              -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/dist-node \
+              -DCOPASIJS_ENVIRONMENT=node \
+              -DCOPASIJS_INCLUDE_EXAMPLE_FILES=ON
 
-    - name: Build
-      # Build your program with the given configuration
-      run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+       cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+       cmake --install ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
-    - name: Install
-      # Build your program with the given configuration
-      run: cmake --install ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+    - name: Configure and build for web
+      run: |
+        emcmake cmake -B ${{github.workspace}}/build-web \
+              -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+              -DCOPASIJS_DEPENDENCY_DIR=${{github.workspace}}/em-dependencies \
+              -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/dist-web \
+              -DCOPASIJS_ENVIRONMENT=web
+
+        cmake --build ${{github.workspace}}/build-web --config ${{env.BUILD_TYPE}}
+        cmake --install ${{github.workspace}}/build-web --config ${{env.BUILD_TYPE}}
 
     - name: dependencies archive
       uses: actions/upload-artifact@v4
@@ -109,7 +119,16 @@ jobs:
     - name: copasijs archive
       uses: actions/upload-artifact@v4
       with:
-        name: copasijs
-        path: ${{github.workspace}}/bin-js/*
+        name: copasijs-web
+        path: ${{github.workspace}}/dist-web/*
         retention-days: 90
         if-no-files-found: error
+
+    - name: copasijs archive
+      uses: actions/upload-artifact@v4
+      with:
+        name: copasijs-node
+        path: ${{github.workspace}}/dist-node/*
+        retention-days: 90
+        if-no-files-found: error
+  

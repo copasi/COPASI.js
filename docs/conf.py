@@ -57,10 +57,13 @@ author = 'Frank T. Bergmann'
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = [ "breathe" ]
+extensions = [ "breathe", "sphinx_js" ]
 
 # Breathe Configuration
 breathe_default_project = "copasijs"
+
+# Sphinx-js Configuration
+js_source_path = '../src'
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

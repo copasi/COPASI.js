@@ -31,6 +31,9 @@
 *.out
 *.app
 
+/docs/Doxyfile
+/docs/build/
+
 /build/
 /build-copasi/
 /build-dependencies/

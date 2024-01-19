@@ -50,3 +50,14 @@
 /DartConfiguration.tcl
 
 /run.sh
+
+/dev/COPASI
+/dev/copasi-dependencies
+/dev/em-build-copasi
+/dev/em-build-dependencies
+/dev/libuuid*
+/dev/em-dependencies
+
+/dist-node/
+/dist-web/
+/em-build/

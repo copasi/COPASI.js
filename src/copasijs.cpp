@@ -546,7 +546,13 @@ std::string loadFromFile(const std::string& modelFile)
 
         if (!pDataModel->loadModel(modelFile, NULL, true))
             if (!pDataModel->importSBML(modelFile))
-                return strdup("Error loading model");
+            {
+                CCopasiMessage message(CCopasiMessage::ERROR, "Error loading model");
+                ordered_json modelInfo;
+                modelInfo["status"] = "error";
+                modelInfo["messages"] = getMessages();
+                return modelInfo.dump(2);
+            }
 
         loadCommon();
     }
@@ -577,7 +583,13 @@ std::string loadModel(const std::string& cpsCode)
 
         if (!pDataModel->loadFromString(cpsCode))
             if (!pDataModel->importSBMLFromString(cpsCode))
-                return strdup("Error loading model");
+            {
+                CCopasiMessage message(CCopasiMessage::ERROR, "Error loading model");
+                ordered_json modelInfo;
+                modelInfo["status"] = "error";
+                modelInfo["messages"] = getMessages();
+                return modelInfo.dump(2);
+            }
 
         loadCommon();
     }

@@ -50,8 +50,7 @@
     document.getElementById("yaml").value = "{}";
     document.getElementById('inputfile').value = "";
     document.getElementById("data").innerHTML = "";
-    document.getElementById("chart").innerHTML = "";
-    destroy();
+    document.getElementById("chart").innerHTML = "";    
   };
 
   function runSimulation() {
@@ -86,10 +85,12 @@
     if (copasi == null) {
       return;
     }
-    copasi.destroy();
-    copasi.initCps();
     var info = copasi.loadModel(document.getElementById("cps").value);
-    console.log(info['model']['name']);
+    document.getElementById("modelName").innerHTML = "none";
+    if (info['status'] != "success") {
+      alert("Error loading model: " + info['messages']);
+      return;
+    }
     document.getElementById("modelName").innerHTML = info['model']['name'];
 
   }

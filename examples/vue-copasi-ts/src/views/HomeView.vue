@@ -1,15 +1,23 @@
 <script setup lang="ts">
 import { ref, onMounted, inject } from 'vue'
+import {type COPASI } from '../copasi'
+import {type CopasiPlugin } from '../copasi-plugin-type'
 
 // inject the COPASI object from the main app
-const copasi : any = inject('$copasi')
+const copasi : CopasiPlugin|undefined = inject('$copasi')
 
 const data: any = ref(null);
 const simData: any = ref(null);
-const model : string = ref('');
-const info = ref(null);
+const model : any = ref('');
+const info : any = ref(null);
 
 onMounted(async () => {
+
+  if (!copasi?.instance || copasi?.state == 'loading'){
+    // load the copasi object
+    return;
+  }
+
   if (!model.value){
       // download `brusselator.cps` model copied to 
       // /public folder
@@ -52,7 +60,7 @@ onMounted(async () => {
     <VuePlotly :data="data" :layout="layout" :display-mode-bar="false"></VuePlotly>
     <div>
       <p>Model: {{ info?.model.name }}</p>
-      <p >COPASI Version: {{copasi.instance.version}}</p>
+      <p >COPASI Version: {{copasi?.version}}</p>
     </div>
   </main>
 </template>

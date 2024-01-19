@@ -32,5 +32,6 @@ coverage
 
 src/copasijs.js
 src/copasi.js
+src/copasi.d.ts
 src/copasijs.wasm
 src/copasijs.data

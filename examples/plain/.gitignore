@@ -1,4 +1,6 @@
 copasi.js
 copasijs.js
+copasijs.wasm
+copasijs.data
 
 serve.py

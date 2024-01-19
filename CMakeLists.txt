@@ -39,6 +39,7 @@ find_package(LibCOPASISE REQUIRED)
 # Add library target
 if (EMSCRIPTEN)
 option(COPASIJS_INCLUDE_EXAMPLE_FILES "Include example files in the build" OFF)
+option(COPASIJS_SINGLE_FILE "Build single js (on) or js + wasm (if off)" OFF)
 set (COPASIJS_ENVIRONMENT "web" CACHE STRING "Environment for which to build one of: web, node")
 
 set (EXPORTED_FUNCTIONS "ccall,cwrap,allocateUTF8,UTF8ToString")
@@ -55,14 +56,26 @@ add_executable(copasijs src/copasijs.cpp src/copasijs.h src/)
 target_link_libraries(copasijs PUBLIC embind)
 set(CMAKE_EXECUTABLE_SUFFIX ".js")
 
-set_target_properties(copasijs PROPERTIES COMPILE_FLAGS "-Os")
-set_target_properties(copasijs PROPERTIES LINK_FLAGS    "-Os -sENVIRONMENT=${COPASIJS_ENVIRONMENT} -sSINGLE_FILE=1 -sEXPORT_ES6=0 -sUSE_ES6_IMPORT_META=0 -s WASM=1 -s MODULARIZE -s 'EXPORT_NAME=createCpsModule' --no-entry ${PRELOAD_FILE} -sEXPORTED_RUNTIME_METHODS=${EXPORTED_FUNCTIONS}")
+set(COPASIJS_OPT_FLAGS "-Os")
+# set(COPASIJS_OPT_FLAGS "-O3")
+
+set (WASM_FILE)
+if (COPASIJS_SINGLE_FILE)
+set (SINGLE_FILE "-sSINGLE_FILE=1 ")
+else()
+set (WASM_FILE ${CMAKE_CURRENT_BINARY_DIR}/copasijs.wasm)
+set (SINGLE_FILE "-sSINGLE_FILE=0 ")
+endif()
+
+set_target_properties(copasijs PROPERTIES COMPILE_FLAGS "${COPASIJS_OPT_FLAGS}")
+set_target_properties(copasijs PROPERTIES LINK_FLAGS    "${COPASIJS_OPT_FLAGS} -s ALLOW_MEMORY_GROWTH=1 -sENVIRONMENT=${COPASIJS_ENVIRONMENT} ${SINGLE_FILE} -sEXPORT_ES6=0 -sUSE_ES6_IMPORT_META=0 -s WASM=1 -s MODULARIZE -s 'EXPORT_NAME=createCpsModule' --no-entry ${PRELOAD_FILE} -sEXPORTED_RUNTIME_METHODS=${EXPORTED_FUNCTIONS}")
 
 install(
   FILES 
     ${CMAKE_CURRENT_BINARY_DIR}/copasijs.js
     ${CMAKE_CURRENT_SOURCE_DIR}/js/copasi.js
     ${DATA_FILE}
+    ${WASM_FILE}
 
   DESTINATION ${CMAKE_INSTALL_PREFIX}
 )

@@ -74,6 +74,7 @@ install(
   FILES 
     ${CMAKE_CURRENT_BINARY_DIR}/copasijs.js
     ${CMAKE_CURRENT_SOURCE_DIR}/js/copasi.js
+    ${CMAKE_CURRENT_SOURCE_DIR}/js/copasi.d.ts
     ${DATA_FILE}
     ${WASM_FILE}
 

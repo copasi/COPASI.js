@@ -61,3 +61,5 @@
 /dist-node/
 /dist-web/
 /em-build/
+
+.DS_Store

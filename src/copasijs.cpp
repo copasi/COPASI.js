@@ -139,7 +139,10 @@ void destroyAPI()
     mLastSimulationResults.clear();
 
     if (mpDataHandler != NULL)
+    {
         delete mpDataHandler;
+        mpDataHandler = NULL;
+    }
 
     if (pDataModel != NULL)
         CRootContainer::removeDatamodel(pDataModel);
@@ -507,6 +510,9 @@ ordered_json buildModelInfo()
     modelInfo["model"]["name"] = pModel->getObjectName();
     modelInfo["model"]["notes"] = pModel->getNotes();
 
+    modelInfo["status"] = "success";
+    modelInfo["messages"] = getMessages();
+
     setSelectionList(mSelectionList);
 
     return modelInfo;
@@ -535,8 +541,8 @@ std::string loadFromFile(const std::string& modelFile)
 {
     try
     {
-        if (pDataModel == NULL)
-            initCps();
+        destroyAPI();
+        initCps();
 
         if (!pDataModel->loadModel(modelFile, NULL, true))
             if (!pDataModel->importSBML(modelFile))
@@ -546,11 +552,17 @@ std::string loadFromFile(const std::string& modelFile)
     }
     catch (CCopasiException &e)
     {
-        return e.getMessage().getText();
+        ordered_json modelInfo;
+        modelInfo["status"] = "error";
+        modelInfo["messages"] = getMessages();
+        return modelInfo.dump(2);
     }
     catch (std::exception &e)
     {
-        return e.what();
+        ordered_json modelInfo;
+        modelInfo["status"] = "error";
+        modelInfo["messages"] = e.what();
+        return modelInfo.dump(2);
     }
 
     return buildModelInfo().dump(2);
@@ -560,8 +572,8 @@ std::string loadModel(const std::string& cpsCode)
 {
     try
     {
-        if (pDataModel == NULL)
-            initCps();
+        destroyAPI();
+        initCps();
 
         if (!pDataModel->loadFromString(cpsCode))
             if (!pDataModel->importSBMLFromString(cpsCode))
@@ -571,11 +583,17 @@ std::string loadModel(const std::string& cpsCode)
     }
     catch (CCopasiException &e)
     {
-        return e.getMessage().getText();
+        ordered_json modelInfo;
+        modelInfo["status"] = "error";
+        modelInfo["messages"] = getMessages();
+        return modelInfo.dump(2);
     }
     catch (std::exception &e)
     {
-        return e.what();
+        ordered_json modelInfo;
+        modelInfo["status"] = "error";
+        modelInfo["messages"] = e.what();
+        return modelInfo.dump(2);
     }
 
     return buildModelInfo().dump(2);

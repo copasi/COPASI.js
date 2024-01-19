@@ -53,8 +53,6 @@ class COPASI {
      */
     loadExample(path) 
     {
-        this.Module.destroy();
-        this.Module.initCps();
         return JSON.parse(this.Module.loadFromFile(path));
     }
 
@@ -67,8 +65,6 @@ class COPASI {
      */
     loadModel(modelCode)
     {
-        this.Module.destroy();
-        this.Module.initCps();
         return JSON.parse(this.Module.loadModel(modelCode));
     }
 

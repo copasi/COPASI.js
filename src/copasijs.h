@@ -85,7 +85,9 @@ std::vector<std::string> getSelectionList();
 ///  "model": {
 ///    "name": "The Brusselator",
 ///    "notes": ""
-///  }
+///    }
+///  "status": "success",
+///  "messages": ""
 ///  }
 /// ```
 nlohmann::ordered_json buildModelInfo();

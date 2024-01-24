@@ -108,6 +108,18 @@ jobs:
         cmake --build ${{github.workspace}}/build-web --config ${{env.BUILD_TYPE}}
         cmake --install ${{github.workspace}}/build-web --config ${{env.BUILD_TYPE}}
 
+    - name: Configure and build for web (single file)
+      run: |
+        emcmake cmake -B ${{github.workspace}}/build-single \
+              -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
+              -DCOPASIJS_DEPENDENCY_DIR=${{github.workspace}}/em-dependencies \
+              -DCMAKE_INSTALL_PREFIX=${{github.workspace}}/dist-single \
+              -DCOPASIJS_ENVIRONMENT=web \
+              -DCOPASIJS_SINGLE_FILE=ON
+
+        cmake --build ${{github.workspace}}/build-single --config ${{env.BUILD_TYPE}}
+        cmake --install ${{github.workspace}}/build-single --config ${{env.BUILD_TYPE}}
+
     - name: dependencies archive
       uses: actions/upload-artifact@v4
       with:
@@ -116,7 +128,7 @@ jobs:
         retention-days: 90
         if-no-files-found: error
     
-    - name: copasijs archive
+    - name: copasijs archive (for web use, with wasm)
       uses: actions/upload-artifact@v4
       with:
         name: copasijs-web
@@ -124,7 +136,15 @@ jobs:
         retention-days: 90
         if-no-files-found: error
 
-    - name: copasijs archive
+    - name: copasijs archive (for web use, js only)
+      uses: actions/upload-artifact@v4
+      with:
+        name: copasijs-web-single
+        path: ${{github.workspace}}/dist-single/*
+        retention-days: 90
+        if-no-files-found: error
+
+    - name: copasijs archive (for use from node)
       uses: actions/upload-artifact@v4
       with:
         name: copasijs-node

@@ -57,10 +57,16 @@ onMounted(async () => {
 
 <template>
   <main>
+    <div v-if="data == null">
+      <p>loading...</p>
+    </div>
+    
+    <div v-else>
     <VuePlotly :data="data" :layout="layout" :display-mode-bar="false"></VuePlotly>
     <div>
       <p>Model: {{ info?.model.name }}</p>
       <p >COPASI Version: {{copasi?.version}}</p>
+    </div>
     </div>
   </main>
 </template>

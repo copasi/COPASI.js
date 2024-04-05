@@ -56,8 +56,9 @@ add_executable(copasijs src/copasijs.cpp src/copasijs.h src/)
 target_link_libraries(copasijs PUBLIC embind)
 set(CMAKE_EXECUTABLE_SUFFIX ".js")
 
-set(COPASIJS_OPT_FLAGS "-Os")
-# set(COPASIJS_OPT_FLAGS "-O3")
+set(COPASIJS_OPT_FLAGS "-Os -sNO_DISABLE_EXCEPTION_CATCHING -fexceptions")
+# set(COPASIJS_OPT_FLAGS "-O3 -g -sASSERTIONS=2 -sNO_DISABLE_EXCEPTION_CATCHING -fexceptions")
+
 
 set (WASM_FILE)
 if (COPASIJS_SINGLE_FILE)

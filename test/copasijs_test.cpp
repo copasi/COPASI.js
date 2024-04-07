@@ -98,10 +98,10 @@ TEST_CASE("Load COVID Model", "[copasijs]")
     REQUIRE(model != "Error loading model");
 
     auto selectionList = getSelectionList();
-    REQUIRE_THAT(selectionList, Catch::Matchers::Equals(std::vector<std::string>{"Time", "X", "Y"}));
+    REQUIRE_THAT(selectionList, Catch::Matchers::Equals(std::vector<std::string>{"Time", "S", "I", "R", "q"}));
     auto selectionValues = getSelectionValues();
-    REQUIRE(selectionValues.size() == 3);
-    REQUIRE_THAT(selectionValues, Catch::Matchers::Approx(std::vector<double>{0, 3, 3}));
+    REQUIRE(selectionValues.size() == 5);
+    REQUIRE_THAT(selectionValues, Catch::Matchers::Approx(std::vector<double>{0.0, 0.999999875, 0.000000125, 0.0, 0.012372199}));
 
     // lets have a look at the time course settings
     auto timeCourseSettings = getTimeCourseSettings();
@@ -129,15 +129,15 @@ TEST_CASE("Load COVID Model", "[copasijs]")
 
     // ensure that time is again 0
     selectionValues = getSelectionValues();
-    REQUIRE(selectionValues.size() == 3);
-    REQUIRE_THAT(selectionValues, Catch::Matchers::Approx(std::vector<double>{0, 3, 3}));
+    REQUIRE(selectionValues.size() == 5);
+    REQUIRE_THAT(selectionValues, Catch::Matchers::Approx(std::vector<double>{0.0, 0.999999875, 0.000000125, 0.0, 0.012372199}));
 
     // now run a simulation to look that the json format is in the expected format
     auto data = simulateEx(0, 10, 11);
     CAPTURE(data);
     auto json = nlohmann::json::parse(data);
     REQUIRE(json["titles"][0] == "Time");
-    REQUIRE(json["columns"][0].size() == 11);
+    REQUIRE(json["columns"][0].size() == 38);
 
     // once done destroy the API
     destroyAPI();

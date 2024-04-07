@@ -129,6 +129,7 @@ TEST_CASE("Load COVID Model", "[copasijs]")
 
     // ensure that time is again 0
     selectionValues = getSelectionValues();
+    CAPTURE(selectionValues);
     REQUIRE(selectionValues.size() == 5);
     REQUIRE_THAT(selectionValues, Catch::Matchers::Approx(std::vector<double>{0.0, 0.999999875, 0.000000125, 0.0, 0.012372199}));
 
@@ -137,6 +138,8 @@ TEST_CASE("Load COVID Model", "[copasijs]")
     CAPTURE(data);
     auto json = nlohmann::json::parse(data);
     REQUIRE(json["titles"][0] == "Time");
+    CAPTURE(json["titles"][0]);
+    CAPTURE(json["titles"][0].size());
     REQUIRE(json["columns"][0].size() == 38);
 
     // once done destroy the API

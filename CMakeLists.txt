@@ -42,7 +42,7 @@ option(COPASIJS_INCLUDE_EXAMPLE_FILES "Include example files in the build" OFF)
 option(COPASIJS_SINGLE_FILE "Build single js (on) or js + wasm (if off)" OFF)
 set (COPASIJS_ENVIRONMENT "web" CACHE STRING "Environment for which to build one of: web, node")
 
-set (EXPORTED_FUNCTIONS "ccall,cwrap,allocateUTF8,UTF8ToString")
+set (EXPORTED_FUNCTIONS "ccall,cwrap")
 set (PRELOAD_FILE)
 set (DATA_FILE)
 if (COPASIJS_INCLUDE_EXAMPLE_FILES)

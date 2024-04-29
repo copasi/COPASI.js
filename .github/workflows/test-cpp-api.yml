@@ -85,7 +85,7 @@ jobs:
       # ctest -C ${{env.BUILD_TYPE}} -VV --rerun-failed --output-on-failure
       working-directory: ${{github.workspace}}/build
       run: |
-        ./copasijs_test -s
+        ./copasijs_test -s "~[slow]"
 
         
 

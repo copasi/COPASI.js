@@ -6,6 +6,18 @@
 
 #include <cstdlib>
 
+
+class Instance {
+public:
+    Instance() {
+        
+    }
+
+    ~Instance() {
+        destroyAPI();
+    }
+};
+
 /**
  * Tries to find the test file in the srcdir environment variable.
  *
@@ -39,6 +51,7 @@ TEST_CASE("Test version", "[copasijs]") {
 
 TEST_CASE("Load Model", "[copasijs]") 
 {
+    Instance instance;
     std::string model = loadFromFile(getTestFile("../example_files/brusselator.cps"));
     REQUIRE(!model.empty());
     REQUIRE(model != "Error loading model");
@@ -83,16 +96,14 @@ TEST_CASE("Load Model", "[copasijs]")
     CAPTURE(data);
     auto json = nlohmann::json::parse(data);
     REQUIRE(json["titles"][0] == "Time");
-    REQUIRE(json["columns"][0].size() == 11);
+    REQUIRE(json["columns"][0].size() == json["recorded_steps"].get<int>());
 
-    // once done destroy the API
-    destroyAPI();
 }
-
 
 
 TEST_CASE("Load COVID Model", "[copasijs]") 
 {
+    Instance instance;
     std::string model = loadFromFile(getTestFile("../example_files/covid.cps"));
     REQUIRE(!model.empty());
     REQUIRE(model != "Error loading model");
@@ -141,7 +152,4 @@ TEST_CASE("Load COVID Model", "[copasijs]")
     CAPTURE(json["titles"][0]);
     CAPTURE(json["titles"][0].size());
     REQUIRE(json["columns"][0].size() == json["recorded_steps"].get<int>());
-
-    // once done destroy the API
-    destroyAPI();
 }

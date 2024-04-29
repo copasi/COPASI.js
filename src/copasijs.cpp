@@ -30,13 +30,19 @@ struct CModelElement
 
 static CDataModel *pDataModel = NULL;
 static std::map<std::string, CModelElement> mFloatingSpecies = {};
+static std::map<std::string, std::string> mFloatingSpeciesIdMap = {};
 static std::map<std::string, CModelElement> mBoundarySpecies = {};
+static std::map<std::string, std::string> mBoundarySpeciesIdMap = {};
 static std::map<std::string, CModelElement> mCompartments = {};
+static std::map<std::string, std::string> mCompartmentsIdMap = {};
 static std::map<std::string, CModelElement> mReactions = {};
+static std::map<std::string, std::string> mReactionsIdMap = {};
 static std::map<std::string, CModelElement> mLocalParameters = {};
 static std::map<std::string, CModelElement> mGlobalParameters = {};
+static std::map<std::string, std::string> mGlobalParametersIdMap = {};
 static std::vector<std::string> mSelectionList = {};
 static std::vector<const double*> mSelectedValues = {};
+static std::vector<std::string> mAllIds = {};
 static CDataHandler *mpDataHandler = NULL;
 
 static std::string mLastSimulationJSON = ""; 
@@ -126,13 +132,19 @@ int initCps()
 void destroyAPI()
 {
     mFloatingSpecies.clear();
+    mFloatingSpeciesIdMap.clear();
     mBoundarySpecies.clear();
+    mBoundarySpeciesIdMap.clear();
     mCompartments.clear();
+    mCompartmentsIdMap.clear();
     mReactions.clear();
+    mReactionsIdMap.clear();
     mLocalParameters.clear();
     mGlobalParameters.clear();
+    mGlobalParametersIdMap.clear();
     mSelectionList.clear();
     mSelectedValues.clear();
+    mAllIds.clear();
 
     mLastSimulationJSON = "";
     mLastSimulationResults2D.clear();
@@ -240,6 +252,119 @@ void cpsFree(char *ptr)
     free(ptr);
 }
 
+double getValue(const std::string &nameOrId)
+{
+    auto it = mFloatingSpecies.find(nameOrId);
+    if (it == mFloatingSpecies.end())
+    {
+        auto idIt = mFloatingSpeciesIdMap.find(nameOrId);
+        if (idIt != mFloatingSpeciesIdMap.end())
+            it = mFloatingSpecies.find(idIt->second);
+    }
+    if (it != mFloatingSpecies.end())
+        return *it->second.pValue;
+
+    it = mBoundarySpecies.find(nameOrId);
+    if (it == mBoundarySpecies.end())
+    {
+        auto idIt = mBoundarySpeciesIdMap.find(nameOrId);
+        if (idIt != mBoundarySpeciesIdMap.end())
+            it = mBoundarySpecies.find(idIt->second);
+    }
+    if (it != mBoundarySpecies.end())
+        return *it->second.pValue;
+
+    it = mCompartments.find(nameOrId);
+    if (it == mCompartments.end())
+    {
+        auto idIt = mCompartmentsIdMap.find(nameOrId);
+        if (idIt != mCompartmentsIdMap.end())
+            it = mCompartments.find(idIt->second);
+    }
+    if (it != mCompartments.end())
+        return *it->second.pValue;
+
+    it = mReactions.find(nameOrId);
+    if (it == mReactions.end())
+    {
+        auto idIt = mReactionsIdMap.find(nameOrId);
+        if (idIt != mReactionsIdMap.end())
+            it = mReactions.find(idIt->second);
+    }
+    if (it != mReactions.end())
+        return *it->second.pValue;
+
+    it = mLocalParameters.find(nameOrId);
+    if (it != mLocalParameters.end())
+        return *it->second.pValue;
+    
+    it = mGlobalParameters.find(nameOrId);
+    if (it == mGlobalParameters.end())
+    {
+        auto idIt = mGlobalParametersIdMap.find(nameOrId);
+        if (idIt != mGlobalParametersIdMap.end())
+            it = mGlobalParameters.find(idIt->second);
+    }
+    if (it != mGlobalParameters.end())
+        return *it->second.pValue;
+    return std::numeric_limits<double>::quiet_NaN();
+}
+
+void setValue(const std::string& nameOrId, double value)
+{
+
+}
+
+void setValueByName(const std::string& key, double dValue)
+{
+  if (!pDataModel)
+    return;
+
+  auto* model = pDataModel->getModel();
+  if (!model)
+    return;
+	
+  auto* obj = const_cast<CDataObject*> (pDataModel->findObjectByDisplayName(key));
+	if (obj == NULL)
+		return;
+
+	bool isReference = obj->getObjectType() == "Reference";
+	CMetab* pMetab = isReference ? dynamic_cast<CMetab*>(obj->getObjectParent())
+		: dynamic_cast<CMetab*>(obj);
+
+	CModelEntity* pEntity = isReference ? dynamic_cast<CModelEntity*>(obj->getObjectParent())
+		: dynamic_cast<CModelEntity*>(obj);
+	CCopasiParameter* pParam = isReference ? dynamic_cast<CCopasiParameter*>(obj->getObjectParent())
+		: dynamic_cast<CCopasiParameter*>(obj);
+
+	if (pMetab && obj->getObjectType() != "Reference")
+	{
+		obj = pMetab->getInitialConcentrationReference();
+	}
+	else if (pEntity && obj->getObjectType() != "Reference")
+	{
+		obj = pEntity->getInitialValueReference();
+	}
+
+	model->updateInitialValues(obj);
+	if (pMetab)
+	{
+		pMetab->setInitialConcentration(dValue);
+	}
+	else if (pEntity)
+	{
+		pEntity->setInitialValue(dValue);
+	}
+	else if (pParam)
+	{
+		CReaction* pReaction = dynamic_cast<CReaction*>(obj->getObjectAncestor("Reaction"));
+		if (pReaction)
+			pReaction->setParameterValue(pParam->getObjectName(), dValue);
+	}
+	model->updateInitialValues(obj);
+}
+
+
 void setSelectionList(const std::vector<std::string>& selectionList)
 {
     mSelectionList = selectionList;
@@ -261,6 +386,12 @@ void setSelectionList(const std::vector<std::string>& selectionList)
         }
 
         auto it = mFloatingSpecies.find(item);
+        if (it == mFloatingSpecies.end())
+        {
+            auto idIt = mFloatingSpeciesIdMap.find(item);
+            if (idIt != mFloatingSpeciesIdMap.end())
+                it = mFloatingSpecies.find(idIt->second);
+        }
         if (it != mFloatingSpecies.end())
         {
             mSelectedValues.push_back(it->second.pValue);
@@ -269,6 +400,12 @@ void setSelectionList(const std::vector<std::string>& selectionList)
         }
 
         it = mBoundarySpecies.find(item);
+        if (it == mBoundarySpecies.end())
+        {
+            auto idIt = mBoundarySpeciesIdMap.find(item);
+            if (idIt != mBoundarySpeciesIdMap.end())
+                it = mBoundarySpecies.find(idIt->second);
+        }
         if (it != mBoundarySpecies.end())
         {
             mSelectedValues.push_back(it->second.pValue);
@@ -277,6 +414,12 @@ void setSelectionList(const std::vector<std::string>& selectionList)
         }
 
         it = mCompartments.find(item);
+        if (it == mCompartments.end())
+        {
+            auto idIt = mCompartmentsIdMap.find(item);
+            if (idIt != mCompartmentsIdMap.end())
+                it = mCompartments.find(idIt->second);
+        }
         if (it != mCompartments.end())
         {
             mSelectedValues.push_back(it->second.pValue);
@@ -285,6 +428,12 @@ void setSelectionList(const std::vector<std::string>& selectionList)
         }
 
         it = mReactions.find(item);
+        if (it == mReactions.end())
+        {
+            auto idIt = mReactionsIdMap.find(item);
+            if (idIt != mReactionsIdMap.end())
+                it = mReactions.find(idIt->second);
+        }
         if (it != mReactions.end())
         {
             mSelectedValues.push_back(it->second.pValue);
@@ -301,6 +450,12 @@ void setSelectionList(const std::vector<std::string>& selectionList)
         }
 
         it = mGlobalParameters.find(item);
+        if (it == mGlobalParameters.end())
+        {
+            auto idIt = mGlobalParametersIdMap.find(item);
+            if (idIt != mGlobalParametersIdMap.end())
+                it = mGlobalParameters.find(idIt->second);
+        }
         if (it != mGlobalParameters.end())
         {
             mSelectedValues.push_back(it->second.pValue);
@@ -352,13 +507,20 @@ void setSelectionList(const std::vector<std::string>& selectionList)
 ordered_json buildModelInfo()
 {
     mFloatingSpecies.clear();
+    mFloatingSpeciesIdMap.clear();
     mBoundarySpecies.clear();
+    mBoundarySpeciesIdMap.clear();
     mCompartments.clear();
+    mCompartmentsIdMap.clear();
     mReactions.clear();
+    mReactionsIdMap.clear();
     mLocalParameters.clear();
+    mGlobalParameters.clear();
+    mGlobalParametersIdMap.clear();
     mSelectionList.clear();
     mSelectionList.push_back("Time");
     mSelectedValues.clear();
+    mAllIds.clear();
 
 
     ordered_json modelInfo;
@@ -390,13 +552,20 @@ ordered_json buildModelInfo()
             reinterpret_cast<const double*>(metab.getConcentrationRateReference()->getValuePointer())
         };
 
+        mAllIds.push_back(metab.getSBMLId());
+
         if (metab.getStatus() == CModelEntity::Status::FIXED)
+        {
             mBoundarySpecies[metab.getObjectName()] = s;
+            mBoundarySpeciesIdMap[metab.getSBMLId()] = metab.getObjectName();
+        }
         else
         {
             mFloatingSpecies[metab.getObjectName()] = s;
+            mFloatingSpeciesIdMap[metab.getSBMLId()] = metab.getObjectName();
             mSelectionList.push_back(metab.getObjectName());
         }
+
 
         species.push_back(m);
     }
@@ -420,6 +589,8 @@ ordered_json buildModelInfo()
             &compartment.getValue()
         };
         mCompartments[compartment.getObjectName()] = cp;
+        mCompartmentsIdMap[compartment.getSBMLId()] = compartment.getObjectName();
+        mAllIds.push_back(compartment.getSBMLId());
 
         if (compartment.getStatus() != CModelEntity::Status::FIXED)
             mSelectionList.push_back(compartment.getObjectName());
@@ -476,6 +647,8 @@ ordered_json buildModelInfo()
             &reaction.getFlux()
         };
         mReactions[reaction.getObjectName()] = re;
+        mReactionsIdMap[reaction.getSBMLId()] = reaction.getObjectName();
+        mAllIds.push_back(reaction.getSBMLId());
     }
     modelInfo["reactions"] = reactions;
 
@@ -499,6 +672,8 @@ ordered_json buildModelInfo()
             &param.getValue()
         };
         mGlobalParameters[param.getObjectName()] = gp;
+        mGlobalParametersIdMap[param.getSBMLId()] = param.getObjectName();
+        mAllIds.push_back(param.getSBMLId());
 
         if (param.getStatus() != CModelEntity::Status::FIXED)
             mSelectionList.push_back(param.getObjectName());
@@ -661,43 +836,8 @@ void applyYaml(ordered_json& yaml)
         auto* model = pDataModel->getModel();
         for (auto& [key, value] : iv.items())
         {
-            auto* obj = const_cast<CDataObject*> (pDataModel->findObjectByDisplayName(key));
-            if (obj == NULL)
-                continue;
-            bool isReference = obj->getObjectType() == "Reference";
-            CMetab* pMetab = isReference ? dynamic_cast<CMetab*>(obj->getObjectParent())
-                : dynamic_cast<CMetab*>(obj);
-
-            CModelEntity* pEntity = isReference ? dynamic_cast<CModelEntity*>(obj->getObjectParent())
-                : dynamic_cast<CModelEntity*>(obj);
-            CCopasiParameter* pParam = isReference ? dynamic_cast<CCopasiParameter*>(obj->getObjectParent())
-                : dynamic_cast<CCopasiParameter*>(obj);
-
-            if (pMetab && obj->getObjectType() != "Reference")
-            {
-                obj = pMetab->getInitialConcentrationReference();
-            }
-            else if (pEntity && obj->getObjectType() != "Reference")
-            {
-                obj = pEntity->getInitialValueReference();
-            }
-
-            model->updateInitialValues(obj);
-            if (pMetab)
-            {
-                pMetab->setInitialConcentration(value.get<double>());
-            }
-            else if (pEntity)
-            {
-                pEntity->setInitialValue(value.get<double>());
-            }
-            else if (pParam)
-            {
-                CReaction* pReaction = dynamic_cast<CReaction*>(obj->getObjectAncestor("Reaction"));
-                if (pReaction)
-                    pReaction->setParameterValue(pParam->getObjectName(), value.get<double>());
-            }
-            model->updateInitialValues(obj);
+            double dValue = value.get<double>();
+            setValueByName(key, dValue);
         }
     }
 
@@ -890,6 +1030,16 @@ std::vector<std::string> getFloatingSpeciesNames()
     return names;
 }
 
+std::vector<std::string> getFloatingSpeciesIds()
+{
+    std::vector<std::string> ids;
+    for (auto& [key, value] : mFloatingSpeciesIdMap)
+    {
+        ids.push_back(key);
+    }
+    return ids;
+}
+
 std::vector<double> getFloatingSpeciesConcentrations()
 {
     std::vector<double> concentrations;
@@ -924,6 +1074,17 @@ std::vector<std::string> getBoundarySpeciesNames()
     return names;
 }
 
+
+std::vector<std::string> getBoundarySpeciesIds()
+{
+    std::vector<std::string> ids;
+    for (auto& [key, value] : mBoundarySpeciesIdMap)
+    {
+        ids.push_back(key);
+    }
+    return ids;
+}
+
 std::vector<double> getBoundarySpeciesConcentrations()
 {
     std::vector<double> concentrations;
@@ -944,6 +1105,17 @@ std::vector<std::string> getCompartmentNames()
     return names;
 }
 
+
+std::vector<std::string> getCompartmentIds()
+{
+    std::vector<std::string> ids;
+    for (auto& [key, value] : mCompartmentsIdMap)
+    {
+        ids.push_back(key);
+    }
+    return ids;
+}
+
 std::vector<double> getCompartmentSizes()
 {
     std::vector<double> sizes;
@@ -962,6 +1134,16 @@ std::vector<std::string> getGlobalParameterNames()
         names.push_back(key);
     }
     return names;
+}
+
+std::vector<std::string> getGlobalParameterIds()
+{
+    std::vector<std::string> ids;
+    for (auto& [key, value] : mGlobalParametersIdMap)
+    {
+        ids.push_back(key);
+    }
+    return ids;
 }
 
 std::vector<double> getGlobalParameterValues()
@@ -1044,19 +1226,29 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("getTimeCourseSettings", &getTimeCourseSettings);
     emscripten::function("setTimeCourseSettings", &setTimeCourseSettings);
     emscripten::function("getFloatingSpeciesNames", &getFloatingSpeciesNames);
+    emscripten::function("getFloatingSpeciesIds", &getFloatingSpeciesIds);
     emscripten::function("getBoundarySpeciesNames", &getBoundarySpeciesNames);
+    emscripten::function("getBoundarySpeciesIds", &getBoundarySpeciesIds);
     emscripten::function("getFloatingSpeciesConcentrations", &getFloatingSpeciesConcentrations);
     emscripten::function("getBoundarySpeciesConcentrations", &getBoundarySpeciesConcentrations);
     emscripten::function("getRatesOfChange", &getRatesOfChange);
     emscripten::function("getReactionNames", &getReactionNames);
+    emscripten::function("getReactionIds", &getReactionIds);
     emscripten::function("getReactionRates", &getReactionRates);
     emscripten::function("getSimulationResults2D", &getSimulationResults2D);
     emscripten::function("getCompartmentNames", &getCompartmentNames);
+    emscripten::function("getCompartmentIds", &getCompartmentIds);
     emscripten::function("getCompartmentSizes", &getCompartmentSizes);
     emscripten::function("getGlobalParameterNames", &getGlobalParameterNames);
+    emscripten::function("getGlobalParameterIds", &getGlobalParameterIds);
     emscripten::function("getGlobalParameterValues", &getGlobalParameterValues);
     emscripten::function("getLocalParameterNames", &getLocalParameterNames);
     emscripten::function("getLocalParameterValues", &getLocalParameterValues);
+
+    emscripten::function("getValue", &getValue);
+    emscripten::function("setValue", &setValue);
+    emscripten::function("setValueByName", &setValueByName);
+
 
     emscripten::function("oneStep", &oneStep);
     emscripten::function("steadyState", &steadyState);

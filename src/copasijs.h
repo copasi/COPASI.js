@@ -273,11 +273,17 @@ void setTimeCourseSettings(const std::string& settings);
 /// @return the name of all reactions in the model
 std::vector<std::string> getReactionNames();
 
+/// @return the sbml ids of all reactions if defined
+std::vector<std::string> getReactionIds();
+
 /// @return the reaction rates
 std::vector<double> getReactionRates();
 
 /// @return the names of all floating species
 std::vector<std::string> getFloatingSpeciesNames();
+
+/// @return the sbml ids of all floating species if defined
+std::vector<std::string> getFloatingSpeciesIds();
 
 /// @return the concentrations of all floating species
 std::vector<double> getFloatingSpeciesConcentrations();
@@ -288,17 +294,26 @@ std::vector<double> getRatesOfChange();
 /// @return the names of all boundary species
 std::vector<std::string> getBoundarySpeciesNames();
 
+/// @return the sbml ids of all boundary species if defined
+std::vector<std::string> getBoundarySpeciesIds();
+
 /// @return the concentrations of all boundary species
 std::vector<double> getBoundarySpeciesConcentrations();
 
 /// @return the names of all compartments
 std::vector<std::string> getCompartmentNames();
 
+/// @return the sbml ids of all compartments if defined
+std::vector<std::string> getCompartmentIds();
+
 /// @return the sizes of all compartments
 std::vector<double> getCompartmentSizes();
 
 /// @return the names of all global parameters
 std::vector<std::string> getGlobalParameterNames();
+
+/// @return the the sbml ids of all global parameters if defined
+std::vector<std::string> getGlobalParameterIds();
 
 /// @return the values of all global parameters
 std::vector<double> getGlobalParameterValues();
@@ -313,6 +328,17 @@ std::vector<std::string> getLocalParameterNames();
 /// @return local paramters values
 std::vector<double> getLocalParameterValues();
 
+/// @return the value of the selected symbol (lookup via name or sbml id)
+/// @param nameOrId the symbol to look up (name or sbml id)
+double getValue(const std::string& nameOrId);
+
+/// @brief sets the value of the selected symbol
+/// @param nameOrId the symbol to set (name or sbml id)
+/// @param value the value to set
+void setValue(const std::string& nameOrId, double value);
+
+/// sets the value by display name
+void setValueByName(const std::string& name, double value);
 
 #pragma region  // internal calls Internal
 

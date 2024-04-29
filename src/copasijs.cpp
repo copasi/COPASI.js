@@ -1010,6 +1010,16 @@ std::vector<std::string> getReactionNames()
     return names;
 }
 
+std::vector<std::string> getReactionIds()
+{
+    std::vector<std::string> ids;
+    for (auto& [key, value] : mReactionsIdMap)
+    {
+        ids.push_back(key);
+    }
+    return ids;
+}
+
 std::vector<double> getReactionRates()
 {
     std::vector<double> rates;

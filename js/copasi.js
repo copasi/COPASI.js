@@ -40,6 +40,8 @@ class COPASI {
         this.oneStep = Module.oneStep;
         this.initCps = Module.initCps;
         this.destroy = Module.destroy;
+        this.getValue = Module.getValue;
+        this.setValue = Module.setValue;
 
         // init runtime
         this.initCps();
@@ -211,6 +213,13 @@ class COPASI {
     }
 
     /**
+     * @property {string[]} floatingSpeciesIds returns floating species ids
+     */
+    get floatingSpeciesIds() {
+        return this._vectorToArray(this.Module.getFloatingSpeciesIds());
+    }
+
+    /**
      * @property {number[]} boundarySpeciesConcentrations returns boundary species concentrations
      */
     get boundarySpeciesConcentrations() {
@@ -225,12 +234,25 @@ class COPASI {
     }
 
     /**
+     * @property {string[]} boundarySpeciesIds returns boundary species ids
+     */
+    get boundarySpeciesIds() {
+        return this._vectorToArray(this.Module.getBoundarySpeciesIds());
+    }
+
+    /**
      * @property {string[]} reactionNames returns reaction names
      */
     get reactionNames() {
         return this._vectorToArray(this.Module.getReactionNames());
     }
     
+    /**
+     * @property {string[]} reactionIds returns reaction ids
+     */
+    get reactionIds() {
+        return this._vectorToArray(this.Module.getReactionIds());
+    }
     /**
      * @property {number[]} reactionRates returns reaction rates
      */
@@ -246,6 +268,12 @@ class COPASI {
     }
 
     /**
+     * @property {string[]} compartmentIds returns compartment ids
+     */
+    get compartmentIds() {
+        return this._vectorToArray(this.Module.getCompartmentIds());
+    }
+    /**
      * @property {number[]} compartmentSizes returns compartment sizes
      */
     get compartmentSizes() {
@@ -259,6 +287,12 @@ class COPASI {
         return this._vectorToArray(this.Module.getGlobalParameterNames());
     }
 
+    /**
+     * @property {string[]} globalParameterIds returns global parameter ids
+     */
+    get globalParameterIds() {
+        return this._vectorToArray(this.Module.getGlobalParameterIds());
+    }
     /**
      * @property {number[]} globalParameterValues returns global parameter values
      */

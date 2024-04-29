@@ -62,8 +62,8 @@ jobs:
         cmake --build em-build-dependencies --config=Release
         
         git clone https://github.com/copasi/COPASI
-        cd COPASI && gitTools/UpdateCopasiVersion --force && cd ..
         cd COPASI && git checkout release/Version-4.43 && cd ..
+        cd COPASI && gitTools/UpdateCopasiVersion --force && cd ..
         
         cp COPASI/copasi/lapack/f2c.h em-dependencies/include 
         cp COPASI/copasi/lapack/blaswrap.h em-dependencies/include

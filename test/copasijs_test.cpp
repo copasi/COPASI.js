@@ -101,7 +101,7 @@ TEST_CASE("Load Model", "[copasijs]")
 }
 
 
-TEST_CASE("Load COVID Model", "[copasijs]") 
+TEST_CASE("Load COVID Model", "[copasijs][slow]") 
 {
     Instance instance;
     std::string model = loadFromFile(getTestFile("../example_files/covid.cps"));

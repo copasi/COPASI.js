@@ -140,7 +140,7 @@ TEST_CASE("Load COVID Model", "[copasijs]")
     REQUIRE(json["titles"][0] == "Time");
     CAPTURE(json["titles"][0]);
     CAPTURE(json["titles"][0].size());
-    REQUIRE(json["columns"][0].size() == 38);
+    REQUIRE(json["columns"][0].size() == json["recorded_steps"].get<int>());
 
     // once done destroy the API
     destroyAPI();

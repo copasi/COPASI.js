@@ -102,7 +102,7 @@ class COPASI {
      * @returns {object} simulation results as object
      */
     simulateEx(startTime, endTime, numPoints) {
-        return this.Module.simulateEx(startTime, endTime, numPoints);
+        return JSON.parse(this.Module.simulateEx(startTime, endTime, numPoints));
     }
 
     /**

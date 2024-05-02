@@ -55,11 +55,15 @@
 /dev/copasi-dependencies
 /dev/em-build-copasi
 /dev/em-build-dependencies
+/dev/cpp-build-copasi
+/dev/cpp-dependencies
+/dev/cpp-build-dependencies
 /dev/libuuid*
 /dev/em-dependencies
 
 /dist-node/
 /dist-web/
 /em-build/
+/cpp-build/
 
 .DS_Store

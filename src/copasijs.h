@@ -112,9 +112,16 @@ std::string loadModel(const std::string& modelString);
 
 /// @brief resets the model
 ///
+/// This function resets the models floating species and entities with 
+/// ODEs back to their initial values.
+void reset();
+
+/// @brief resets the model completely
+///
 /// This function resets the model to the state after loading
 /// the model. 
-void reset();
+void resetAll();
+
 
 /// @brief applies a yaml string to the model
 /// @param yaml the yaml string to apply

@@ -65,6 +65,7 @@ export interface ModelInfo {
 export default class COPASI {
     constructor(module: any);
     reset(): void;
+    resetAll(): void;
     readonly version: string;
     _vectorToArray(v: any): any[];
     loadExample(path: string) : ModelInfo;

@@ -196,6 +196,25 @@ TEST_CASE("Load SBML Model", "[copasijs][sbml]")
     REQUIRE(json["titles"][1] == "S1");
     REQUIRE(json["columns"][1][0] == 0);
 
+    setValue("J0_v0", 8);
+
+    // test difference between reset and restAll by changing the value of S1 and J0_v0
+    setValue("S1", 1);
+    setValue("J0_v0", 10);
+
+    reset();
+    // now S1 should be 0 and J0_v0 should be 10
+    REQUIRE(getValue("S1") == 0);
+    REQUIRE(getValue("J0_v0") == 10);
+
+    // now run resetAll
+    setValue("S1", 1);
+    setValue("J0_v0", 10);
+    resetAll();
+    // now S1 should be 0 and J0_v0 should be 8
+    REQUIRE(getValue("S1") == 0);
+    REQUIRE(getValue("J0_v0") == 8);
+
 }
 
 

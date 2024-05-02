@@ -784,6 +784,35 @@ std::string getModelInfo()
     return buildModelInfo().dump(2);
 }
 
+void _removeFixedElementsFromSet(CModelParameterGroup* group)
+{
+    if (!group)
+        return;
+    
+    std::vector< CModelParameter * > toBeRemoved;
+    for (auto it = group->begin(); it != group->end(); ++it)
+    {
+        auto* p = *it;
+        if (p == NULL)
+            continue;
+
+        auto *pGroup = dynamic_cast<CModelParameterGroup*>(p);
+        if (pGroup)
+        {
+            _removeFixedElementsFromSet(pGroup);
+            continue;
+        }
+        if (p->getSimulationType() == CModelEntity::Status::FIXED)
+        {
+            toBeRemoved.push_back(p);
+        }
+    }
+
+    for (auto* p : toBeRemoved)
+    {
+        group->remove(p);
+    }
+}
 
 void loadCommon()
 {
@@ -793,6 +822,12 @@ void loadCommon()
     auto* newSet = new CModelParameterSet("_initial_state");
     sets.add(newSet, true);
     newSet->createFromModel();
+
+    // now create a second one with only the state variables
+    newSet = new CModelParameterSet("_initial_state_variables_only");
+    sets.add(newSet, true);
+    newSet->createFromModel();
+    _removeFixedElementsFromSet(newSet);
 }
 
 std::string loadFromFile(const std::string& modelFile)
@@ -874,6 +909,17 @@ std::string loadModel(const std::string& cpsCode)
 }
 
 void reset()
+{
+    if (pDataModel == NULL)
+        initCps();
+
+    auto* pModel = pDataModel->getModel();
+    auto& set = pModel->getModelParameterSets()["_initial_state_variables_only"];
+    set.updateModel();
+    pModel->applyInitialValues();
+}
+
+void resetAll()
 {
     if (pDataModel == NULL)
         initCps();
@@ -1336,6 +1382,7 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("loadFromFile", &loadFromFile);
     emscripten::function("loadModel", &loadModel);
     emscripten::function("reset", &reset);
+    emscripten::function("resetAll", &resetAll);
     emscripten::function("simulate", &simulate);
     emscripten::function("simulateYaml", &simulateYaml);
     emscripten::function("simulateEx", &simulateEx);

@@ -42,6 +42,7 @@ class COPASI {
         this.destroy = Module.destroy;
         this.getValue = Module.getValue;
         this.setValue = Module.setValue;
+        this.resetAll = Module.resetAll;
 
         // init runtime
         this.initCps();

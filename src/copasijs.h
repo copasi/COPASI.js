@@ -14,7 +14,11 @@
 std::string getVersion();
 
 /// @brief returns all messages from the COPASI library
-std::string getMessages();
+/// @param start the start index of the messages (default 0)
+/// @param filter a filter to apply to the messages (messages containing this string will be skipped)
+///        (default "" = no message will be skipped)
+/// @return the messages as string
+std::string getMessages(int start = 0, const std::string& filter="");
 
 /// @brief sets the selection list
 /// @param selectionList the selection list

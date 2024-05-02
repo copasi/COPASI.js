@@ -169,9 +169,23 @@ std::string getVersion()
     return current.getVersion();
 }
 
-std::string getMessages()
+std::string getMessages(int start, const std::string& filter)
 {
-    return CCopasiMessage::getAllMessageText(true);
+    if (CCopasiMessage::size() <= start)
+        return "";
+    
+    std::stringstream str;
+    for (size_t i = start; i < CCopasiMessage::size(); ++i)
+    {
+        auto msg = CCopasiMessage::getFirstMessage();
+        auto text = msg.getText();
+        if (!filter.empty() && text.find(filter) != std::string::npos)
+            continue;
+        if (text.empty())
+            continue;
+        str << text << std::endl;
+    }
+    return str.str();
 }
 
 ordered_json convertDataHandlerToJSON(const CDataHandler& dh)
@@ -179,6 +193,7 @@ ordered_json convertDataHandlerToJSON(const CDataHandler& dh)
     auto &data = dh.getDuringData();
 
     ordered_json j;
+    j["status"] = "success";
     j["num_variables"] = mSelectionList.size();
     j["recorded_steps"] = data.size();
     j["titles"] = mSelectionList;
@@ -201,6 +216,7 @@ ordered_json convertDataHandlerToJSON(const CDataHandler& dh)
 ordered_json convertTimeSeriesToJSON(const CTimeSeries& ts)
 {
     ordered_json j;
+    j["status"] = "success";
     j["num_variables"] = ts.getNumVariables();
     j["recorded_steps"] = ts.getRecordedSteps();
     std::vector<std::string> titles;
@@ -753,7 +769,7 @@ ordered_json buildModelInfo()
     modelInfo["model"]["notes"] = pModel->getNotes();
 
     modelInfo["status"] = "success";
-    modelInfo["messages"] = getMessages();
+    modelInfo["messages"] = getMessages(0, "No Output");
 
     setSelectionList(mSelectionList);
 
@@ -785,6 +801,8 @@ std::string loadFromFile(const std::string& modelFile)
     {
         destroyAPI();
         initCps();
+
+        CCopasiMessage::clearDeque();
 
         if (!pDataModel->loadModel(modelFile, NULL, true))
             if (!pDataModel->importSBML(modelFile))
@@ -822,6 +840,8 @@ std::string loadModel(const std::string& cpsCode)
     {
         destroyAPI();
         initCps();
+
+        CCopasiMessage::clearDeque();
 
         if (!pDataModel->loadFromString(cpsCode))
             if (!pDataModel->importSBMLFromString(cpsCode))
@@ -980,6 +1000,8 @@ std::string simulateJSON(ordered_json& yaml)
     {
         ensureModel();
 
+        CCopasiMessage::clearDeque();
+
         auto &task = dynamic_cast<CTrajectoryTask &>((*pDataModel->getTaskList())["Time-Course"]);
         task.setUpdateModel(true);
         auto *problem = dynamic_cast<CTrajectoryProblem *>(task.getProblem());
@@ -989,19 +1011,36 @@ std::string simulateJSON(ordered_json& yaml)
 
         std::stringstream str;
 
+        size_t pos = CCopasiMessage::size();
+
         setSelectionList(mSelectionList);
 
         if (mpDataHandler)
             pDataModel->addInterface(mpDataHandler);
 
         if (!task.initialize(CCopasiTask::OUTPUT_UI, pDataModel, NULL))
-            return strdup("Error initializing task");
+        {
+            ordered_json modelInfo;
+            modelInfo["status"] = "error";
+            modelInfo["messages"] = getMessages(pos, "No Output");
+            return modelInfo.dump(2);            
+        }
 
         if (!task.process(true))
-            return strdup("Error processing task");
+        {
+            ordered_json modelInfo;
+            modelInfo["status"] = "error";
+            modelInfo["messages"] = getMessages(pos, "No Output");
+            return modelInfo.dump(2);            
+        }
 
         if (!task.restore())
-            return strdup("Error restoring task");
+        {
+            ordered_json modelInfo;
+            modelInfo["status"] = "error";
+            modelInfo["messages"] = getMessages(pos, "No Output");
+            return modelInfo.dump(2);            
+        }
 
         if (mpDataHandler)
         {

@@ -20,7 +20,7 @@ using namespace nlohmann;
 // define a struct for information from model, containing ptr to CDataObject, SBML id string, and common name
 struct CModelElement
 {
-    const CDataObject *pObj;
+    CDataObject *pObj;
     std::string sbmlId;
     CRegisteredCommonName cnInitial;
     CRegisteredCommonName cn;
@@ -310,8 +310,75 @@ double getValue(const std::string &nameOrId)
     return std::numeric_limits<double>::quiet_NaN();
 }
 
+bool setModelElement(std::map<std::string, CModelElement>& map, std::map<std::string, std::string>& idMap, const std::string& name, double value, CModel* model)
+{
+    auto it = map.find(name);
+    if (it == map.end())
+    {
+        auto idIt = idMap.find(name);
+        if (idIt != idMap.end())
+            it = map.find(idIt->second);
+    }
+    if (it != map.end())
+    {
+        CMetab* pMetab = dynamic_cast<CMetab*>(it->second.pObj);
+        if (pMetab)
+        {
+            model->updateInitialValues(pMetab->getInitialConcentrationReference(), false);
+
+            double oldValue = model->getMathContainer().getMathObject(pMetab->getInitialConcentrationReference())->getValue();
+
+            pMetab->setConcentration(value);
+            pMetab->setInitialConcentration(value);
+            model->updateInitialValues(pMetab->getInitialConcentrationReference(), false);
+
+            double newValue = model->getMathContainer().getMathObject(pMetab->getInitialConcentrationReference())->getValue();
+
+
+            return true;
+        }
+
+        CModelEntity* pEntity = dynamic_cast<CModelEntity*>(it->second.pObj);
+        if (pEntity)
+        {
+            pEntity->setValue(value);
+            pEntity->setInitialValue(value);
+            std::set<const CDataObject*> changes = {pEntity->getInitialValueReference(), pEntity->getValueReference()};
+
+            model->updateInitialValues(changes, true);
+            return true;
+        }
+        
+    }
+    return false;
+}
+
 void setValue(const std::string& nameOrId, double value)
 {
+    if (!pDataModel)
+        return;
+
+    auto* model = pDataModel->getModel();
+    if (!model)
+        return;
+
+    // look through floating species by name first, falling back
+    // for id if not found
+    if (setModelElement(mFloatingSpecies, mFloatingSpeciesIdMap, nameOrId, value, model))
+        return;
+
+    // boundary species 
+    if (setModelElement(mBoundarySpecies, mBoundarySpeciesIdMap, nameOrId, value, model))
+        return;
+    
+    // now compartments
+    if (setModelElement(mCompartments, mCompartmentsIdMap, nameOrId, value, model))
+        return;
+    
+    // and global parameters
+    if (setModelElement(mGlobalParameters, mGlobalParametersIdMap, nameOrId, value, model))
+        return;
+
 
 }
 
@@ -628,7 +695,7 @@ ordered_json buildModelInfo()
                 continue;
 
             CModelElement lp = {
-                obj[0],
+                const_cast<CDataObject*>(obj[0]),
                 "",
                 cns[0],
                 cns[0],
@@ -930,7 +997,7 @@ std::string simulateJSON(ordered_json& yaml)
         if (!task.initialize(CCopasiTask::OUTPUT_UI, pDataModel, NULL))
             return strdup("Error initializing task");
 
-        if (!task.process(false))
+        if (!task.process(true))
             return strdup("Error processing task");
 
         if (!task.restore())

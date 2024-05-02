@@ -100,6 +100,104 @@ TEST_CASE("Load Model", "[copasijs]")
 
 }
 
+TEST_CASE("Load SBML Model", "[copasijs][sbml]")
+{
+    Instance instance;
+    std::string model = loadFromFile(getTestFile("../example_files/oscli.xml"));
+    REQUIRE(!model.empty());
+    REQUIRE(model != "Error loading model");
+
+    auto selectionList = getSelectionList();
+    REQUIRE_THAT(selectionList, Catch::Matchers::Equals(std::vector<std::string>{"Time", "S1", "S2"}));
+    auto selectionValues = getSelectionValues();
+    REQUIRE(selectionValues.size() == 3);
+    REQUIRE_THAT(selectionValues, Catch::Matchers::Approx(std::vector<double>{0, 0, 1}));
+
+    // lets have a look at the time course settings
+    auto timeCourseSettings = getTimeCourseSettings();
+    CAPTURE(timeCourseSettings);
+
+    // now simulate using onestep
+    double time = 0;
+    double stepSize = 1;
+    double numSteps = 11;
+    std::vector<double> timePoints;
+    std::vector<double> xPoints;
+    std::vector<double> yPoints;
+    while (time < numSteps) {
+        oneStep(time, stepSize);
+        timePoints.push_back(time);
+        auto values = getSelectionValues();
+        xPoints.push_back(values[1]);
+        yPoints.push_back(values[2]);
+        time += stepSize;
+    }
+    REQUIRE(timePoints.size() == 11);
+    REQUIRE_THAT(timePoints, Catch::Matchers::Approx(std::vector<double>{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10}));
+
+    reset();
+
+    // ensure that time is again 0
+    selectionValues = getSelectionValues();
+    REQUIRE(selectionValues.size() == 3);
+    REQUIRE_THAT(selectionValues, Catch::Matchers::Approx(std::vector<double>{0, 0, 1}));
+
+    // now run a simulation to look that the json format is in the expected format
+    auto data = simulateEx(0, 10, 11);
+    CAPTURE(data);
+    auto json = nlohmann::json::parse(data);
+    REQUIRE(json["titles"][0] == "Time");
+    REQUIRE(json["columns"][0].size() == json["recorded_steps"].get<int>());
+
+    reset();
+    // now use setValue / getValue to change the value of S1
+    double value = getValue("S1");
+    CAPTURE(value);
+    REQUIRE(value == 0);
+    setValue("S1", 1);
+    value = getValue("S1");
+    CAPTURE(value);
+    REQUIRE(value == 1);
+
+    // now the global parameter J0_v0 that initially is 8
+    value = getValue("J0_v0");
+    CAPTURE(value);
+    REQUIRE(value == 8);
+    setValue("J0_v0", 10);
+    value = getValue("J0_v0");
+    CAPTURE(value);
+    REQUIRE(value == 10);
+    
+    // and compartment that is initially 1
+    value = getValue("compartment");
+    CAPTURE(value);
+    REQUIRE(value == 1);
+    setValue("compartment", 2);
+    value = getValue("compartment");
+    CAPTURE(value);
+    REQUIRE(value == 2);
+
+    reset();
+    setValue("S1", 1);
+
+    data = simulateEx(0, 10, 11);
+    CAPTURE(data);
+    json = nlohmann::json::parse(data);
+    REQUIRE(json["titles"][0] == "Time");
+    REQUIRE(json["titles"][1] == "S1");
+    REQUIRE(json["columns"][0].size() == json["recorded_steps"].get<int>());
+    REQUIRE(json["columns"][1][0] == 1);
+
+    // reset again and check that the value is back to 0
+    reset();
+    data = simulateEx(0, 10, 11);
+    CAPTURE(data);
+    json = nlohmann::json::parse(data);
+    REQUIRE(json["titles"][1] == "S1");
+    REQUIRE(json["columns"][1][0] == 0);
+
+}
+
 
 TEST_CASE("Load COVID Model", "[copasijs][slow]") 
 {

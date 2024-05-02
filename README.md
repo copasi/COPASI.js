@@ -36,6 +36,15 @@ createApi().then((Module) => {
 });
 ```
 
+## Download Release
+You could just take one of the release archives directly from the [releases page](https://github.com/copasi/COPASI.js/releases). There are three different kind of archives: 
+
+* `copasijs-node.zip` for use with nodejs
+* `copasijs-web-single.zip` that is compiled only to javascript for the WEB environment
+* `copasijs-web.zip` containing js + wasm file
+
+Alternatively, you can build using the instructions below. 
+
 ## Emscripten build
 To build from a clone we use the following (ensuring that you first have initialized the [Emscripten sdk](https://emscripten.org/docs/getting_started/downloads.html)): 
 

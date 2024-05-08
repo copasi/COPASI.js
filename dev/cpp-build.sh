@@ -1,8 +1,8 @@
 
 export BUILD_DIR="${BUILD_DIR:-cpp-build}"
 export COPASIJS_DEPENDENCY_DIR="${COPASIJS_DEPENDENCY_DIR:-dev/cpp-dependencies}"
-export BUILD_TYPE="${BUILD_TYPE:-Release}"
-export INSTALL_PREFIX="${INSTALL_PREFIX:-dist-$ENVIRONMENT}"
+export BUILD_TYPE="${BUILD_TYPE:-Debug}"
+export INSTALL_PREFIX="${INSTALL_PREFIX:-cpp-dist}"
 
 cmake -B $BUILD_DIR \
         -DCMAKE_BUILD_TYPE=$BUILD_TYPE \

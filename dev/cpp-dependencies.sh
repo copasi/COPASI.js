@@ -3,6 +3,8 @@
 # change into this directory
 pushd "$(dirname "$0")"
 
+export BUILD_TYPE="${BUILD_TYPE:-Debug}"
+export COPASI_BRANCH="${COPASI_BRANCH:-release/Version-4.44}"
 
 # build uuid lib if it doesn't exist
 # if [ ! -f cpp-dependencies/lib/libuuid.a ]; then
@@ -28,42 +30,39 @@ if [ ! -f cpp-dependencies/lib/libCombine-static.a ]; then
     
     cmake -G Ninja -B cpp-build-dependencies -S copasi-dependencies \
           -DCMAKE_INSTALL_PREFIX=cpp-dependencies \
-          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
           -DBUILD_UI_DEPS=OFF \
           -DBUILD_zlib=ON \
           -DBUILD_archive=OFF \
           -DBUILD_NativeJIT=OFF \
           -DBUILD_clapack=ON \
           -DCMAKE_PREFIX_PATH=cpp-dependencies
-    cmake --build cpp-build-dependencies --config=Release
+    cmake --build cpp-build-dependencies --config=$BUILD_TYPE
 fi
 
 # build COPASI SE if it doesn't exist
 if [ ! -f cpp-dependencies/lib/libcopasise-static.a ]; then
     if [ ! -d COPASI ]; then
         git clone https://github.com/copasi/COPASI
+        cd COPASI && git checkout $COPASI_BRANCH && cd ..
         cd COPASI && gitTools/UpdateCopasiVersion --force && cd ..
-        cd COPASI && git checkout release/Version-4.43 && cd ..
     fi
 
     cp COPASI/copasi/lapack/f2c.h cpp-dependencies/include 
     cp COPASI/copasi/lapack/blaswrap.h cpp-dependencies/include
     
     cmake -G Ninja -B cpp-build-copasi -S COPASI \
-        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_BUILD_TYPE=$BUILD_TYPE \
         -DBUILD_GUI=OFF \
         -DENABLE_JIT:BOOL=OFF \
-        -DDATAVALUE_NEEDS_SIZE_T_MEMBERS=1 \
         -DCOPASI_INSTALL_C_API=ON \
         -DCMAKE_INSTALL_PREFIX=cpp-dependencies \
         -DCOPASI_DEPENDENCY_DIR=cpp-dependencies \
         -DCMAKE_PREFIX_PATH=cpp-dependencies \
-        -DDISABLE_STACK_PROTECTOR=ON \
-        -DF2C_INTEGER=int \
-        -DF2C_LOGICAL=int
+        -DDISABLE_STACK_PROTECTOR=ON
     
-    cmake --build cpp-build-copasi --config=Release
-    cmake --install cpp-build-copasi --config=Release
+    cmake --build cpp-build-copasi --config=$BUILD_TYPE
+    cmake --install cpp-build-copasi --config=$BUILD_TYPE
 fi
 
 popd

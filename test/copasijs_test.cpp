@@ -124,6 +124,40 @@ TEST_CASE("Simulate SBML multiple times", "[copasijs][multiple]")
 
 }
 
+
+TEST_CASE("Test stepsize in multiple runs", "[copasijs][multiple]")
+{
+    Instance instance;
+    std::string model = loadFromFile(getTestFile("../example_files/oscli.xml"));
+
+    
+    nlohmann::ordered_json yaml;
+    yaml["problem"]["OutputStartTime"] = 0;
+    yaml["problem"]["Duration"] = 10;
+    yaml["problem"]["StepSize"] = 1;
+
+    auto data = simulateJSON(yaml);
+    CAPTURE(data);
+    CAPTURE(getTimeCourseSettings());
+    auto json = nlohmann::json::parse(data);
+    REQUIRE(json["recorded_steps"].get<int>() == 11);
+
+    yaml["problem"]["OutputStartTime"] = 10;
+    yaml["problem"]["Duration"] = 20;
+    data = simulateJSON(yaml);
+    CAPTURE(data);
+    CAPTURE(getTimeCourseSettings());
+    json = nlohmann::json::parse(data);
+    REQUIRE(json["recorded_steps"].get<int>() == 11);
+
+    yaml["problem"]["StepSize"] = 0.1;
+    data = simulateJSON(yaml);
+    CAPTURE(data);
+    CAPTURE(getTimeCourseSettings());
+    json = nlohmann::json::parse(data);
+    REQUIRE(json["recorded_steps"].get<int>() == 101);
+}
+
 TEST_CASE("Load SBML Model", "[copasijs][sbml]")
 {
     Instance instance;

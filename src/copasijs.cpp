@@ -94,6 +94,8 @@ void setGroupFromJson(CCopasiParameterGroup* pGroup, ordered_json& settings)
         auto* param = pGroup->getParameter(el.key());
         if (param == NULL || dynamic_cast<CCopasiParameterGroup*>(param) != NULL)
             continue;
+        if (el.value().empty())
+            continue;
         auto type = param->getType();
         switch(type)
         {
@@ -1104,11 +1106,17 @@ std::string simulateJSON(ordered_json& yaml)
     }
     catch (CCopasiException &e)
     {
-        return e.getMessage().getText().c_str();
+        ordered_json modelInfo;
+        modelInfo["status"] = "error";
+        modelInfo["messages"] = getMessages(0, "No Output");
+        return modelInfo.dump(2);        
     }
     catch (std::exception &e)
     {
-        return e.what();
+        ordered_json modelInfo;
+        modelInfo["status"] = "error";
+        modelInfo["messages"] = e.what();
+        return modelInfo.dump(2);        
     }
 }
 

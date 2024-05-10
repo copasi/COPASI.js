@@ -943,12 +943,12 @@ void applyYaml(ordered_json& yaml)
 
         // need to take extra care with step number / stepsize
         // as those might not be honored if set via group
-        if (!p["StepSize"].empty())
-            problem->setStepSize(p["StepSize"].get<double>());        
-        if (!p["StepNumber"].empty())
-            problem->setStepNumber(p["StepNumber"].get<int>());
         if (!p["Duration"].empty())
             problem->setDuration(p["Duration"].get<double>());        
+        if (!p["StepNumber"].empty())
+            problem->setStepNumber(p["StepNumber"].get<int>());
+        if (!p["StepSize"].empty())
+            problem->setStepSize(p["StepSize"].get<double>());        
         if (!p["OutputStartTime"].empty())
             problem->setOutputStartTime(p["OutputStartTime"].get<double>());        
         
@@ -1146,9 +1146,12 @@ std::string simulate()
 std::string simulateEx(double timeStart, double timeEnd, int numPoints) 
 {
     ordered_json yaml;
-    yaml["problem"]["StepNumber"] = numPoints > 1 ? numPoints-1 : numPoints;
+    numPoints = numPoints > 1 ? numPoints-1 : numPoints;
+    yaml["problem"]["StepNumber"] = numPoints;
     yaml["problem"]["OutputStartTime"] = timeStart;
     yaml["problem"]["Duration"] = timeEnd;
+    double stepSize = (timeEnd - timeStart) / numPoints;
+    yaml["problem"]["StepSize"] = stepSize;
     return simulateJSON(yaml);
 }
 

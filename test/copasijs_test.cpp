@@ -97,6 +97,30 @@ TEST_CASE("Load Model", "[copasijs]")
     auto json = nlohmann::json::parse(data);
     REQUIRE(json["titles"][0] == "Time");
     REQUIRE(json["columns"][0].size() == json["recorded_steps"].get<int>());
+}
+
+TEST_CASE("Simulate SBML multiple times", "[copasijs][multiple]")
+{
+    Instance instance;
+    std::string model = loadFromFile(getTestFile("../example_files/oscli.xml"));
+
+    auto data = simulateEx(0, 10, 11);
+    CAPTURE(data);
+    auto json = nlohmann::json::parse(data);
+    REQUIRE(json["recorded_steps"].get<int>() == 11);
+    
+    data = simulateEx(10, 20, 11);
+    CAPTURE(data);
+    CAPTURE(getTimeCourseSettings());
+    json = nlohmann::json::parse(data);
+    REQUIRE(json["recorded_steps"].get<int>() == 11);
+
+    data = simulateEx(12, 30, 11);
+    CAPTURE(data);
+    CAPTURE(getTimeCourseSettings());
+    json = nlohmann::json::parse(data);
+    REQUIRE(json["recorded_steps"].get<int>() == 11);
+
 
 }
 

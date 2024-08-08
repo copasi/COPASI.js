@@ -328,3 +328,41 @@ TEST_CASE("Load COVID Model", "[copasijs][slow]")
     CAPTURE(json["titles"][0].size());
     REQUIRE(json["columns"][0].size() == json["recorded_steps"].get<int>());
 }
+
+
+
+TEST_CASE("Steadystate test", "[copasijs][steadystate]") 
+{
+    Instance instance;
+    std::string model = loadFromFile(getTestFile("../example_files/brusselator.cps"));
+    REQUIRE(!model.empty());
+    REQUIRE(model != "Error loading model");
+
+    auto selectionList = getSelectionList();
+    REQUIRE_THAT(selectionList, Catch::Matchers::Equals(std::vector<std::string>{"Time", "X", "Y"}));
+    auto selectionValues = getSelectionValues();
+    REQUIRE(selectionValues.size() == 3);
+    REQUIRE_THAT(selectionValues, Catch::Matchers::Approx(std::vector<double>{0, 3, 3}));
+
+    // run to steady state
+    double closeNess = steadyState();
+    REQUIRE(closeNess < 0.1);
+
+    // look at steady state values
+    selectionValues = getSelectionValues();
+    REQUIRE(selectionValues.size() == 3);
+    REQUIRE_THAT(selectionValues, Catch::Matchers::Approx(std::vector<double>{0, 0.5, 6}));
+
+    // get the jacobian
+    auto jacobian = getJacobian();
+    auto jac2d = getJacobian2D();    
+    auto eigenValues = getEigenValues2D();
+
+    REQUIRE(jac2d.size() == 2);
+
+    jacobian = getJacobianReduced();
+    jac2d = getJacobianReduced2D();
+    eigenValues = getEigenValuesReduced2D();
+
+    REQUIRE(jac2d.size() == 2);
+}

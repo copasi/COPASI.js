@@ -366,6 +366,48 @@ class COPASI {
     get selectedValues() {
         return this._vectorToArray(this.Module.getSelectedValues());
     }
+
+    /**
+     * @property {object} jacobian the jacobian as object
+     */
+    get jacobian() {
+        return JSON.parse(this.Module.getJacbian());
+    }
+
+    /**
+     * @property {number[][]} jacobian2D returns the jacobian as 2D array
+     */
+    get jacobian2D() {
+        return this._vector2dToArray(this.Module.getJacobian2D());
+    }
+
+    /**
+     * @property { number[][]} eigenValues2D returns the eigenvalues as 2D array
+     */
+    get eigenValues2D() {
+        return this._vector2dToArray(this.Module.getEigenValues2D());
+    }
+
+    /**
+     * @property {object} reducedJacobian the reduced jacobian as object
+     */
+    get reducedJacobian() {
+        return JSON.parse(this.Module.getJacobianReduced());
+    }
+
+    /**
+     * @property {number[][]} reducedJacobian2D returns the reduced jacobian as 2D array
+     */
+    get reducedJacobian2D() {
+        return this._vector2dToArray(this.Module.getJacobianReduced2D());
+    }
+
+    /**
+     * @property { number[][]} eigenValuesReduced2D returns the eigenvalues of the reduced Jacobian as 2D array
+     */
+    get eigenValuesReduced2D() {
+        return this._vector2dToArray(this.Module.getEigenValuesReduced2D());
+    }
 }
 
 // if module is defined, export the COPASI class

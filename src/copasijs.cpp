@@ -7,6 +7,9 @@ using namespace emscripten;
 
 #include "copasijs.h"
 
+#include <copasi/core/CDataContainer.h>
+#include <copasi/steadystate/CEigen.h>
+
 #ifdef __cplusplus
 #define EXTERN extern "C"
 #else
@@ -1007,12 +1010,138 @@ std::vector<std::vector<double>> getSimulationResults2D()
     return results;
 }
 
+std::vector<std::vector<double>> convertCEigen(const CEigen& eValues)
+{
+    std::vector<std::vector<double>> values;
+    
+    auto& imag = eValues.getI();
+    auto& real = eValues.getR();
+
+    for (size_t i = 0; i < imag.size(); ++i)
+    {
+        std::vector<double> row;
+        row.push_back(real[i]);
+        row.push_back(imag[i]);
+        values.push_back(row);
+    }
+
+    return values;
+}
+
+std::vector<std::vector<double>> convertCArray( CArrayInterface* pArray)
+{
+    std::vector<std::vector<double>> values;
+    if (pArray == NULL || pArray->dimensionality() != 2)
+        return values;
+
+    auto arrayDim = pArray->size();
+
+    for (size_t i = 0; i < arrayDim[0]; ++i)
+    {
+        std::vector<double> row;
+        for (size_t j = 0; j < arrayDim[1]; ++j)
+        {
+            CArrayInterface::index_type idx = {i, j};
+            row.push_back((*pArray)[idx]);
+        }
+        values.push_back(row);
+    }
+
+    return values;
+}
+
+ordered_json convertDataArray(const CDataArray* pArray)
+{
+    ordered_json result;
+
+    if (pArray == NULL || pArray->dimensionality() != 2)
+        return result;
+
+    std::vector<std::string> columns = pArray->getAnnotationsString(1);
+    std::vector<std::string> rows = pArray->getAnnotationsString(0);
+    std::vector<std::vector<double>> values = convertCArray(const_cast<CArrayInterface*>( pArray->getArray()));
+
+    result["columns"] = columns;
+    result["rows"] = rows;
+    result["values"] = values;
+
+    return result;
+}
+
+std::string getJacobian()
+{
+    ensureModel();
+
+    auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
+    auto* pMatrix = task.getJacobianAnnotated();
+    
+    return convertDataArray(pMatrix).dump(2);
+
+}
+
+std::vector<std::vector<double>> getJacobian2D()
+{
+    ensureModel();
+
+    auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
+    auto* pMatrix = task.getJacobianAnnotated();
+    
+    return convertCArray(pMatrix->getArray());
+}
+
+std::vector<std::vector<double>> getEigenValues2D()
+{
+    ensureModel();
+
+    auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
+    const auto& eValues = task.getEigenValues();
+    
+    return convertCEigen(eValues);
+}
+
+std::string getJacobianReduced()
+{
+    ensureModel();
+
+    auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
+    auto* pMatrix = task.getJacobianXAnnotated();
+    
+    return convertDataArray(pMatrix).dump(2);
+
+}
+
+std::vector<std::vector<double>> getJacobianReduced2D()
+{
+    ensureModel();
+
+    auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
+    auto* pMatrix = task.getJacobianXAnnotated();
+    
+    return convertCArray(pMatrix->getArray());
+}
+
+std::vector<std::vector<double>> getEigenValuesReduced2D()
+{
+    ensureModel();
+
+    auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
+    const auto& eValues = task.getEigenValuesReduced();
+    
+    return convertCEigen(eValues);
+}
+
+
 double steadyState()
 {
     ensureModel();
 
     auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
+
     task.setUpdateModel(true);
+    auto *problem = dynamic_cast<CSteadyStateProblem *>(task.getProblem());
+    bool request = true;
+    problem->setStabilityAnalysisRequested(request);
+    
 
     if (!task.initialize(CCopasiTask::OUTPUT_UI, pDataModel, NULL))
         return std::numeric_limits<double>::quiet_NaN();
@@ -1430,6 +1559,13 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("getSelectionList", &getSelectionList);
     emscripten::function("getSelectedValues", &getSelectionValues);
     emscripten::function("setSelectionList", &setSelectionList);
+
+    emscripten::function("getJacobian", &getJacobian);
+    emscripten::function("getJacobian2D", &getJacobian2D);
+    emscripten::function("getEigenValues2D", &getEigenValues2D);
+    emscripten::function("getJacobianReduced", &getJacobianReduced);
+    emscripten::function("getJacobianReduced2D", &getJacobianReduced2D);
+    emscripten::function("getEigenValuesReduced2D", &getEigenValuesReduced2D);
 
 }
 #endif

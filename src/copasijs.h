@@ -351,6 +351,53 @@ void setValue(const std::string& nameOrId, double value);
 /// sets the value by display name
 void setValueByName(const std::string& name, double value);
 
+/// @brief returns the Jacobian at steady state as JSON string
+/// @return the Jacobian as JSON string in the following format
+///
+/// ```json
+/// {
+///     "rows": ["X", "Y", ...],
+///     "columns": ["X", "Y", ...],
+///     "values": [
+///         [1.0, 0.0, ...],
+///         [0.0, 1.0, ...],
+///         ...
+///     ]
+/// }
+/// ```
+std::string getJacobian();
+
+/// @brief returns the Jacobian at steady state as 2D double vector
+std::vector<std::vector<double>> getJacobian2D();
+
+/// @brief returns the eigenvalues of the Jacobian at steady state as 2D double vector
+std::vector<std::vector<double>> getEigenValues2D();
+
+/// @brief returns the reduced Jacobian at steady state as JSON string
+/// @return the Jacobian as JSON string in the following format
+///
+/// ```json
+/// {
+///     "rows": ["X", "Y", ...],
+///     "columns": ["X", "Y", ...],
+///     "values": [
+///         [1.0, 0.0, ...],
+///         [0.0, 1.0, ...],
+///         ...
+///     ]
+/// }
+/// ```
+std::string getJacobianReduced();
+
+/// @brief returns the reduced Jacobian at steady state as 2D double vector
+std::vector<std::vector<double>> getJacobianReduced2D();
+
+/// @brief returns the reduced eigenvalues of the Jacobian at steady state as 2D double vector
+std::vector<std::vector<double>> getEigenValuesReduced2D();
+
+
+
+
 #pragma region  // internal calls Internal
 
 /// @brief frees a pointer allocated by the COPASI library

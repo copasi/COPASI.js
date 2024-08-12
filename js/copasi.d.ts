@@ -98,7 +98,7 @@ export default class COPASI {
     readonly localParameterValues : number[];
     readonly jacobian: object;
     readonly jacobian2D: number[][];
-    readonly eigenValues: number[][];
+    readonly eigenValues2D: number[][];
     readonly reducedJacobian: object;
     readonly reducedJacobian2D: number[][];
     readonly eigenValuesReduced2D: number[][];

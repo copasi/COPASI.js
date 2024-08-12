@@ -52,6 +52,25 @@ createApi().then((Module) => {
     // simulate the model
     console.log(instance.simulateEx(0, 10, 11));
 
-    // run 
+    // run steady state
+    console.log(instance.steadyState());
+
+    // print jacobian
+    console.log(instance.jacobian);
+
+    // print jacobian
+    console.log(instance.jacobian2D);
+
+    // print eigenvalues
+    console.log(instance.eigenValues2D);
+
+    // print jacobian
+    console.log(instance.reducedJacobian);
+
+    // print jacobian
+    console.log(instance.reducedJacobian2D);
+
+    // print eigenvalues
+    console.log(instance.eigenValuesReduced2D);    
   
 });

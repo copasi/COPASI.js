@@ -154,6 +154,11 @@
     xhr.send(null);
   };
 
+  function automaticChanged() {
+    var autoStepSize = document.getElementById("autoStepSize").checked;
+    document.getElementById("numPoints").disabled = autoStepSize;
+  }
+
 </script>
 
 <body>
@@ -240,7 +245,7 @@
         <div class="row">
           <div class="col-sm-3">
             <label for="autoStepSize">Automatic Step Size:</label>
-            <input type="checkbox" id="autoStepSize">
+            <input type="checkbox" onclick="automaticChanged()" id="autoStepSize">
           </div>
         </div>
       </div>

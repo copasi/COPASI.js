@@ -1289,6 +1289,7 @@ std::string simulateEx(double timeStart, double timeEnd, int numPoints)
     yaml["problem"]["Duration"] = timeEnd;
     double stepSize = (timeEnd - timeStart) / numPoints;
     yaml["problem"]["StepSize"] = stepSize;
+    yaml["problem"]["AutomaticStepSize"] = false;
     return simulateJSON(yaml);
 }
 

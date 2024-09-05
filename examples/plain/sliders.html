@@ -133,6 +133,126 @@
     }
     document.getElementById("modelName").innerHTML = info['model']['name'];
 
+    // retrieve the sliders element
+    var sliders = document.getElementById("sliders");
+
+    // clear the sliders
+    sliders.innerHTML = "";
+
+    // add sliders for the model
+    for (var i = 0; i < info.global_parameters.length; i++) {
+      var parameter = info.global_parameters[i];
+
+      // for each parameter create a new row with name, lower, upper value and a slider. 
+      var row = document.createElement("div");
+      row.className = "row";
+      sliders.appendChild(row);
+
+      var col1 = document.createElement("div");
+      col1.className = "col-sm-2";
+      row.appendChild(col1);
+
+      var label = document.createElement("label");
+      label.innerHTML = parameter['name'];
+      col1.appendChild(label);
+
+      var slider = document.createElement("input");
+      slider.type = "range";
+
+      min_value = parameter['value'] / 10;
+      max_value = parameter['value'] * 10;
+
+      if (min_value == max_value) {
+        max_value += 1;
+      }
+
+      slider.min = min_value;;
+      slider.max = max_value;
+      slider.step = (max_value - min_value) / 100;
+      slider.value = parameter['value'];
+      slider.oninput = function () {
+        var parameter = this.getAttribute("parameter_slider");
+        copasi.setValue(parameter, this.value);
+
+        var input_value = document.querySelector("input[parameter_value='" + parameter + "']");
+        input_value.value = this.value;
+
+        var simulateOnSlider = document.getElementById("simulateOnSlider").checked;
+
+        if (simulateOnSlider) {
+          runSimpleSimulation();
+        }
+
+      };
+      slider.setAttribute("parameter_slider", parameter['id']);
+
+      var lower = document.createElement("input");
+      lower.type = "number";
+      lower.value = min_value;
+      lower.oninput = function () {
+        // change the min value of the slider
+        var parameter = this.getAttribute("parameter_min");
+        var slider = document.querySelector("input[parameter_slider='" + parameter + "']");
+        slider.min = this.value;
+        slider.step = (slider.max - slider.min) / 100;
+
+      };
+
+      lower.setAttribute("parameter_min", parameter['id']);
+
+      var upper = document.createElement("input");
+      upper.type = "number";
+      upper.value = max_value;
+      upper.oninput = function () {
+        // change the max value of the slider
+        var parameter = this.getAttribute("parameter_max");
+        var slider = document.querySelector("input[parameter_slider='" + parameter + "']");
+        slider.max = this.value;
+        slider.step = (slider.max - slider.min) / 100;
+
+      };
+
+      upper.setAttribute("parameter_max", parameter['id']);
+
+      var col2 = document.createElement("div");
+      col2.className = "col-sm-2";
+      row.appendChild(col2);
+
+
+      col2.appendChild(lower);
+
+      var col3 = document.createElement("div");
+      col3.className = "col-sm-3";
+      row.appendChild(col3);
+
+      col3.appendChild(slider);
+
+      var col4 = document.createElement("div");
+      col4.className = "col-sm-2";
+      row.appendChild(col4);
+
+      col4.appendChild(upper);
+
+      // add current value to the row
+      var value = document.createElement("input");
+      value.type = "number";
+      value.value = parameter['value'];
+      value.oninput = function () {
+        var parameter = this.getAttribute("parameter_value");
+        var slider = document.querySelector("input[parameter_slider='" + parameter + "']");
+        slider.value = this.value;
+        copasi.setValue(parameter, this.value);
+      };
+      value.setAttribute("parameter_value", parameter['id']);
+
+      var col5 = document.createElement("div");
+      col5.className = "col-sm-2";
+      row.appendChild(col5);
+
+
+      col5.appendChild(value);
+    }
+
   }
 
   function loadUrl() {
@@ -168,8 +288,8 @@
 
     <div style="float: right;">
       <a href="index.html"> Default Version </a> |
-      <a href="#"> Simple Version </a> | 
-      <a href="sliders.html"> Slider Version </a>  
+      <a href="simple.html"> Simple Version </a> |
+      <a href="#"> Slider Version </a>
     </div>
 
     <div class="panel-group">
@@ -232,7 +352,8 @@
           </div>
           <div class="col-sm-2">
             <label for="numPoints">Number of Points:</label>
-            <input type="number" class="form-control" id="numPoints" placeholder="Enter number of points" value="101">
+            <input type="number" class="form-control" id="numPoints" placeholder="Enter number of points" value="101"
+              disabled="true">
           </div>
           <div class="col-sm-3">
             <label for="simulate"> &nbsp;</label>
@@ -246,8 +367,20 @@
         <div class="row">
           <div class="col-sm-3">
             <label for="autoStepSize">Automatic Step Size:</label>
-            <input type="checkbox" onclick="automaticChanged()" id="autoStepSize">
+            <input type="checkbox" onclick="automaticChanged()" id="autoStepSize" checked="true">
           </div>
+          <div class="col-sm-6">
+            <label for="simulateOnSlider">Simulate on Slider change</label>
+            <input type="checkbox" id="simulateOnSlider" checked="true">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel panel-default">
+      <div class="panel-body">
+        <div id="sliders" class="row">
+
         </div>
       </div>
     </div>

@@ -1,4 +1,3 @@
-
 <html lang="en">
 
 <head>
@@ -37,8 +36,10 @@
         fr.onload = function () {
           var modelString = fr.result;
           document.getElementById("cps").value = modelString;
+          loadIntoCOPASI();
         }
         fr.readAsText(this.files[0]);
+
       });
 
   });
@@ -50,17 +51,44 @@
     document.getElementById("yaml").value = "{}";
     document.getElementById('inputfile').value = "";
     document.getElementById("data").innerHTML = "";
-    document.getElementById("chart").innerHTML = "";    
+    document.getElementById("chart").innerHTML = "";
   };
 
-  function runSimulation() {
-    if (copasi == null) {
-      return;
-    }
+  function clearResults() {
     document.getElementById("data").innerHTML = "";
     document.getElementById("chart").innerHTML = "";
+  }
 
-    var result = copasi.simulateYaml(document.getElementById("yaml").value);
+  function runSimpleSimulation() {
+    var autoStepSize = document.getElementById("autoStepSize").checked;
+    var timeStart = parseFloat(document.getElementById("startTime").value);
+    var timeEnd = parseFloat(document.getElementById("endTime").value);
+
+    if (autoStepSize) {
+      var result = copasi.simulateYaml({
+        "problem": {
+          "AutomaticStepSize": true,
+          "Duration": timeEnd,
+          "OutputStartTime": timeStart
+        }
+      });
+      loadPlotFromResult(result);
+      return;
+    }
+
+    var numPoints = parseInt(document.getElementById("numPoints").value);
+
+    var result = copasi.simulateEx(timeStart, timeEnd, numPoints);
+    loadPlotFromResult(result);
+  }
+
+  function loadPlotFromResult(result) {
+
+    if (typeof result === 'string') {
+      result = JSON.parse(result);
+    }
+
+    clearResults();
 
     // dump data
     document.getElementById("data").innerHTML = JSON.stringify(result);
@@ -80,8 +108,20 @@
     Plotly.newPlot('chart', data);
   }
 
-  function loadIntoCOPASI()
-  {
+  function runSimulation() {
+    if (copasi == null) {
+      return;
+    }
+
+    clearResults();
+
+    var result = copasi.simulateYaml(document.getElementById("yaml").value);
+
+    loadPlotFromResult(result);
+
+  }
+
+  function loadIntoCOPASI() {
     if (copasi == null) {
       return;
     }
@@ -107,6 +147,7 @@
       if (xhr.readyState === xhr.DONE) {
         if (xhr.status === 200) {
           document.getElementById("cps").value = xhr.responseText;
+          loadIntoCOPASI();
         }
       }
     };
@@ -121,8 +162,8 @@
     <h1>COPASI.js Test</h1>
 
     <div style="float: right;">
-    <a href="#"> Default Version </a> | 
-    <a href="simple.html"> Simple Version </a>
+      <a href="index.html"> Default Version </a> |
+      <a href="#"> Simple Version </a>
     </div>
 
     <div class="panel-group">
@@ -166,12 +207,55 @@
       </div>
     </div>
 
+    <p class="lead">
+      Current Model: <span id="modelName">none</span>
+    </p>
+
+    <div id="chart"></div>
+
+    <div class="panel panel-default">
+      <div class="panel-body">
+        <div class="row">
+          <div class="col-sm-2">
+            <label for="startTime">Start Time:</label>
+            <input type="number" class="form-control" id="startTime" placeholder="Enter start time" value="0">
+          </div>
+          <div class="col-sm-2">
+            <label for="endTime">End Time:</label>
+            <input type="number" class="form-control" id="endTime" placeholder="Enter end time" value="10">
+          </div>
+          <div class="col-sm-2">
+            <label for="numPoints">Number of Points:</label>
+            <input type="number" class="form-control" id="numPoints" placeholder="Enter number of points" value="101">
+          </div>
+          <div class="col-sm-3">
+            <label for="simulate"> &nbsp;</label>
+            <button class="btn btn-primary btn-block" onclick="runSimpleSimulation()">Simulate</button>
+          </div>
+          <div class="col-sm-2">
+            <label for="reset"> &nbsp;</label>
+            <button class="btn btn-block" onclick="copasi.reset()">Reset</button>
+          </div>
+        </div>
+        <div class="row">
+          <div class="col-sm-3">
+            <label for="autoStepSize">Automatic Step Size:</label>
+            <input type="checkbox" id="autoStepSize">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button onclick="alert(copasi.version)">Get Version</button>
+    <button onclick="clearForm()">Clear</button>
 
     <div>
       <a class="btn btn-sm" data-toggle="collapse" href="#cps_form" role="button" aria-expanded="false"
         aria-controls="cps_form">show cps</a>
       <a class="btn btn-sm" data-toggle="collapse" href="#yaml_form" role="button" aria-expanded="false"
         aria-controls="yaml_form">show yaml</a>
+      <a class="btn btn-sm" data-toggle="collapse" href="#data_form" role="button" aria-expanded="false"
+        aria-controls="data_form">show data</a>
       <div class="form-group collapse" id="cps_form">
         <label for="cps">CPS Model:</label>
         <textarea id="cps" class="form-control" rows="8"></textarea>
@@ -179,39 +263,36 @@
 
       <div class="form-group collapse" id="yaml_form">
         <label for="yaml">Processing: </label>
-        <small> Changes for processing in yaml for the problem: 
+        <small> Changes for processing in yaml for the problem:
           <pre>{"problem":{"Duration": 100, "StepNumber": 100, "StepSize": 0.1}}</pre> or
-          <pre>{"method": {"name": "Stochastic (Gibson + Bruck)"}}</pre> or for changes of 
-          initialvalues in the form of display names. So: 
+          <pre>{"method": {"name": "Stochastic (Gibson + Bruck)"}}</pre> or for changes of
+          initialvalues in the form of display names. So:
           <ul>
-            <li><pre>[A]_0</pre> for initial concentration of species A</li>
-            <li><pre>Values[t].InitialValue</pre> for initial value of parameter t</li>
-            <li><pre>(r1).k</pre> for the value of k of reaction r1.</li>
+            <li>
+              <pre>[A]_0</pre> for initial concentration of species A
+            </li>
+            <li>
+              <pre>Values[t].InitialValue</pre> for initial value of parameter t
+            </li>
+            <li>
+              <pre>(r1).k</pre> for the value of k of reaction r1.
+            </li>
           </ul>
           <pre>{"initial_values": {"[A]_0": 10.0, "Values[t].InitialValue": 0.1, "(r1).k": 0.1}}</pre>
         </small>
         <textarea id="yaml" class="form-control" rows="8">{}</textarea>
       </div>
-    </div>
 
-    <button onclick="loadIntoCOPASI()">Load</button>
-    <button onclick="runSimulation()">Simulate</button>
-    <button onclick="copasi.reset()">Reset</button>
-    <button onclick="alert(copasi.version)">Get Version</button>
-    <button onclick="clearForm()">Clear</button>
+      <div class="form-group collapse" id="data_form">
+        <label for="data">Data Yaml:</label>
+        <textarea id="data" class="form-control" rows="8"></textarea>
+      </div>
+
+
+    </div>
 
     <p></p>
 
-    <p class="lead">
-        Current Model: <span id="modelName">none</span>
-    </p>
-
-    <div id="chart"></div>
-
-    <a class="btn btn-sm" data-toggle="collapse" href="#data" role="button" aria-expanded="false"
-      aria-controls="data">show data</a>
-
-    <div id="data" class="table collapse"></div>
   </div>
 
   </div>

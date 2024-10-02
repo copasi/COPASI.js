@@ -4,7 +4,7 @@
 pushd "$(dirname "$0")"
 
 export BUILD_TYPE="${BUILD_TYPE:-Debug}"
-export COPASI_BRANCH="${COPASI_BRANCH:-release/Version-4.44}"
+export COPASI_BRANCH="${COPASI_BRANCH:-release/Version-4.45}"
 
 # build uuid lib if it doesn't exist
 # if [ ! -f cpp-dependencies/lib/libuuid.a ]; then

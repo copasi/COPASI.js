@@ -3,7 +3,7 @@
 #include <emscripten/bind.h>
 using namespace emscripten;
 #define COPASI_MAIN
-#endif 
+#endif
 
 #include "copasijs.h"
 
@@ -19,7 +19,6 @@ using namespace emscripten;
 using namespace std;
 using namespace nlohmann;
 
-
 // define a struct for information from model, containing ptr to CDataObject, SBML id string, and common name
 struct CModelElement
 {
@@ -27,8 +26,8 @@ struct CModelElement
     std::string sbmlId;
     CRegisteredCommonName cnInitial;
     CRegisteredCommonName cn;
-    const double* pValue;
-    const double* pRates = NULL;
+    const double *pValue;
+    const double *pRates = NULL;
 };
 
 static CDataModel *pDataModel = NULL;
@@ -44,82 +43,80 @@ static std::map<std::string, CModelElement> mLocalParameters = {};
 static std::map<std::string, CModelElement> mGlobalParameters = {};
 static std::map<std::string, std::string> mGlobalParametersIdMap = {};
 static std::vector<std::string> mSelectionList = {};
-static std::vector<const double*> mSelectedValues = {};
+static std::vector<const double *> mSelectedValues = {};
 static std::vector<std::string> mAllIds = {};
 static CDataHandler *mpDataHandler = NULL;
 
-static std::string mLastSimulationJSON = ""; 
+static std::string mLastSimulationJSON = "";
 static std::vector<std::vector<double>> mLastSimulationResults2D = {};
 static ordered_json mLastSimulationResults = {};
 
-ordered_json convertGroupToJson(CCopasiParameterGroup* pGroup, bool basicOnly /* = true*/)
+ordered_json convertGroupToJson(CCopasiParameterGroup *pGroup, bool basicOnly /* = true*/)
 {
     ordered_json group;
     for (size_t i = 0; i < pGroup->size(); ++i)
     {
-        auto* param = pGroup->getParameter(i);
-        if (param == NULL || dynamic_cast<CCopasiParameterGroup*>(param) != NULL
-        || !param->isEditable()
-        || (basicOnly && !param->isBasic()))
+        auto *param = pGroup->getParameter(i);
+        if (param == NULL || dynamic_cast<CCopasiParameterGroup *>(param) != NULL || !param->isEditable() || (basicOnly && !param->isBasic()))
             continue;
 
         auto name = param->getObjectName();
         auto type = param->getType();
-        switch(type)
+        switch (type)
         {
-            case CCopasiParameter::Type::DOUBLE:
-            case CCopasiParameter::Type::UDOUBLE:
-                group[name] = param->getValue<C_FLOAT64>();
-                break;
-            case CCopasiParameter::Type::INT:
-                group[name] = param->getValue<int>();
-                break;
-            case CCopasiParameter::Type::UINT:
-                group[name] = param->getValue<unsigned C_INT32>();
-                break;
-            case CCopasiParameter::Type::BOOL:
-                group[name] = param->getValue<bool>();
-                break;
-            case CCopasiParameter::Type::STRING:
-                group[name] = param->getValue<std::string>();
-                break;
-            default:
-                break;
+        case CCopasiParameter::Type::DOUBLE:
+        case CCopasiParameter::Type::UDOUBLE:
+            group[name] = param->getValue<C_FLOAT64>();
+            break;
+        case CCopasiParameter::Type::INT:
+            group[name] = param->getValue<int>();
+            break;
+        case CCopasiParameter::Type::UINT:
+            group[name] = param->getValue<unsigned C_INT32>();
+            break;
+        case CCopasiParameter::Type::BOOL:
+            group[name] = param->getValue<bool>();
+            break;
+        case CCopasiParameter::Type::STRING:
+            group[name] = param->getValue<std::string>();
+            break;
+        default:
+            break;
         }
     }
     return group;
 }
 
-void setGroupFromJson(CCopasiParameterGroup* pGroup, ordered_json& settings)
+void setGroupFromJson(CCopasiParameterGroup *pGroup, ordered_json &settings)
 {
-    for (auto& el : settings.items()) 
+    for (auto &el : settings.items())
     {
-        auto* param = pGroup->getParameter(el.key());
-        if (param == NULL || dynamic_cast<CCopasiParameterGroup*>(param) != NULL)
+        auto *param = pGroup->getParameter(el.key());
+        if (param == NULL || dynamic_cast<CCopasiParameterGroup *>(param) != NULL)
             continue;
         if (el.value().empty())
             continue;
         auto type = param->getType();
-        switch(type)
+        switch (type)
         {
-            case CCopasiParameter::Type::DOUBLE:
-            case CCopasiParameter::Type::UDOUBLE:
-                param->setValue(el.value().get<double>());
-                break;
-            case CCopasiParameter::Type::INT:
-                param->setValue(el.value().get<int>());
-                break;
-            case CCopasiParameter::Type::UINT:
-                param->setValue(el.value().get<unsigned C_INT32>());
-                break;
-            case CCopasiParameter::Type::BOOL:
-                param->setValue(el.value().get<bool>());
-                break;
-            case CCopasiParameter::Type::STRING:
-                param->setValue(el.value().get<std::string>());
-                break;
-            default:
-                break;
+        case CCopasiParameter::Type::DOUBLE:
+        case CCopasiParameter::Type::UDOUBLE:
+            param->setValue(el.value().get<double>());
+            break;
+        case CCopasiParameter::Type::INT:
+            param->setValue(el.value().get<int>());
+            break;
+        case CCopasiParameter::Type::UINT:
+            param->setValue(el.value().get<unsigned C_INT32>());
+            break;
+        case CCopasiParameter::Type::BOOL:
+            param->setValue(el.value().get<bool>());
+            break;
+        case CCopasiParameter::Type::STRING:
+            param->setValue(el.value().get<std::string>());
+            break;
+        default:
+            break;
         }
     }
 }
@@ -174,11 +171,11 @@ std::string getVersion()
     return current.getVersion();
 }
 
-std::string getMessages(int start, const std::string& filter)
+std::string getMessages(int start, const std::string &filter)
 {
     if (CCopasiMessage::size() <= start)
         return "";
-    
+
     std::stringstream str;
     for (size_t i = start; i < CCopasiMessage::size(); ++i)
     {
@@ -193,7 +190,7 @@ std::string getMessages(int start, const std::string& filter)
     return str.str();
 }
 
-ordered_json convertDataHandlerToJSON(const CDataHandler& dh)
+ordered_json convertDataHandlerToJSON(const CDataHandler &dh)
 {
     auto &data = dh.getDuringData();
 
@@ -218,7 +215,7 @@ ordered_json convertDataHandlerToJSON(const CDataHandler& dh)
     return j;
 }
 
-ordered_json convertTimeSeriesToJSON(const CTimeSeries& ts)
+ordered_json convertTimeSeriesToJSON(const CTimeSeries &ts)
 {
     ordered_json j;
     j["status"] = "success";
@@ -318,7 +315,7 @@ double getValue(const std::string &nameOrId)
     it = mLocalParameters.find(nameOrId);
     if (it != mLocalParameters.end())
         return *it->second.pValue;
-    
+
     it = mGlobalParameters.find(nameOrId);
     if (it == mGlobalParameters.end())
     {
@@ -328,10 +325,18 @@ double getValue(const std::string &nameOrId)
     }
     if (it != mGlobalParameters.end())
         return *it->second.pValue;
+
+    // resolve mcaSymbols
+    auto *ccObj = resolveMcaObject(nameOrId);
+    if (ccObj)
+    {
+        return *reinterpret_cast<const double *>(ccObj->getValuePointer());
+    }
+
     return std::numeric_limits<double>::quiet_NaN();
 }
 
-bool setModelElement(std::map<std::string, CModelElement>& map, std::map<std::string, std::string>& idMap, const std::string& name, double value, CModel* model)
+bool setModelElement(std::map<std::string, CModelElement> &map, std::map<std::string, std::string> &idMap, const std::string &name, double value, CModel *model)
 {
     auto it = map.find(name);
     if (it == map.end())
@@ -342,7 +347,7 @@ bool setModelElement(std::map<std::string, CModelElement>& map, std::map<std::st
     }
     if (it != map.end())
     {
-        CMetab* pMetab = dynamic_cast<CMetab*>(it->second.pObj);
+        CMetab *pMetab = dynamic_cast<CMetab *>(it->second.pObj);
         if (pMetab)
         {
             model->updateInitialValues(pMetab->getInitialConcentrationReference(), false);
@@ -355,31 +360,29 @@ bool setModelElement(std::map<std::string, CModelElement>& map, std::map<std::st
 
             double newValue = model->getMathContainer().getMathObject(pMetab->getInitialConcentrationReference())->getValue();
 
-
             return true;
         }
 
-        CModelEntity* pEntity = dynamic_cast<CModelEntity*>(it->second.pObj);
+        CModelEntity *pEntity = dynamic_cast<CModelEntity *>(it->second.pObj);
         if (pEntity)
         {
             pEntity->setValue(value);
             pEntity->setInitialValue(value);
-            std::set<const CDataObject*> changes = {pEntity->getInitialValueReference(), pEntity->getValueReference()};
+            std::set<const CDataObject *> changes = {pEntity->getInitialValueReference(), pEntity->getValueReference()};
 
             model->updateInitialValues(changes, true);
             return true;
         }
-        
     }
     return false;
 }
 
-void setValue(const std::string& nameOrId, double value)
+void setValue(const std::string &nameOrId, double value)
 {
     if (!pDataModel)
         return;
 
-    auto* model = pDataModel->getModel();
+    auto *model = pDataModel->getModel();
     if (!model)
         return;
 
@@ -388,72 +391,152 @@ void setValue(const std::string& nameOrId, double value)
     if (setModelElement(mFloatingSpecies, mFloatingSpeciesIdMap, nameOrId, value, model))
         return;
 
-    // boundary species 
+    // boundary species
     if (setModelElement(mBoundarySpecies, mBoundarySpeciesIdMap, nameOrId, value, model))
         return;
-    
+
     // now compartments
     if (setModelElement(mCompartments, mCompartmentsIdMap, nameOrId, value, model))
         return;
-    
+
     // and global parameters
     if (setModelElement(mGlobalParameters, mGlobalParametersIdMap, nameOrId, value, model))
         return;
-
-
 }
 
-void setValueByName(const std::string& key, double dValue)
+void setValueByName(const std::string &key, double dValue)
 {
-  if (!pDataModel)
-    return;
+    if (!pDataModel)
+        return;
 
-  auto* model = pDataModel->getModel();
-  if (!model)
-    return;
-	
-  auto* obj = const_cast<CDataObject*> (pDataModel->findObjectByDisplayName(key));
-	if (obj == NULL)
-		return;
+    auto *model = pDataModel->getModel();
+    if (!model)
+        return;
 
-	bool isReference = obj->getObjectType() == "Reference";
-	CMetab* pMetab = isReference ? dynamic_cast<CMetab*>(obj->getObjectParent())
-		: dynamic_cast<CMetab*>(obj);
+    auto *obj = const_cast<CDataObject *>(pDataModel->findObjectByDisplayName(key));
+    if (obj == NULL)
+        return;
 
-	CModelEntity* pEntity = isReference ? dynamic_cast<CModelEntity*>(obj->getObjectParent())
-		: dynamic_cast<CModelEntity*>(obj);
-	CCopasiParameter* pParam = isReference ? dynamic_cast<CCopasiParameter*>(obj->getObjectParent())
-		: dynamic_cast<CCopasiParameter*>(obj);
+    bool isReference = obj->getObjectType() == "Reference";
+    CMetab *pMetab = isReference ? dynamic_cast<CMetab *>(obj->getObjectParent())
+                                 : dynamic_cast<CMetab *>(obj);
 
-	if (pMetab && obj->getObjectType() != "Reference")
-	{
-		obj = pMetab->getInitialConcentrationReference();
-	}
-	else if (pEntity && obj->getObjectType() != "Reference")
-	{
-		obj = pEntity->getInitialValueReference();
-	}
+    CModelEntity *pEntity = isReference ? dynamic_cast<CModelEntity *>(obj->getObjectParent())
+                                        : dynamic_cast<CModelEntity *>(obj);
+    CCopasiParameter *pParam = isReference ? dynamic_cast<CCopasiParameter *>(obj->getObjectParent())
+                                           : dynamic_cast<CCopasiParameter *>(obj);
 
-	model->updateInitialValues(obj);
-	if (pMetab)
-	{
-		pMetab->setInitialConcentration(dValue);
-	}
-	else if (pEntity)
-	{
-		pEntity->setInitialValue(dValue);
-	}
-	else if (pParam)
-	{
-		CReaction* pReaction = dynamic_cast<CReaction*>(obj->getObjectAncestor("Reaction"));
-		if (pReaction)
-			pReaction->setParameterValue(pParam->getObjectName(), dValue);
-	}
-	model->updateInitialValues(obj);
+    if (pMetab && obj->getObjectType() != "Reference")
+    {
+        obj = pMetab->getInitialConcentrationReference();
+    }
+    else if (pEntity && obj->getObjectType() != "Reference")
+    {
+        obj = pEntity->getInitialValueReference();
+    }
+
+    model->updateInitialValues(obj);
+    if (pMetab)
+    {
+        pMetab->setInitialConcentration(dValue);
+    }
+    else if (pEntity)
+    {
+        pEntity->setInitialValue(dValue);
+    }
+    else if (pParam)
+    {
+        CReaction *pReaction = dynamic_cast<CReaction *>(obj->getObjectAncestor("Reaction"));
+        if (pReaction)
+            pReaction->setParameterValue(pParam->getObjectName(), dValue);
+    }
+    model->updateInitialValues(obj);
 }
 
+CDataObject *resolveSpecificMcaObject(const std::string &item, const std::string &abbrev, const std::string &arrayName, bool surroundArg1, bool surroundArg2)
+{
+    CDataObject *ccObj = NULL;
+    if (item.find(abbrev) == 0 && item.rfind(")") == item.size() - 1)
+    {
+        auto pos = item.find(",");
+        if (pos == std::string::npos)
+            return NULL;
+        auto arg1 = item.substr(abbrev.length(), pos - abbrev.length());
+        if (arg1.empty())
+            return NULL;
+        // if the reaction name is not surrounded by ( and ) pad them
+        if (surroundArg1 && arg1[0] != '(' && arg1[arg1.size() - 1] != ')')
+            arg1 = "(" + arg1 + ")";
+        auto arg2 = item.substr(pos + 1, item.size() - pos - 2);
+        if (arg2.empty())
+            return NULL;
+        if (surroundArg2 && arg2[0] != '(' && arg2[arg2.size() - 1] != ')')
+            arg2 = "(" + arg2 + ")";
 
-void setSelectionList(const std::vector<std::string>& selectionList)
+        // retrieve MCA task
+        auto &task = dynamic_cast<CMCATask &>((*pDataModel->getTaskList())["Metabolic Control Analysis"]);
+        auto method = dynamic_cast<CMCAMethod *>(task.getMethod());
+
+        if (method == NULL)
+            return NULL;
+
+        std::string cn = method->getCN() + std::string(",Array=") + arrayName + std::string("[") + arg1 + std::string("][") + arg2 + std::string("]");
+
+        ccObj = const_cast<CDataObject *>(dynamic_cast<const CDataObject *>(pDataModel->getObject(cn)));
+
+        if (ccObj)
+        {
+            std::string cn2 = ccObj->getCN();
+            if (cn2 != cn)
+                return NULL;
+        }
+    }
+
+    return ccObj;
+}
+
+CDataObject *resolveMcaObject(const std::string &item)
+{
+    CDataObject *ccObj = resolveSpecificMcaObject(item, "uEE(", "Unscaled elasticities", true, false);
+    if (ccObj)
+    {
+        return ccObj;
+    }
+
+    ccObj = resolveSpecificMcaObject(item, "EE(", "Scaled elasticities", true, false);
+    if (ccObj)
+    {
+        return ccObj;
+    }
+
+    ccObj = resolveSpecificMcaObject(item, "uCCC(", "Unscaled concentration control coefficients", false, true);
+    if (ccObj)
+    {
+        return ccObj;
+    }
+
+    ccObj = resolveSpecificMcaObject(item, "CCC(", "Scaled concentration control coefficients", false, true);
+    if (ccObj)
+    {
+        return ccObj;
+    }
+
+    ccObj = resolveSpecificMcaObject(item, "uFCC(", "Unscaled flux control coefficients", true, true);
+    if (ccObj)
+    {
+        return ccObj;
+    }
+
+    ccObj = resolveSpecificMcaObject(item, "FCC(", "Scaled flux control coefficients", true, true);
+    if (ccObj)
+    {
+        return ccObj;
+    }
+
+    return NULL;
+}
+
+void setSelectionList(const std::vector<std::string> &selectionList)
 {
     mSelectionList = selectionList;
 
@@ -464,7 +547,7 @@ void setSelectionList(const std::vector<std::string>& selectionList)
 
     std::vector<std::string> toBeRemoved;
 
-    for(auto& item : mSelectionList)
+    for (auto &item : mSelectionList)
     {
         if (item == "Time" || item == "time")
         {
@@ -551,19 +634,31 @@ void setSelectionList(const std::vector<std::string>& selectionList)
             continue;
         }
 
+        // see if item is a CN, in which case resolve it directly
+        if (item.find("CN=") == 0)
+        {
+            auto *obj = const_cast<CDataObject *>(dynamic_cast<const CDataObject *>(pDataModel->getObject(item)));
+            if (obj != NULL)
+            {
+                mSelectedValues.push_back(reinterpret_cast<const double *>(obj->getValuePointer()));
+                mpDataHandler->addDuringName(obj->getCN());
+                continue;
+            }
+        }
+
         // we still havent found it ... lets try
         // to resolve it using display names
-        auto* obj = const_cast<CDataObject*> (pDataModel->findObjectByDisplayName(item));
+        auto *obj = const_cast<CDataObject *>(pDataModel->findObjectByDisplayName(item));
         if (obj == NULL)
             continue;
         bool isReference = obj->getObjectType() == "Reference";
         if (isReference)
         {
-            mSelectedValues.push_back(reinterpret_cast<const double*>(obj->getValuePointer()));
+            mSelectedValues.push_back(reinterpret_cast<const double *>(obj->getValuePointer()));
             mpDataHandler->addDuringName(obj->getCN());
             continue;
         }
-        CMetab* pMetab = dynamic_cast<CMetab*>(obj);
+        CMetab *pMetab = dynamic_cast<CMetab *>(obj);
         if (pMetab)
         {
             mSelectedValues.push_back(&pMetab->getConcentration());
@@ -571,7 +666,7 @@ void setSelectionList(const std::vector<std::string>& selectionList)
             continue;
         }
 
-        CModelEntity* pEntity = dynamic_cast<CModelEntity*>(obj);
+        CModelEntity *pEntity = dynamic_cast<CModelEntity *>(obj);
         if (pEntity)
         {
             mSelectedValues.push_back(&pEntity->getValue());
@@ -579,17 +674,36 @@ void setSelectionList(const std::vector<std::string>& selectionList)
             continue;
         }
 
+        // elasticieties or control coefficients could also be in here with the
+        // special notation of:
+        //
+        //  - uEE(ReactionName, SpeciesName)
+        //  - EE(ReactionName, SpeciesName)
+        //  - uCCC(SpeciesName, ReactionName)
+        //  - CCC(SpeciesName, ReactionName)
+        //  - uFCC(ReactionName, ReactionName)
+        //  - FCC(ReactionName, ReactionName)
+        //
+
+        // lets try to resolve the special cases
+        auto *ccObj = resolveMcaObject(item);
+        if (ccObj)
+        {
+            mSelectedValues.push_back(reinterpret_cast<const double *>(ccObj->getValuePointer()));
+            mpDataHandler->addDuringName(ccObj->getCN());
+            continue;
+        }
+
         toBeRemoved.push_back(item);
-    }   
+    }
 
     // remove entries that could not be resolved
-    for (auto& item : toBeRemoved)
+    for (auto &item : toBeRemoved)
     {
         auto it = std::find(mSelectionList.begin(), mSelectionList.end(), item);
         if (it != mSelectionList.end())
             mSelectionList.erase(it);
     }
-
 }
 
 ordered_json buildModelInfo()
@@ -609,7 +723,6 @@ ordered_json buildModelInfo()
     mSelectionList.push_back("Time");
     mSelectedValues.clear();
     mAllIds.clear();
-
 
     ordered_json modelInfo;
     auto *pModel = pDataModel->getModel();
@@ -637,8 +750,7 @@ ordered_json buildModelInfo()
             metab.getInitialConcentrationReference()->getCN(),
             metab.getConcentrationReference()->getCN(),
             &metab.getConcentration(),
-            reinterpret_cast<const double*>(metab.getConcentrationRateReference()->getValuePointer())
-        };
+            reinterpret_cast<const double *>(metab.getConcentrationRateReference()->getValuePointer())};
 
         mAllIds.push_back(metab.getSBMLId());
 
@@ -654,13 +766,12 @@ ordered_json buildModelInfo()
             mSelectionList.push_back(metab.getObjectName());
         }
 
-
         species.push_back(m);
     }
     modelInfo["species"] = species;
 
     std::vector<json> compartments;
-    for (auto& compartment : pCompartments)
+    for (auto &compartment : pCompartments)
     {
         ordered_json c;
         c["name"] = compartment.getObjectName();
@@ -674,8 +785,7 @@ ordered_json buildModelInfo()
             compartment.getSBMLId(),
             compartment.getInitialValueReference()->getCN(),
             compartment.getValueReference()->getCN(),
-            &compartment.getValue()
-        };
+            &compartment.getValue()};
         mCompartments[compartment.getObjectName()] = cp;
         mCompartmentsIdMap[compartment.getSBMLId()] = compartment.getObjectName();
         mAllIds.push_back(compartment.getSBMLId());
@@ -695,13 +805,13 @@ ordered_json buildModelInfo()
         r["scheme"] = reaction.getReactionScheme();
 
         std::vector<json> localParameters;
-        auto& params = reaction.getParameters();
-        auto& fun_params = reaction.getFunctionParameters();
+        auto &params = reaction.getParameters();
+        auto &fun_params = reaction.getFunctionParameters();
         auto num_params = fun_params.size();
         for (size_t i = 0; i < num_params; ++i)
         {
-            auto* fun_parameter = fun_params[i];
-            auto& name = fun_parameter->getObjectName();
+            auto *fun_parameter = fun_params[i];
+            auto &name = fun_parameter->getObjectName();
             if (reaction.isLocalParameter(name) == false)
                 continue;
             ordered_json p;
@@ -709,19 +819,18 @@ ordered_json buildModelInfo()
             p["value"] = reaction.getParameterValue(name);
             localParameters.push_back(p);
 
-            auto& cns = reaction.getParameterCNs(name);
-            auto& obj = reaction.getParameterObjects(name);
+            auto &cns = reaction.getParameterCNs(name);
+            auto &obj = reaction.getParameterObjects(name);
 
             if (cns.empty() || obj.empty())
                 continue;
 
             CModelElement lp = {
-                const_cast<CDataObject*>(obj[0]),
+                const_cast<CDataObject *>(obj[0]),
                 "",
                 cns[0],
                 cns[0],
-                &reaction.getParameterValue(name)
-            };
+                &reaction.getParameterValue(name)};
             mLocalParameters[obj[0]->getObjectDisplayName()] = lp;
         }
         r["local_parameters"] = localParameters;
@@ -732,8 +841,7 @@ ordered_json buildModelInfo()
             reaction.getSBMLId(),
             reaction.getFluxReference()->getCN(),
             reaction.getFluxReference()->getCN(),
-            &reaction.getFlux()
-        };
+            &reaction.getFlux()};
         mReactions[reaction.getObjectName()] = re;
         mReactionsIdMap[reaction.getSBMLId()] = reaction.getObjectName();
         mAllIds.push_back(reaction.getSBMLId());
@@ -757,8 +865,7 @@ ordered_json buildModelInfo()
             param.getSBMLId(),
             param.getInitialValueReference()->getCN(),
             param.getValueReference()->getCN(),
-            &param.getValue()
-        };
+            &param.getValue()};
         mGlobalParameters[param.getObjectName()] = gp;
         mGlobalParametersIdMap[param.getSBMLId()] = param.getObjectName();
         mAllIds.push_back(param.getSBMLId());
@@ -789,19 +896,19 @@ std::string getModelInfo()
     return buildModelInfo().dump(2);
 }
 
-void _removeFixedElementsFromSet(CModelParameterGroup* group)
+void _removeFixedElementsFromSet(CModelParameterGroup *group)
 {
     if (!group)
         return;
-    
-    std::vector< CModelParameter * > toBeRemoved;
+
+    std::vector<CModelParameter *> toBeRemoved;
     for (auto it = group->begin(); it != group->end(); ++it)
     {
-        auto* p = *it;
+        auto *p = *it;
         if (p == NULL)
             continue;
 
-        auto *pGroup = dynamic_cast<CModelParameterGroup*>(p);
+        auto *pGroup = dynamic_cast<CModelParameterGroup *>(p);
         if (pGroup)
         {
             _removeFixedElementsFromSet(pGroup);
@@ -813,7 +920,7 @@ void _removeFixedElementsFromSet(CModelParameterGroup* group)
         }
     }
 
-    for (auto* p : toBeRemoved)
+    for (auto *p : toBeRemoved)
     {
         group->remove(p);
     }
@@ -821,10 +928,10 @@ void _removeFixedElementsFromSet(CModelParameterGroup* group)
 
 void loadCommon()
 {
-    auto* pModel = pDataModel->getModel();
+    auto *pModel = pDataModel->getModel();
     pModel->applyInitialValues();
-    auto& sets = pModel->getModelParameterSets();
-    auto* newSet = new CModelParameterSet("_initial_state");
+    auto &sets = pModel->getModelParameterSets();
+    auto *newSet = new CModelParameterSet("_initial_state");
     sets.add(newSet, true);
     newSet->createFromModel();
 
@@ -835,7 +942,7 @@ void loadCommon()
     _removeFixedElementsFromSet(newSet);
 }
 
-std::string loadFromFile(const std::string& modelFile)
+std::string loadFromFile(const std::string &modelFile)
 {
     try
     {
@@ -874,7 +981,7 @@ std::string loadFromFile(const std::string& modelFile)
     return buildModelInfo().dump(2);
 }
 
-std::string loadModel(const std::string& cpsCode)
+std::string loadModel(const std::string &cpsCode)
 {
     try
     {
@@ -918,8 +1025,8 @@ void reset()
     if (pDataModel == NULL)
         initCps();
 
-    auto* pModel = pDataModel->getModel();
-    auto& set = pModel->getModelParameterSets()["_initial_state_variables_only"];
+    auto *pModel = pDataModel->getModel();
+    auto &set = pModel->getModelParameterSets()["_initial_state_variables_only"];
     set.updateModel();
     pModel->applyInitialValues();
 }
@@ -929,13 +1036,13 @@ void resetAll()
     if (pDataModel == NULL)
         initCps();
 
-    auto* pModel = pDataModel->getModel();
-    auto& set = pModel->getModelParameterSets()["_initial_state"];
+    auto *pModel = pDataModel->getModel();
+    auto &set = pModel->getModelParameterSets()["_initial_state"];
     set.updateModel();
     pModel->applyInitialValues();
 }
 
-void applyYaml(ordered_json& yaml)
+void applyYaml(ordered_json &yaml)
 {
     auto &task = dynamic_cast<CTrajectoryTask &>((*pDataModel->getTaskList())["Time-Course"]);
     task.setUpdateModel(true);
@@ -943,42 +1050,40 @@ void applyYaml(ordered_json& yaml)
 
     if (!yaml["problem"].empty())
     {
-        auto& p = yaml["problem"];
+        auto &p = yaml["problem"];
         setGroupFromJson(problem, p);
 
         // need to take extra care with step number / stepsize
         // as those might not be honored if set via group
         if (!p["Duration"].empty())
-            problem->setDuration(p["Duration"].get<double>());        
+            problem->setDuration(p["Duration"].get<double>());
         if (!p["StepNumber"].empty())
             problem->setStepNumber(p["StepNumber"].get<int>());
         if (!p["StepSize"].empty())
-            problem->setStepSize(p["StepSize"].get<double>());        
+            problem->setStepSize(p["StepSize"].get<double>());
         if (!p["OutputStartTime"].empty())
-            problem->setOutputStartTime(p["OutputStartTime"].get<double>());        
-        
+            problem->setOutputStartTime(p["OutputStartTime"].get<double>());
     }
 
     if (!yaml["method"].empty())
     {
-        auto& m = yaml["method"];
+        auto &m = yaml["method"];
         if (!m["name"].empty())
             task.setMethodType(CTaskEnum::MethodName.toEnum(m["name"].get<string>()));
-        auto* method = task.getMethod();
+        auto *method = task.getMethod();
         setGroupFromJson(method, m);
     }
 
     if (!yaml["initial_values"].empty())
     {
-        auto& iv = yaml["initial_values"];
-        auto* model = pDataModel->getModel();
-        for (auto& [key, value] : iv.items())
+        auto &iv = yaml["initial_values"];
+        auto *model = pDataModel->getModel();
+        for (auto &[key, value] : iv.items())
         {
             double dValue = value.get<double>();
             setValueByName(key, dValue);
         }
     }
-
 }
 
 void ensureModel()
@@ -1010,12 +1115,12 @@ std::vector<std::vector<double>> getSimulationResults2D()
     return results;
 }
 
-std::vector<std::vector<double>> convertCEigen(const CEigen& eValues)
+std::vector<std::vector<double>> convertCEigen(const CEigen &eValues)
 {
     std::vector<std::vector<double>> values;
-    
-    auto& imag = eValues.getI();
-    auto& real = eValues.getR();
+
+    auto &imag = eValues.getI();
+    auto &real = eValues.getR();
 
     for (size_t i = 0; i < imag.size(); ++i)
     {
@@ -1028,7 +1133,7 @@ std::vector<std::vector<double>> convertCEigen(const CEigen& eValues)
     return values;
 }
 
-std::vector<std::vector<double>> convertCArray( CArrayInterface* pArray)
+std::vector<std::vector<double>> convertCArray(CArrayInterface *pArray)
 {
     std::vector<std::vector<double>> values;
     if (pArray == NULL || pArray->dimensionality() != 2)
@@ -1050,7 +1155,7 @@ std::vector<std::vector<double>> convertCArray( CArrayInterface* pArray)
     return values;
 }
 
-ordered_json convertDataArray(const CDataArray* pArray)
+ordered_json convertDataArray(const CDataArray *pArray)
 {
     ordered_json result;
 
@@ -1059,7 +1164,7 @@ ordered_json convertDataArray(const CDataArray* pArray)
 
     std::vector<std::string> columns = pArray->getAnnotationsString(1);
     std::vector<std::string> rows = pArray->getAnnotationsString(0);
-    std::vector<std::vector<double>> values = convertCArray(const_cast<CArrayInterface*>( pArray->getArray()));
+    std::vector<std::vector<double>> values = convertCArray(const_cast<CArrayInterface *>(pArray->getArray()));
 
     result["columns"] = columns;
     result["rows"] = rows;
@@ -1073,10 +1178,9 @@ std::string getJacobian()
     ensureModel();
 
     auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
-    auto* pMatrix = task.getJacobianAnnotated();
-    
-    return convertDataArray(pMatrix).dump(2);
+    auto *pMatrix = task.getJacobianAnnotated();
 
+    return convertDataArray(pMatrix).dump(2);
 }
 
 std::vector<std::vector<double>> getJacobian2D()
@@ -1084,8 +1188,8 @@ std::vector<std::vector<double>> getJacobian2D()
     ensureModel();
 
     auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
-    auto* pMatrix = task.getJacobianAnnotated();
-    
+    auto *pMatrix = task.getJacobianAnnotated();
+
     return convertCArray(pMatrix->getArray());
 }
 
@@ -1094,8 +1198,8 @@ std::vector<std::vector<double>> getEigenValues2D()
     ensureModel();
 
     auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
-    const auto& eValues = task.getEigenValues();
-    
+    const auto &eValues = task.getEigenValues();
+
     return convertCEigen(eValues);
 }
 
@@ -1104,10 +1208,9 @@ std::string getJacobianReduced()
     ensureModel();
 
     auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
-    auto* pMatrix = task.getJacobianXAnnotated();
-    
-    return convertDataArray(pMatrix).dump(2);
+    auto *pMatrix = task.getJacobianXAnnotated();
 
+    return convertDataArray(pMatrix).dump(2);
 }
 
 std::vector<std::vector<double>> getJacobianReduced2D()
@@ -1115,8 +1218,8 @@ std::vector<std::vector<double>> getJacobianReduced2D()
     ensureModel();
 
     auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
-    auto* pMatrix = task.getJacobianXAnnotated();
-    
+    auto *pMatrix = task.getJacobianXAnnotated();
+
     return convertCArray(pMatrix->getArray());
 }
 
@@ -1125,11 +1228,76 @@ std::vector<std::vector<double>> getEigenValuesReduced2D()
     ensureModel();
 
     auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
-    const auto& eValues = task.getEigenValuesReduced();
-    
+    const auto &eValues = task.getEigenValuesReduced();
+
     return convertCEigen(eValues);
 }
 
+std::string getFluxControlCoefficients(bool scaled)
+{
+    ensureModel();
+
+    auto &task = dynamic_cast<CMCATask &>((*pDataModel->getTaskList())["Metabolic Control Analysis"]);
+    auto method = dynamic_cast<CMCAMethod *>(task.getMethod());
+    auto *pMatrix = scaled ? method->getScaledFluxCCAnn() : method->getUnscaledFluxCCAnn();
+
+    return convertDataArray(pMatrix).dump(2);
+}
+
+std::vector<std::vector<double>> getFluxControlCoefficients2D(bool scaled)
+{
+    ensureModel();
+
+    auto &task = dynamic_cast<CMCATask &>((*pDataModel->getTaskList())["Metabolic Control Analysis"]);
+    auto method = dynamic_cast<CMCAMethod *>(task.getMethod());
+    auto *pMatrix = scaled ? method->getScaledFluxCCAnn() : method->getUnscaledFluxCCAnn();
+
+    return convertCArray(pMatrix->getArray());
+}
+
+std::string getConcentrationControlCoefficients(bool scaled)
+{
+    ensureModel();
+
+    auto &task = dynamic_cast<CMCATask &>((*pDataModel->getTaskList())["Metabolic Control Analysis"]);
+    auto method = dynamic_cast<CMCAMethod *>(task.getMethod());
+    auto *pMatrix = scaled ? method->getScaledConcentrationCCAnn() : method->getUnscaledConcentrationCCAnn();
+
+    return convertDataArray(pMatrix).dump(2);
+}
+
+std::vector<std::vector<double>> getConcentrationControlCoefficients2D(bool scaled)
+{
+    ensureModel();
+
+    auto &task = dynamic_cast<CMCATask &>((*pDataModel->getTaskList())["Metabolic Control Analysis"]);
+    auto method = dynamic_cast<CMCAMethod *>(task.getMethod());
+    auto *pMatrix = scaled ? method->getScaledConcentrationCCAnn() : method->getUnscaledConcentrationCCAnn();
+
+    return convertCArray(pMatrix->getArray());
+}
+
+std::string getElasticities(bool scaled)
+{
+    ensureModel();
+
+    auto &task = dynamic_cast<CMCATask &>((*pDataModel->getTaskList())["Metabolic Control Analysis"]);
+    auto method = dynamic_cast<CMCAMethod *>(task.getMethod());
+    auto *pMatrix = scaled ? method->getScaledElasticitiesAnn() : method->getUnscaledElasticitiesAnn();
+
+    return convertDataArray(pMatrix).dump(2);
+}
+
+std::vector<std::vector<double>> getElasticities2D(bool scaled)
+{
+    ensureModel();
+
+    auto &task = dynamic_cast<CMCATask &>((*pDataModel->getTaskList())["Metabolic Control Analysis"]);
+    auto method = dynamic_cast<CMCAMethod *>(task.getMethod());
+    auto *pMatrix = scaled ? method->getScaledElasticitiesAnn() : method->getUnscaledElasticitiesAnn();
+
+    return convertCArray(pMatrix->getArray());
+}
 
 double steadyState()
 {
@@ -1141,7 +1309,6 @@ double steadyState()
     auto *problem = dynamic_cast<CSteadyStateProblem *>(task.getProblem());
     bool request = true;
     problem->setStabilityAnalysisRequested(request);
-    
 
     if (!task.initialize(CCopasiTask::OUTPUT_UI, pDataModel, NULL))
         return std::numeric_limits<double>::quiet_NaN();
@@ -1152,7 +1319,7 @@ double steadyState()
     if (!task.restore())
         return std::numeric_limits<double>::quiet_NaN();
 
-    auto* method = dynamic_cast<CSteadyStateMethod*>(task.getMethod());
+    auto *method = dynamic_cast<CSteadyStateMethod *>(task.getMethod());
     if (method == NULL)
         return std::numeric_limits<double>::quiet_NaN();
     auto log = method->getMethodLog();
@@ -1165,13 +1332,35 @@ double steadyState()
     auto end = log.find("\n", pos);
     if (end == std::string::npos)
         return std::numeric_limits<double>::quiet_NaN();
-    auto rate = log.substr(pos, end-pos);
+    auto rate = log.substr(pos, end - pos);
     auto rateValue = std::stod(rate);
     return rateValue;
 }
 
+bool computeMca(bool performSteadyState)
+{
+    ensureModel();
 
-std::string simulateJSON(ordered_json& yaml)
+    auto &task = dynamic_cast<CMCATask &>((*pDataModel->getTaskList())["Metabolic Control Analysis"]);
+
+    task.setUpdateModel(true);
+
+    auto *problem = dynamic_cast<CMCAProblem *>(task.getProblem());
+    problem->setSteadyStateRequested(performSteadyState);
+
+    if (!task.initialize(CCopasiTask::OUTPUT_UI, pDataModel, NULL))
+        return false;
+
+    if (!task.process(false))
+        return false;
+
+    if (!task.restore())
+        return false;
+
+    return false;
+}
+
+std::string simulateJSON(ordered_json &yaml)
 {
     try
     {
@@ -1200,7 +1389,7 @@ std::string simulateJSON(ordered_json& yaml)
             ordered_json modelInfo;
             modelInfo["status"] = "error";
             modelInfo["messages"] = getMessages(pos, "No Output");
-            return modelInfo.dump(2);            
+            return modelInfo.dump(2);
         }
 
         if (!task.process(true))
@@ -1208,7 +1397,7 @@ std::string simulateJSON(ordered_json& yaml)
             ordered_json modelInfo;
             modelInfo["status"] = "error";
             modelInfo["messages"] = getMessages(pos, "No Output");
-            return modelInfo.dump(2);            
+            return modelInfo.dump(2);
         }
 
         if (!task.restore())
@@ -1216,7 +1405,7 @@ std::string simulateJSON(ordered_json& yaml)
             ordered_json modelInfo;
             modelInfo["status"] = "error";
             modelInfo["messages"] = getMessages(pos, "No Output");
-            return modelInfo.dump(2);            
+            return modelInfo.dump(2);
         }
 
         if (mpDataHandler)
@@ -1227,9 +1416,9 @@ std::string simulateJSON(ordered_json& yaml)
         else
         {
             auto &ts = task.getTimeSeries();
-            //fillStream(ts, str);
+            // fillStream(ts, str);
 
-            //return str.str().c_str();
+            // return str.str().c_str();
             return convertTimeSeriesToJSON(ts).dump(2);
         }
     }
@@ -1238,14 +1427,14 @@ std::string simulateJSON(ordered_json& yaml)
         ordered_json modelInfo;
         modelInfo["status"] = "error";
         modelInfo["messages"] = getMessages(0, "No Output");
-        return modelInfo.dump(2);        
+        return modelInfo.dump(2);
     }
     catch (std::exception &e)
     {
         ordered_json modelInfo;
         modelInfo["status"] = "error";
         modelInfo["messages"] = e.what();
-        return modelInfo.dump(2);        
+        return modelInfo.dump(2);
     }
 }
 
@@ -1261,29 +1450,29 @@ std::string getTimeCourseSettings()
     return yaml.dump(2);
 }
 
-void setTimeCourseSettings(const std::string& settings)
+void setTimeCourseSettings(const std::string &settings)
 {
     ensureModel();
     ordered_json yaml = ordered_json::parse(settings);
     applyYaml(yaml);
 }
 
-std::string simulateYaml(const std::string& processingYaml)
+std::string simulateYaml(const std::string &processingYaml)
 {
     auto yaml = nlohmann::ordered_json::parse(processingYaml);
     return simulateJSON(yaml);
 }
 
-std::string simulate() 
+std::string simulate()
 {
     ordered_json yaml;
     return simulateJSON(yaml);
 }
 
-std::string simulateEx(double timeStart, double timeEnd, int numPoints) 
+std::string simulateEx(double timeStart, double timeEnd, int numPoints)
 {
     ordered_json yaml;
-    numPoints = numPoints > 1 ? numPoints-1 : numPoints;
+    numPoints = numPoints > 1 ? numPoints - 1 : numPoints;
     yaml["problem"]["StepNumber"] = numPoints;
     yaml["problem"]["OutputStartTime"] = timeStart;
     yaml["problem"]["Duration"] = timeEnd;
@@ -1296,7 +1485,7 @@ std::string simulateEx(double timeStart, double timeEnd, int numPoints)
 std::vector<std::string> getReactionNames()
 {
     std::vector<std::string> names;
-    for (auto& [key, value] : mReactions)
+    for (auto &[key, value] : mReactions)
     {
         names.push_back(key);
     }
@@ -1306,7 +1495,7 @@ std::vector<std::string> getReactionNames()
 std::vector<std::string> getReactionIds()
 {
     std::vector<std::string> ids;
-    for (auto& [key, value] : mReactionsIdMap)
+    for (auto &[key, value] : mReactionsIdMap)
     {
         ids.push_back(key);
     }
@@ -1316,7 +1505,7 @@ std::vector<std::string> getReactionIds()
 std::vector<double> getReactionRates()
 {
     std::vector<double> rates;
-    for (auto& [key, value] : mReactions)
+    for (auto &[key, value] : mReactions)
     {
         rates.push_back(*value.pValue);
     }
@@ -1326,7 +1515,7 @@ std::vector<double> getReactionRates()
 std::vector<std::string> getFloatingSpeciesNames()
 {
     std::vector<std::string> names;
-    for (auto& [key, value] : mFloatingSpecies)
+    for (auto &[key, value] : mFloatingSpecies)
     {
         names.push_back(key);
     }
@@ -1336,7 +1525,7 @@ std::vector<std::string> getFloatingSpeciesNames()
 std::vector<std::string> getFloatingSpeciesIds()
 {
     std::vector<std::string> ids;
-    for (auto& [key, value] : mFloatingSpeciesIdMap)
+    for (auto &[key, value] : mFloatingSpeciesIdMap)
     {
         ids.push_back(key);
     }
@@ -1346,7 +1535,7 @@ std::vector<std::string> getFloatingSpeciesIds()
 std::vector<double> getFloatingSpeciesConcentrations()
 {
     std::vector<double> concentrations;
-    for (auto& [key, value] : mFloatingSpecies)
+    for (auto &[key, value] : mFloatingSpecies)
     {
         concentrations.push_back(*value.pValue);
     }
@@ -1356,7 +1545,7 @@ std::vector<double> getFloatingSpeciesConcentrations()
 std::vector<double> getRatesOfChange()
 {
     std::vector<double> concentrations;
-    for (auto& [key, value] : mFloatingSpecies)
+    for (auto &[key, value] : mFloatingSpecies)
     {
         if (value.pRates != NULL)
             concentrations.push_back(*value.pRates);
@@ -1366,22 +1555,20 @@ std::vector<double> getRatesOfChange()
     return concentrations;
 }
 
-
 std::vector<std::string> getBoundarySpeciesNames()
 {
     std::vector<std::string> names;
-    for (auto& [key, value] : mBoundarySpecies)
+    for (auto &[key, value] : mBoundarySpecies)
     {
         names.push_back(key);
     }
     return names;
 }
 
-
 std::vector<std::string> getBoundarySpeciesIds()
 {
     std::vector<std::string> ids;
-    for (auto& [key, value] : mBoundarySpeciesIdMap)
+    for (auto &[key, value] : mBoundarySpeciesIdMap)
     {
         ids.push_back(key);
     }
@@ -1391,7 +1578,7 @@ std::vector<std::string> getBoundarySpeciesIds()
 std::vector<double> getBoundarySpeciesConcentrations()
 {
     std::vector<double> concentrations;
-    for (auto& [key, value] : mBoundarySpecies)
+    for (auto &[key, value] : mBoundarySpecies)
     {
         concentrations.push_back(*value.pValue);
     }
@@ -1401,18 +1588,17 @@ std::vector<double> getBoundarySpeciesConcentrations()
 std::vector<std::string> getCompartmentNames()
 {
     std::vector<std::string> names;
-    for (auto& [key, value] : mCompartments)
+    for (auto &[key, value] : mCompartments)
     {
         names.push_back(key);
     }
     return names;
 }
 
-
 std::vector<std::string> getCompartmentIds()
 {
     std::vector<std::string> ids;
-    for (auto& [key, value] : mCompartmentsIdMap)
+    for (auto &[key, value] : mCompartmentsIdMap)
     {
         ids.push_back(key);
     }
@@ -1422,7 +1608,7 @@ std::vector<std::string> getCompartmentIds()
 std::vector<double> getCompartmentSizes()
 {
     std::vector<double> sizes;
-    for (auto& [key, value] : mCompartments)
+    for (auto &[key, value] : mCompartments)
     {
         sizes.push_back(*value.pValue);
     }
@@ -1432,7 +1618,7 @@ std::vector<double> getCompartmentSizes()
 std::vector<std::string> getGlobalParameterNames()
 {
     std::vector<std::string> names;
-    for (auto& [key, value] : mGlobalParameters)
+    for (auto &[key, value] : mGlobalParameters)
     {
         names.push_back(key);
     }
@@ -1442,7 +1628,7 @@ std::vector<std::string> getGlobalParameterNames()
 std::vector<std::string> getGlobalParameterIds()
 {
     std::vector<std::string> ids;
-    for (auto& [key, value] : mGlobalParametersIdMap)
+    for (auto &[key, value] : mGlobalParametersIdMap)
     {
         ids.push_back(key);
     }
@@ -1452,7 +1638,7 @@ std::vector<std::string> getGlobalParameterIds()
 std::vector<double> getGlobalParameterValues()
 {
     std::vector<double> values;
-    for (auto& [key, value] : mGlobalParameters)
+    for (auto &[key, value] : mGlobalParameters)
     {
         values.push_back(*value.pValue);
     }
@@ -1462,7 +1648,7 @@ std::vector<double> getGlobalParameterValues()
 std::vector<std::string> getLocalParameterNames()
 {
     std::vector<std::string> names;
-    for (auto& [key, value] : mLocalParameters)
+    for (auto &[key, value] : mLocalParameters)
     {
         names.push_back(key);
     }
@@ -1472,7 +1658,7 @@ std::vector<std::string> getLocalParameterNames()
 std::vector<double> getLocalParameterValues()
 {
     std::vector<double> values;
-    for (auto& [key, value] : mLocalParameters)
+    for (auto &[key, value] : mLocalParameters)
     {
         values.push_back(*value.pValue);
     }
@@ -1497,13 +1683,12 @@ std::vector<std::string> getSelectionList()
 std::vector<double> getSelectionValues()
 {
     std::vector<double> values;
-    for (auto* pValue : mSelectedValues)
+    for (auto *pValue : mSelectedValues)
     {
         values.push_back(*pValue);
     }
     return values;
 }
-
 
 #ifdef EMSCRIPTEN
 EMSCRIPTEN_BINDINGS(copasi_binding)
@@ -1512,11 +1697,11 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     register_vector<char>("CharVector");
     register_vector<float>("FloatVector");
     register_vector<double>("DoubleVector");
-    register_vector< std::vector<double> >("DoubleVectorVector");
+    register_vector<std::vector<double>>("DoubleVectorVector");
     register_vector<std::string>("StringVector");
 
     emscripten::function("initCps", &initCps);
-    emscripten::function("destroy", &destroyAPI);  
+    emscripten::function("destroy", &destroyAPI);
     emscripten::function("getVersion", &getVersion);
     emscripten::function("getMessages", &getMessages);
     emscripten::function("getModelInfo", &getModelInfo);
@@ -1553,9 +1738,9 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("setValue", &setValue);
     emscripten::function("setValueByName", &setValueByName);
 
-
     emscripten::function("oneStep", &oneStep);
     emscripten::function("steadyState", &steadyState);
+    emscripten::function("computeMca", &computeMca);
 
     emscripten::function("getSelectionList", &getSelectionList);
     emscripten::function("getSelectedValues", &getSelectionValues);
@@ -1568,5 +1753,12 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("getJacobianReduced2D", &getJacobianReduced2D);
     emscripten::function("getEigenValuesReduced2D", &getEigenValuesReduced2D);
 
+    // mca results
+    emscripten::function("getFluxControlCoefficients", &getFluxControlCoefficients);
+    emscripten::function("getFluxControlCoefficients2D", &getFluxControlCoefficients2D);
+    emscripten::function("getConcentrationControlCoefficients", &getConcentrationControlCoefficients);
+    emscripten::function("getConcentrationControlCoefficients2D", &getConcentrationControlCoefficients2D);
+    emscripten::function("getElasticities", &getElasticities);
+    emscripten::function("getElasticities2D", &getElasticities2D);
 }
 #endif

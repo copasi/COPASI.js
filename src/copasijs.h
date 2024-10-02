@@ -158,6 +158,19 @@ std::vector<std::vector<double>> getSimulationResults2D();
 /// @return the closeness to steady state
 double steadyState();
 
+/// @brief performs metabolic control analysis
+///
+/// To retrieve the results use the following functions:
+/// - @see getFluxControlCoefficients(bool scaled)
+/// - @see getConcentrationControlCoefficients(bool scaled)
+/// - @see getElasticities(bool scaled)
+///
+/// @param performSteadyState param indicating, whether the steady state
+/// should be computed before the MCA computations
+///
+/// @return boolean indicating success
+bool computeMca(bool performSteadyState=true);
+
 /// @brief runs a simulation and returns the result as json string
 /// @param yaml the yaml string with the simulation settings and possibly 
 /// changed initial values the format is the same as @see applyYaml
@@ -395,8 +408,29 @@ std::vector<std::vector<double>> getJacobianReduced2D();
 /// @brief returns the reduced eigenvalues of the Jacobian at steady state as 2D double vector
 std::vector<std::vector<double>> getEigenValuesReduced2D();
 
+/// @brief returns the flux control coefficients as JSON string
+/// @param scaled if true the scaled coefficients are returned
+std::string getFluxControlCoefficients(bool scaled);
 
+/// @brief returns the flux control coefficients as 2D double vector
+/// @param scaled if true the scaled coefficients are returned
+std::vector<std::vector<double>> getFluxControlCoefficients2D(bool scaled);
 
+/// @brief returns the concentration control coefficients as JSON string
+/// @param scaled if true the scaled coefficients are returned
+std::string getConcentrationControlCoefficients(bool scaled);
+
+/// @brief returns the concentration control coefficients as 2D double vector
+/// @param scaled if true the scaled coefficients are returned
+std::vector<std::vector<double>> getConcentrationControlCoefficients2D(bool scaled);
+
+/// @brief returns the elasticities as JSON string
+/// @param scaled if true the scaled elasticities are returned
+std::string getElasticities(bool scaled);
+
+/// @brief returns the elasticities as 2D double vector
+/// @param scaled if true the scaled elasticities are returned
+std::vector<std::vector<double>> getElasticities2D(bool scaled);
 
 #pragma region  // internal calls Internal
 
@@ -469,6 +503,8 @@ void loadCommon();
 /// ```
 ///
 std::string simulateJSON(nlohmann::ordered_json& yaml);
+
+CDataObject* resolveMcaObject(const std::string& item);
 #pragma endregion
 
 

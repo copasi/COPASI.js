@@ -366,3 +366,62 @@ TEST_CASE("Steadystate test", "[copasijs][steadystate]")
 
     REQUIRE(jac2d.size() == 2);
 }
+
+
+TEST_CASE("Load COVID Model", "[copasijs][mca]")
+{
+	Instance instance;
+	std::string model = loadFromFile(getTestFile("../example_files/brusselator.cps"));
+	REQUIRE(!model.empty());
+	REQUIRE(model != "Error loading model");
+
+	auto selectionList = getSelectionList();
+
+	// add elasticities to selectionlist
+	selectionList.push_back("CN=Root,Vector=TaskList[Metabolic Control Analysis],Method=MCA Method (Reder),Array=Scaled elasticities[(R1)][X]");
+	selectionList.push_back("CN=Root,Vector=TaskList[Metabolic Control Analysis],Method=MCA Method (Reder),Array=Unscaled elasticities[(R1)][X]");
+	selectionList.push_back("CN=Root,Vector=TaskList[Metabolic Control Analysis],Method=MCA Method (Reder),Array=Scaled concentration control coefficients[X][(R1)]");
+	selectionList.push_back("CN=Root,Vector=TaskList[Metabolic Control Analysis],Method=MCA Method (Reder),Array=Unscaled concentration control coefficients[X][(R1)]");
+	selectionList.push_back("CN=Root,Vector=TaskList[Metabolic Control Analysis],Method=MCA Method (Reder),Array=Scaled flux control coefficients[(R1)][(R1)]");
+	selectionList.push_back("CN=Root,Vector=TaskList[Metabolic Control Analysis],Method=MCA Method (Reder),Array=Unscaled flux control coefficients[(R1)][(R1)]");
+
+	setSelectionList(selectionList);
+
+	auto result = simulateEx(0, 10, 11);
+
+	auto result2d = getSimulationResults2D();
+
+	REQUIRE(result2d.size() == 11);
+
+  computeMca(true);
+
+  auto selected = getSelectionValues();
+
+  REQUIRE(selected.size() == 9);
+
+  auto cccs = getConcentrationControlCoefficients(true);
+  auto cccs2d = getConcentrationControlCoefficients2D(true);
+  auto fccs = getFluxControlCoefficients(true);
+  auto fccs2d = getFluxControlCoefficients2D(true);
+  auto elasticities = getElasticities(true);
+  auto elasticities2d = getElasticities2D(true);
+
+  double dValue = getValue("EE(R1,X)");
+  REQUIRE(dValue == dValue);
+  dValue = getValue("uEE(R1,X)");
+  REQUIRE(dValue == dValue);
+  dValue = getValue("FCC(R1,R1)");
+  REQUIRE(dValue == dValue);
+  dValue = getValue("uFCC(R1,R1)");
+  REQUIRE(dValue == dValue);
+  dValue = getValue("CCC(X,R1)");
+  REQUIRE(dValue == dValue);
+  dValue = getValue("uCCC(X,R1)");
+  REQUIRE(dValue == dValue);
+
+  dValue = getValue("nonExistent(X,R1)");
+  REQUIRE(dValue != dValue);
+  dValue = getValue("uCCC(A,R1)");
+	REQUIRE(dValue != dValue);
+}
+

@@ -103,6 +103,12 @@ export default class COPASI {
     readonly reducedJacobian2D: number[][];
     readonly eigenValuesReduced2D: number[][];
     
+    getFluxControlCoefficients(scaled: boolean): object;
+    getFluxControlCoefficients2D(scaled: boolean): number[][];
+    getConcentrationControlCoefficients(scaled: boolean): object;
+    getConcentrationControlCoefficients2D(scaled: boolean): number[][];
+    getElasticities(scaled: boolean): object;
+    getElasticities2D(scaled: boolean): number[][];
 
 }
 

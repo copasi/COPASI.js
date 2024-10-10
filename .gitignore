@@ -67,3 +67,4 @@
 /cpp-build/
 
 .DS_Store
+*.pdb

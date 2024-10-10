@@ -327,10 +327,36 @@ double getValue(const std::string &nameOrId)
         return *it->second.pValue;
 
     // resolve mcaSymbols
+    {
     auto *ccObj = resolveMcaObject(nameOrId);
     if (ccObj)
     {
         return *reinterpret_cast<const double *>(ccObj->getValuePointer());
+    }
+    }
+
+    // resolve display names:
+    {
+        auto *obj = const_cast<CDataObject *>(pDataModel->findObjectByDisplayName(nameOrId));
+        if (obj)
+        {
+            if (obj->getObjectType() == "Reference")
+            {
+                return *reinterpret_cast<const double *>(obj->getValuePointer());
+            }
+
+            auto *pMetab = dynamic_cast<CMetab *>(obj);
+            if (pMetab)
+            {
+                return pMetab->getConcentration();
+            }
+
+            auto *pEntity = dynamic_cast<CModelEntity *>(obj);
+            if (pEntity)
+            {
+                return pEntity->getValue();
+            }
+        }
     }
 
     return std::numeric_limits<double>::quiet_NaN();
@@ -374,6 +400,36 @@ bool setModelElement(std::map<std::string, CModelElement> &map, std::map<std::st
             return true;
         }
     }
+
+    // resolve other possibilities
+
+    // displaynames like [S1]_0, only run if name ends with _0
+    if (name.rfind("_0") == name.size() -2)
+    {
+        auto* obj = const_cast<CDataObject*>(pDataModel->findObjectByDisplayName(name));
+        auto &set = pDataModel->getModel()->getModelParameterSets()["_initial_state_variables_only"];
+        auto* pGroup =  const_cast<CModelParameterGroup*>(dynamic_cast<const CModelParameterGroup*>(set.getModelParameter("String=Initial Species Values")));
+
+        if (obj && pGroup)
+        {
+            auto object_name = obj->getObjectName();
+            auto object_type = obj->getObjectType();
+
+            model->updateInitialValues(obj, false);
+
+            auto* pMetab = dynamic_cast<CMetab*>(obj->getObjectParent());
+
+            pMetab->setInitialConcentration(value);
+            model->updateInitialValues(obj, false);
+
+            auto cn = pMetab->getCN();
+            auto* pParam = dynamic_cast<CModelParameterSpecies*>( pGroup->getModelParameter(cn));
+            if (pParam)
+            pParam->setValue(value, CCore::Framework::Concentration, true);
+
+        }
+    }
+
     return false;
 }
 
@@ -638,7 +694,8 @@ void setSelectionList(const std::vector<std::string> &selectionList)
         if (item.find("CN=") == 0)
         {
             auto *obj = const_cast<CDataObject *>(dynamic_cast<const CDataObject *>(pDataModel->getObject(item)));
-            if (obj != NULL)
+            std::string name = obj ? obj->getObjectName() : std::string();
+            if (obj != NULL && name.find("[not found]") == std::string::npos)
             {
                 mSelectedValues.push_back(reinterpret_cast<const double *>(obj->getValuePointer()));
                 mpDataHandler->addDuringName(obj->getCN());

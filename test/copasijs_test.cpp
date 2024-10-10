@@ -158,7 +158,7 @@ TEST_CASE("Test stepsize in multiple runs", "[copasijs][multiple]")
     REQUIRE(json["recorded_steps"].get<int>() == 101);
 }
 
-TEST_CASE("Load SBML Model", "[copasijs][sbml]")
+TEST_CASE("Load SBML Model", "[copasijs][sbml][setValue]")
 {
     Instance instance;
     std::string model = loadFromFile(getTestFile("../example_files/oscli.xml"));
@@ -236,6 +236,8 @@ TEST_CASE("Load SBML Model", "[copasijs][sbml]")
     REQUIRE(value == 2);
 
     reset();
+    value = getValue("S1");
+    REQUIRE(value == 0);
     setValue("S1", 1);
 
     data = simulateEx(0, 10, 11);
@@ -264,6 +266,23 @@ TEST_CASE("Load SBML Model", "[copasijs][sbml]")
     // now S1 should be 0 and J0_v0 should be 10
     REQUIRE(getValue("S1") == 0);
     REQUIRE(getValue("J0_v0") == 10);
+
+    // test changing the initial value, 
+    setValue("[S1]_0", 1);
+
+    // it should persist after reset
+    reset();
+    REQUIRE(getValue("[S1]_0") == 1);
+    REQUIRE(getValue("S1") == 1);
+
+    // and be reset after resetAll
+    resetAll();
+    REQUIRE(getValue("[S1]_0") == 0);
+    REQUIRE(getValue("S1") == 0);
+
+    // and running reset after resetAll should not change the value
+    reset();
+    REQUIRE(getValue("S1") == 0);
 
     // now run resetAll
     setValue("S1", 1);

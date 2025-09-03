@@ -233,11 +233,11 @@ TEST_CASE("Load SBML Model", "[copasijs][sbml][setValue]")
     setValue("compartment", 2);
     value = getValue("compartment");
     CAPTURE(value);
-    REQUIRE(value == 2);
+    REQUIRE(value == 2.0);
 
     reset();
     value = getValue("S1");
-    REQUIRE(value == 0);
+    REQUIRE(value == 0.0);
     setValue("S1", 1);
 
     data = simulateEx(0, 10, 11);
@@ -246,7 +246,7 @@ TEST_CASE("Load SBML Model", "[copasijs][sbml][setValue]")
     REQUIRE(json["titles"][0] == "Time");
     REQUIRE(json["titles"][1] == "S1");
     REQUIRE(json["columns"][0].size() == json["recorded_steps"].get<int>());
-    REQUIRE(json["columns"][1][0] == 1);
+    REQUIRE(json["columns"][1][0] == 1.0);
 
     // reset again and check that the value is back to 0
     reset();
@@ -254,7 +254,7 @@ TEST_CASE("Load SBML Model", "[copasijs][sbml][setValue]")
     CAPTURE(data);
     json = nlohmann::json::parse(data);
     REQUIRE(json["titles"][1] == "S1");
-    REQUIRE(json["columns"][1][0] == 0f);
+    REQUIRE(json["columns"][1][0] == 0.0);
 
     setValue("J0_v0", 8);
 
@@ -264,33 +264,33 @@ TEST_CASE("Load SBML Model", "[copasijs][sbml][setValue]")
 
     reset();
     // now S1 should be 0 and J0_v0 should be 10
-    REQUIRE(getValue("S1") == 0f);
-    REQUIRE(getValue("J0_v0") == 10f);
+    REQUIRE(getValue("S1") == 0.0);
+    REQUIRE(getValue("J0_v0") == 10.0);
 
     // test changing the initial value, 
     setValue("[S1]_0", 1);
 
     // it should persist after reset
     reset();
-    REQUIRE(getValue("[S1]_0") == 1f);
-    REQUIRE(getValue("S1") == 1f);
+    REQUIRE(getValue("[S1]_0") == 1.0);
+    REQUIRE(getValue("S1") == 1.0);
 
     // and be reset after resetAll
     resetAll();
-    REQUIRE(getValue("[S1]_0") == 0f);
-    REQUIRE(getValue("S1") == 0f);
+    REQUIRE(getValue("[S1]_0") == 0.0);
+    REQUIRE(getValue("S1") == 0.0);
 
     // and running reset after resetAll should not change the value
     reset();
-    REQUIRE(getValue("S1") == 0f);
+    REQUIRE(getValue("S1") == 0.0);
 
     // now run resetAll
     setValue("S1", 1);
     setValue("J0_v0", 10);
     resetAll();
     // now S1 should be 0 and J0_v0 should be 8
-    REQUIRE(getValue("S1") == 0f);
-    REQUIRE(getValue("J0_v0") == 8f);
+    REQUIRE(getValue("S1") == 0.0);
+    REQUIRE(getValue("J0_v0") == 8.0);
 
 }
 

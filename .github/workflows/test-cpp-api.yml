@@ -38,7 +38,7 @@ jobs:
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       run: |
         cd ${{github.workspace}}
-        git clone https://github.com/copasi/copasi-dependencies
+        git clone https://github.com/copasi/copasi-dependencies -q --depth=1
 
         # fix uuid issue 
         pushd ./copasi-dependencies/src/libuuid-1.0.3/
@@ -55,7 +55,7 @@ jobs:
                 -BUILD_uuid=ON \
                 -DBUILD_clapack=ON
 
-        cmake --build build-dependencies --config=${{env.BUILD_TYPE}}
+        cmake --build ${{github.workspace}}/build-dependencies --config=${{env.BUILD_TYPE}}
 
         git clone https://github.com/copasi/COPASI
         cd COPASI && git checkout release/Version-4.46 && cd ..

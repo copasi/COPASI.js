@@ -254,7 +254,7 @@ TEST_CASE("Load SBML Model", "[copasijs][sbml][setValue]")
     CAPTURE(data);
     json = nlohmann::json::parse(data);
     REQUIRE(json["titles"][1] == "S1");
-    REQUIRE(json["columns"][1][0] == 0);
+    REQUIRE(json["columns"][1][0] == 0f);
 
     setValue("J0_v0", 8);
 
@@ -264,33 +264,33 @@ TEST_CASE("Load SBML Model", "[copasijs][sbml][setValue]")
 
     reset();
     // now S1 should be 0 and J0_v0 should be 10
-    REQUIRE(getValue("S1") == 0);
-    REQUIRE(getValue("J0_v0") == 10);
+    REQUIRE(getValue("S1") == 0f);
+    REQUIRE(getValue("J0_v0") == 10f);
 
     // test changing the initial value, 
     setValue("[S1]_0", 1);
 
     // it should persist after reset
     reset();
-    REQUIRE(getValue("[S1]_0") == 1);
-    REQUIRE(getValue("S1") == 1);
+    REQUIRE(getValue("[S1]_0") == 1f);
+    REQUIRE(getValue("S1") == 1f);
 
     // and be reset after resetAll
     resetAll();
-    REQUIRE(getValue("[S1]_0") == 0);
-    REQUIRE(getValue("S1") == 0);
+    REQUIRE(getValue("[S1]_0") == 0f);
+    REQUIRE(getValue("S1") == 0f);
 
     // and running reset after resetAll should not change the value
     reset();
-    REQUIRE(getValue("S1") == 0);
+    REQUIRE(getValue("S1") == 0f);
 
     // now run resetAll
     setValue("S1", 1);
     setValue("J0_v0", 10);
     resetAll();
     // now S1 should be 0 and J0_v0 should be 8
-    REQUIRE(getValue("S1") == 0);
-    REQUIRE(getValue("J0_v0") == 8);
+    REQUIRE(getValue("S1") == 0f);
+    REQUIRE(getValue("J0_v0") == 8f);
 
 }
 

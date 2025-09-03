@@ -39,6 +39,12 @@ jobs:
       run: |
         cd ${{github.workspace}}
         git clone https://github.com/copasi/copasi-dependencies
+
+        # fix uuid issue 
+        pushd ./build-system/git/copasi-dependencies/src/libuuid-1.0.3/
+        aclocal && libtoolize --force && automake --add-missing && autoreconf --force --install
+        popd
+
         cmake -G Ninja -B ${{github.workspace}}/build-dependencies -S ${{github.workspace}}/copasi-dependencies \
                 -DCMAKE_INSTALL_PREFIX=dependencies \
                 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} \
@@ -46,6 +52,7 @@ jobs:
                 -DBUILD_zlib=ON \
                 -DBUILD_archive=OFF \
                 -DBUILD_NativeJIT=OFF \
+                -BUILD_uuid=ON \
                 -DBUILD_clapack=ON
 
         cmake --build build-dependencies --config=${{env.BUILD_TYPE}}

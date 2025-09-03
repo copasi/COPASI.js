@@ -52,7 +52,7 @@ jobs:
                 -DBUILD_zlib=ON \
                 -DBUILD_archive=OFF \
                 -DBUILD_NativeJIT=OFF \
-                -BUILD_uuid=ON \
+                -DBUILD_uuid=ON \
                 -DBUILD_clapack=ON
 
         cmake --build ${{github.workspace}}/build-dependencies --config=${{env.BUILD_TYPE}}

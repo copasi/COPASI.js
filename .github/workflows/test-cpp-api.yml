@@ -41,7 +41,7 @@ jobs:
         git clone https://github.com/copasi/copasi-dependencies
 
         # fix uuid issue 
-        pushd ./build-system/git/copasi-dependencies/src/libuuid-1.0.3/
+        pushd ./copasi-dependencies/src/libuuid-1.0.3/
         aclocal && libtoolize --force && automake --add-missing && autoreconf --force --install
         popd
 

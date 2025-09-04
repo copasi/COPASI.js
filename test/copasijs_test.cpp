@@ -272,7 +272,7 @@ TEST_CASE("Load SBML Model", "[copasijs][sbml][setValue]")
 
     // it should persist after reset
     reset();
-    REQUIRE(getValue("[S1]_0") == 1.0);
+    REQUIRE(getValue("[S1]_0") == Catch::Approx(1.0));
     REQUIRE(getValue("S1") == 1.0);
 
     // and be reset after resetAll

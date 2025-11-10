@@ -40,14 +40,6 @@ jobs:
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       run: |
         cd ${{github.workspace}}
-        curl -L -O http://downloads.sourceforge.net/libuuid/libuuid-1.0.3.tar.gz 
-        tar -zxf libuuid-1.0.3.tar.gz
-        cd libuuid-1.0.3
-        emconfigure ./configure --prefix=$PWD/../em-dependencies --disable-dependency-tracking --with-pic --enable-static=yes --enable-shared=no CFLAGS='-fPIC'
-        emmake make
-        emmake make install
-        cd ..
-        rm em-dependencies/lib/libuuid.la
 
         
         git clone https://github.com/copasi/copasi-dependencies
@@ -59,6 +51,8 @@ jobs:
           -DBUILD_archive=OFF \
           -DBUILD_NativeJIT=OFF \
           -DBUILD_clapack=ON \
+          -DBUILD_uuid=OFF \
+          -DBUILD_crossguid=OFF \
           -DCMAKE_PREFIX_PATH=em-dependencies
         cmake --build em-build-dependencies --config=Release
         
@@ -79,6 +73,7 @@ jobs:
           -DCOPASI_DEPENDENCY_DIR=em-dependencies \
           -DCMAKE_PREFIX_PATH=em-dependencies \
           -DDISABLE_STACK_PROTECTOR=ON \
+          -DCOPASI_USE_CROSSGUID=OFF \
           -DF2C_INTEGER=int \
           -DF2C_LOGICAL=int
         

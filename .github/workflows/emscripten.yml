@@ -14,7 +14,8 @@ on:
         - "!.github/**"
         - "!docs/**"
         - ".github/workflows/emscripten.yml"
-        
+  workflow_dispatch:
+      
 
 env:
   # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)

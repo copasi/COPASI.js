@@ -52,9 +52,6 @@ jobs:
                 -DBUILD_uuid=OFF \
                 -DBUILD_clapack=ON
 
-        echo "Building Libuuid"
-        cmake --build ${{github.workspace}}/build-dependencies --config=${{env.BUILD_TYPE}} --target Libuuid
-        # then the remaing dependencies
         cmake --build ${{github.workspace}}/build-dependencies --config=${{env.BUILD_TYPE}}
 
         git clone https://github.com/copasi/COPASI

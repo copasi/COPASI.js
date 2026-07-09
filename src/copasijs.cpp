@@ -1,4 +1,4 @@
-#ifdef EMSCRIPTEN
+#ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #include <emscripten/bind.h>
 using namespace emscripten;
@@ -1747,7 +1747,7 @@ std::vector<double> getSelectionValues()
     return values;
 }
 
-#ifdef EMSCRIPTEN
+#ifdef __EMSCRIPTEN__
 EMSCRIPTEN_BINDINGS(copasi_binding)
 {
     register_vector<int>("IntVector");

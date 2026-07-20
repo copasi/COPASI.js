@@ -232,6 +232,49 @@ std::string getOptSolution();
 /// ```
 std::string getOptStatistic();
 
+/// @brief runs the Parameter Estimation task
+/// @param useInitialValues if true the initial values are used, otherwise the current state is used
+/// @return boolean indicating success
+bool runParameterEstimation(bool useInitialValues=true);
+
+/// @brief returns the solution found for the fit parameters as JSON string
+/// @return JSON array with name, lower, upper, sol, and affected for each parameter
+///
+/// ```json
+/// [
+///   {
+///     "name": "(R1).k2",
+///     "lower": 1e-6,
+///     "upper": 1e6,
+///     "sol": 4.0,
+///     "affected": []
+///   },
+///   ...
+/// ]
+/// ```
+std::string getFitSolution();
+
+/// @brief returns information about the last parameter estimation run as JSON string
+/// @return JSON object with the fit statistic
+///
+/// ```json
+/// {
+///   "obj": 0.0,
+///   "rms": 0.0,
+///   "sd": 0.0,
+///   "f_evals": 42,
+///   "failed_evals_exception": 0,
+///   "failed_evals_nan": 0,
+///   "constraint_evals": 0,
+///   "failed_constraint_evals": 0,
+///   "cpu_time": 0.01,
+///   "evals_per_sec": 4200.0,
+///   "data_points": 100,
+///   "valid_data_points": 100
+/// }
+/// ```
+std::string getFitStatistic();
+
 /// @brief runs a simulation and returns the result as json string
 /// @param yaml the yaml string with the simulation settings and possibly 
 /// changed initial values the format is the same as @see applyYaml

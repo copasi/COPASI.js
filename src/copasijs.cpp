@@ -1641,6 +1641,131 @@ std::string getOptStatistic()
     return result.dump(2);
 }
 
+static ordered_json getAffectedExperimentNames(CFitItem *fitItem)
+{
+    ordered_json affected = ordered_json::array();
+    if (fitItem == NULL)
+        return affected;
+
+    auto *keyFactory = CRootContainer::getKeyFactory();
+    for (size_t j = 0; j < fitItem->getExperimentCount(); ++j)
+    {
+        auto *obj = keyFactory != NULL ? keyFactory->get(fitItem->getExperiment(j)) : NULL;
+        if (obj != NULL)
+            affected.push_back(obj->getObjectName());
+    }
+    return affected;
+}
+
+bool runParameterEstimation(bool useInitialValues)
+{
+    ensureModel();
+
+    pDataModel->getModel()->compileIfNecessary(NULL);
+
+    // Parameter estimation will not run if errors remain in the message log
+    if (CCopasiMessage::getHighestSeverity() > CCopasiMessage::WARNING)
+        CCopasiMessage::clearDeque();
+
+    auto &task = dynamic_cast<CFitTask &>((*pDataModel->getTaskList())["Parameter Estimation"]);
+    auto *problem = dynamic_cast<CFitProblem *>(task.getProblem());
+    if (problem == NULL || problem->getOptItemSize() == 0)
+        return false;
+
+    task.setUpdateModel(true);
+
+    if (!task.initialize(CCopasiTask::OUTPUT_UI, pDataModel, NULL))
+        return false;
+
+    if (!task.process(useInitialValues))
+        return false;
+
+    if (!task.restore(true))
+        return false;
+
+    return true;
+}
+
+std::string getFitSolution()
+{
+    ensureModel();
+
+    auto &task = dynamic_cast<CFitTask &>((*pDataModel->getTaskList())["Parameter Estimation"]);
+    auto *problem = dynamic_cast<CFitProblem *>(task.getProblem());
+
+    ordered_json result = ordered_json::array();
+
+    if (problem == NULL)
+        return result.dump(2);
+
+    const auto &solution = problem->getSolutionVariables(false);
+    const auto &items = problem->getOptItemList(false);
+
+    if (solution.size() != items.size())
+        return result.dump(2);
+
+    for (size_t i = 0; i < solution.size(); ++i)
+    {
+        auto *item = items[i];
+        if (item == NULL)
+            continue;
+
+        const CDataObject *obj = dynamic_cast<const CDataObject *>(
+            pDataModel->getObject(CCommonName(item->getObjectCN())));
+        if (obj == NULL)
+            continue;
+
+        const CDataObject *parent = obj->getObjectParent();
+        std::string name = parent != NULL ? parent->getObjectDisplayName() : obj->getObjectDisplayName();
+
+        ordered_json entry;
+        entry["name"] = name;
+        entry["lower"] = optBoundToDouble(item->getLowerBound());
+        entry["upper"] = optBoundToDouble(item->getUpperBound());
+        entry["sol"] = solution[i];
+        entry["affected"] = getAffectedExperimentNames(dynamic_cast<CFitItem *>(item));
+        result.push_back(entry);
+    }
+
+    return result.dump(2);
+}
+
+std::string getFitStatistic()
+{
+    ensureModel();
+
+    auto &task = dynamic_cast<CFitTask &>((*pDataModel->getTaskList())["Parameter Estimation"]);
+    auto *problem = dynamic_cast<CFitProblem *>(task.getProblem());
+
+    ordered_json result;
+
+    if (problem == NULL)
+        return result.dump(2);
+
+    auto &experiments = problem->getExperimentSet();
+    unsigned C_INT32 f_evals = problem->getFunctionEvaluations();
+    double cpu_time = problem->getExecutionTime();
+
+    result["obj"] = problem->getSolutionValue();
+    result["rms"] = problem->getRMS();
+    result["sd"] = problem->getStdDeviation();
+    result["f_evals"] = f_evals;
+    result["failed_evals_exception"] = problem->getFailedEvaluationsExc();
+    result["failed_evals_nan"] = problem->getFailedEvaluationsNaN();
+    result["constraint_evals"] = problem->getConstraintEvaluations();
+    result["failed_constraint_evals"] = problem->geFailedConstraintCounter();
+    result["cpu_time"] = cpu_time;
+    result["data_points"] = experiments.getDataPointCount();
+    result["valid_data_points"] = experiments.getValidValueCount();
+
+    if (f_evals == 0 || cpu_time == 0.0)
+        result["evals_per_sec"] = 0.0;
+    else
+        result["evals_per_sec"] = f_evals / cpu_time;
+
+    return result.dump(2);
+}
+
 std::string simulateJSON(ordered_json &yaml)
 {
     try
@@ -2064,6 +2189,9 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("runOptimization", &runOptimization);
     emscripten::function("getOptSolution", &getOptSolution);
     emscripten::function("getOptStatistic", &getOptStatistic);
+    emscripten::function("runParameterEstimation", &runParameterEstimation);
+    emscripten::function("getFitSolution", &getFitSolution);
+    emscripten::function("getFitStatistic", &getFitStatistic);
 
     emscripten::function("getSelectionList", &getSelectionList);
     emscripten::function("getSelectedValues", &getSelectionValues);

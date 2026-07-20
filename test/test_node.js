@@ -185,3 +185,32 @@ createApi().then((Module) => {
     console.log(statistic);
 
 });
+
+
+createApi().then((Module) => {
+
+    // instantiate COPASI simulator
+    var instance = new COPASI(Module);
+
+    // check version
+    console.log('Using COPASI: ', instance.version);
+
+    // load LM-test1 from embedded FS so experiment data (mmspect3.txt) resolves
+    console.log(instance.loadExample("/LM-test1.cps"));
+
+    console.log("Parameter Estimation settings: ");
+    console.log(instance.getTaskSettings("Parameter Estimation"));
+
+    console.log("Running Parameter Estimation: ");
+    var ok = instance.Module.runParameterEstimation(true);
+    console.log(ok);
+
+    var solution = JSON.parse(instance.Module.getFitSolution());
+    console.log("Fit solution: ");
+    console.log(solution);
+
+    var statistic = JSON.parse(instance.Module.getFitStatistic());
+    console.log("Fit statistic: ");
+    console.log(statistic);
+
+});

@@ -1118,24 +1118,33 @@ bool setTaskSettings(const std::string& taskName, const std::string& settingsJso
         return false;
 
     auto &task = (*pDataModel->getTaskList())[taskName];
-    auto *problem = dynamic_cast<CTrajectoryProblem *>(task.getProblem());
+    auto *problem = task.getProblem();
     if (!problem)
         return false;
 
-    setGroupFromJson(problem, settings);
+    ordered_json problemSettings = settings;
+    if (!settings["problem"].empty())
+        problemSettings = settings["problem"];
+    setGroupFromJson(problem, problemSettings);
 
     // Handle specific settings that may not be covered by the group
-    if (dynamic_cast<CTrajectoryProblem*>(problem))
+    if (auto *trajProblem = dynamic_cast<CTrajectoryProblem *>(problem))
     {
-        if (!settings["Duration"].empty())
-            problem->setDuration(settings["Duration"].get<double>());
-        if (!settings["StepNumber"].empty())
-            problem->setStepNumber(settings["StepNumber"].get<int>());
-        if (!settings["StepSize"].empty())
-            problem->setStepSize(settings["StepSize"].get<double>());
-        if (!settings["OutputStartTime"].empty())
-            problem->setOutputStartTime(settings["OutputStartTime"].get<double>());
+        if (!problemSettings["Duration"].empty())
+            trajProblem->setDuration(problemSettings["Duration"].get<double>());
+        if (!problemSettings["StepNumber"].empty())
+            trajProblem->setStepNumber(problemSettings["StepNumber"].get<int>());
+        if (!problemSettings["StepSize"].empty())
+            trajProblem->setStepSize(problemSettings["StepSize"].get<double>());
+        if (!problemSettings["OutputStartTime"].empty())
+            trajProblem->setOutputStartTime(problemSettings["OutputStartTime"].get<double>());
     }
+
+    if (!settings["update_model"].empty())
+        task.setUpdateModel(settings["update_model"].get<bool>());
+    if (!settings["scheduled"].empty())
+        task.setScheduled(settings["scheduled"].get<bool>());
+
     if (!settings["method"].empty())
     {
         auto &m = settings["method"];
@@ -1521,6 +1530,113 @@ std::string getLNAResults(bool scaled)
     result["covariance_matrix"] = convertDataArray( scaled ? method->getScaledCovarianceMatrixAnn() : method->getUnscaledCovarianceMatrixAnn());
     result["reduced_covariance_matrix"] = convertDataArray( scaled ? method->getScaledCovarianceMatrixReducedAnn() : method->getUnscaledCovarianceMatrixReducedAnn());
     result["reduced_b_matrix"] = convertDataArray( scaled ? method->getScaledBMatrixReducedAnn() : method->getUnscaledBMatrixReducedAnn());
+
+    return result.dump(2);
+}
+
+static double optBoundToDouble(const CRegisteredCommonName &bound)
+{
+    try
+    {
+        return std::stod(std::string(bound));
+    }
+    catch (...)
+    {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
+}
+
+bool runOptimization(bool useInitialValues)
+{
+    ensureModel();
+
+    pDataModel->getModel()->compileIfNecessary(NULL);
+
+    auto &task = dynamic_cast<COptTask &>((*pDataModel->getTaskList())["Optimization"]);
+
+    task.setUpdateModel(true);
+
+    if (!task.initialize(CCopasiTask::OUTPUT_UI, pDataModel, NULL))
+        return false;
+
+    if (!task.process(useInitialValues))
+        return false;
+
+    if (!task.restore(true))
+        return false;
+
+    return true;
+}
+
+std::string getOptSolution()
+{
+    ensureModel();
+
+    auto &task = dynamic_cast<COptTask &>((*pDataModel->getTaskList())["Optimization"]);
+    auto *problem = dynamic_cast<COptProblem *>(task.getProblem());
+
+    ordered_json result = ordered_json::array();
+
+    if (problem == NULL)
+        return result.dump(2);
+
+    const auto &solution = problem->getSolutionVariables(false);
+    const auto &items = problem->getOptItemList(false);
+
+    if (solution.size() != items.size())
+        return result.dump(2);
+
+    for (size_t i = 0; i < solution.size(); ++i)
+    {
+        auto *item = items[i];
+        if (item == NULL)
+            continue;
+
+        const CDataObject *obj = dynamic_cast<const CDataObject *>(
+            pDataModel->getObject(CCommonName(item->getObjectCN())));
+        if (obj == NULL)
+            continue;
+
+        const CDataObject *parent = obj->getObjectParent();
+        std::string name = parent != NULL ? parent->getObjectDisplayName() : obj->getObjectDisplayName();
+
+        ordered_json entry;
+        entry["name"] = name;
+        entry["lower"] = optBoundToDouble(item->getLowerBound());
+        entry["upper"] = optBoundToDouble(item->getUpperBound());
+        entry["sol"] = solution[i];
+        result.push_back(entry);
+    }
+
+    return result.dump(2);
+}
+
+std::string getOptStatistic()
+{
+    ensureModel();
+
+    auto &task = dynamic_cast<COptTask &>((*pDataModel->getTaskList())["Optimization"]);
+    auto *problem = dynamic_cast<COptProblem *>(task.getProblem());
+
+    ordered_json result;
+
+    if (problem == NULL)
+        return result.dump(2);
+
+    result["obj"] = problem->getSolutionValue();
+    unsigned C_INT32 f_evals = problem->getFunctionEvaluations();
+    double cpu_time = problem->getExecutionTime();
+    result["f_evals"] = f_evals;
+    result["failed_evals_exception"] = problem->getFailedEvaluationsExc();
+    result["failed_evals_nan"] = problem->getFailedEvaluationsNaN();
+    result["constraint_evals"] = problem->getConstraintEvaluations();
+    result["failed_constraint_evals"] = problem->geFailedConstraintCounter();
+    result["cpu_time"] = cpu_time;
+
+    if (f_evals == 0 || cpu_time == 0.0)
+        result["evals_per_sec"] = 0.0;
+    else
+        result["evals_per_sec"] = f_evals / cpu_time;
 
     return result.dump(2);
 }
@@ -1945,6 +2061,9 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("computeMca", &computeMca);
     emscripten::function("runLNA", &runLNA);
     emscripten::function("getLNAResults", &getLNAResults);
+    emscripten::function("runOptimization", &runOptimization);
+    emscripten::function("getOptSolution", &getOptSolution);
+    emscripten::function("getOptStatistic", &getOptStatistic);
 
     emscripten::function("getSelectionList", &getSelectionList);
     emscripten::function("getSelectedValues", &getSelectionValues);

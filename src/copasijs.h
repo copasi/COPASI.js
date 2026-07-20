@@ -194,6 +194,44 @@ bool runLNA(bool useInitialValues=true);
 /// ```
 std::string getLNAResults(bool scaled=true);
 
+/// @brief runs the Optimization task
+/// @param useInitialValues if true the initial values are used, otherwise the current state is used
+/// @return boolean indicating success
+bool runOptimization(bool useInitialValues=true);
+
+/// @brief returns the solution found for the optimization parameters as JSON string
+/// @return JSON array with name, lower, upper, and sol for each parameter
+///
+/// ```json
+/// [
+///   {
+///     "name": "Values[x1]",
+///     "lower": -6.0,
+///     "upper": 6.0,
+///     "sol": 3.0
+///   },
+///   ...
+/// ]
+/// ```
+std::string getOptSolution();
+
+/// @brief returns information about the last optimization run as JSON string
+/// @return JSON object with the statistic
+///
+/// ```json
+/// {
+///   "obj": 0.0,
+///   "f_evals": 42,
+///   "failed_evals_exception": 0,
+///   "failed_evals_nan": 0,
+///   "constraint_evals": 0,
+///   "failed_constraint_evals": 0,
+///   "cpu_time": 0.01,
+///   "evals_per_sec": 4200.0
+/// }
+/// ```
+std::string getOptStatistic();
+
 /// @brief runs a simulation and returns the result as json string
 /// @param yaml the yaml string with the simulation settings and possibly 
 /// changed initial values the format is the same as @see applyYaml

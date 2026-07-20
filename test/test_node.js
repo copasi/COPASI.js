@@ -143,3 +143,45 @@ createApi().then((Module) => {
     instance.reset();
 
 });
+
+
+createApi().then((Module) => {
+
+    // instantiate COPASI simulator
+    var instance = new COPASI(Module);
+
+    // check version
+    console.log('Using COPASI: ', instance.version);
+
+    // load Himmelblau optimization example
+    var data = fs.readFileSync('../example_files/HimmelblauFunction.cps', 'utf8');
+    console.log(instance.loadModel(data));
+
+    console.log("Optimization settings: ");
+    console.log(instance.getTaskSettings("Optimization"));
+
+    // switch to a faster local method for the test
+    instance.setTaskSettings("Optimization", {
+        problem: {
+            "Randomize Start Values": false
+        },
+        method: {
+            name: "Levenberg - Marquardt",
+            "Iteration Limit": 200,
+            Tolerance: 1e-6
+        }
+    });
+
+    console.log("Running Optimization: ");
+    var ok = instance.Module.runOptimization(true);
+    console.log(ok);
+
+    var solution = JSON.parse(instance.Module.getOptSolution());
+    console.log("Opt solution: ");
+    console.log(solution);
+
+    var statistic = JSON.parse(instance.Module.getOptStatistic());
+    console.log("Opt statistic: ");
+    console.log(statistic);
+
+});

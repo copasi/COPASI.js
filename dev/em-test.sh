@@ -9,7 +9,7 @@ rm -rf $INSTALL_PREFIX
 
 
 # copy the example files
-cp examples/node/*.js $INSTALL_PREFIX
+#cp examples/node/*.js $INSTALL_PREFIX
 
 # copy test files
 cp test/*.js $INSTALL_PREFIX

@@ -134,6 +134,11 @@ createApi().then((Module) => {
     console.log("Reduced b matrix: ");
     console.log(scaledResults["reduced_b_matrix"]);
 
+
+    // other task settings
+    console.log(instance.getTaskSettings("Optimization"));
+    console.log(instance.getTaskSettings("Parameter Estimation"));
+
     // reset instance
     instance.reset();
 

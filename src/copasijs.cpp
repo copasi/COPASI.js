@@ -1747,6 +1747,16 @@ std::vector<double> getSelectionValues()
     return values;
 }
 
+std::string getLastMessages()
+{
+    return CCopasiMessage::getAllMessageText();
+}
+
+void clearMessages()
+{
+    CCopasiMessage::clearDeque();
+}
+
 #ifdef __EMSCRIPTEN__
 EMSCRIPTEN_BINDINGS(copasi_binding)
 {
@@ -1817,5 +1827,9 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("getConcentrationControlCoefficients2D", &getConcentrationControlCoefficients2D);
     emscripten::function("getElasticities", &getElasticities);
     emscripten::function("getElasticities2D", &getElasticities2D);
+
+    // messages
+    emscripten::function("getLastMessages", &getLastMessages);
+    emscripten::function("clearMessages", &clearMessages);
 }
 #endif

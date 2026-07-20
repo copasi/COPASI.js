@@ -432,6 +432,13 @@ std::string getElasticities(bool scaled);
 /// @param scaled if true the scaled elasticities are returned
 std::vector<std::vector<double>> getElasticities2D(bool scaled);
 
+/// @brief returns the last recorded messages from the COPASI library
+/// @return the last recorded messages as a string
+std::string getLastMessages();
+
+/// @brief clears the last recorded messages from the COPASI library
+void clearMessages();
+
 #pragma region  // internal calls Internal
 
 /// @brief frees a pointer allocated by the COPASI library

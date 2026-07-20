@@ -447,6 +447,17 @@ TEST_CASE("Test MCA", "[copasijs][mca]")
 }
 
 
+TEST_CASE("Test Settings", "[copasijs][settings]")
+{
+    std::string settings = getTaskSettings("Time-Course");
+    CAPTURE(settings);
+    REQUIRE(!settings.empty());
+
+    settings = getTaskSettings("Linear Noise Approximation");
+    CAPTURE(settings);
+    REQUIRE(!settings.empty());
+}
+
 
 int main(int argc, char *argv[])
 {

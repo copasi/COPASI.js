@@ -50,9 +50,11 @@ createApi().then((Module) => {
     console.log(instance.loadModel(data));
     
     // simulate the model
+    console.log(instance.getTaskSettings(instance.TaskNames.TimeCourse));
     console.log(instance.simulateEx(0, 10, 11));
 
     // run steady state
+    console.log(instance.getTaskSettings(instance.TaskNames.SteadyState));
     console.log(instance.steadyState());
 
     // print jacobian
@@ -102,6 +104,7 @@ createApi().then((Module) => {
 
     // compute mca
     instance.computeMca(true);
+    console.log(instance.getTaskSettings(instance.TaskNames.MetabolicControlAnalysis));
 
     // print control coefficients
     console.log("Flux control coefficients: ");
@@ -118,6 +121,8 @@ createApi().then((Module) => {
 
 
     // run lna
+    console.log("Running LNA: ");
+    console.log(instance.getTaskSettings(instance.TaskNames.LinearNoiseApproximation));
     console.log(instance.runLNA(true));
     scaledResults = instance.getLNAResults(true);
     console.log("Scaled results: ");
@@ -129,6 +134,7 @@ createApi().then((Module) => {
     console.log("Reduced b matrix: ");
     console.log(scaledResults["reduced_b_matrix"]);
 
+    // reset instance
     instance.reset();
 
 });

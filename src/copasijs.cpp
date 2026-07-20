@@ -1099,6 +1099,55 @@ void resetAll()
     pModel->applyInitialValues();
 }
 
+bool setTaskSettings(const std::string& taskName, const std::string& settingsJson)
+{
+    ordered_json settings;
+    try
+    {
+        settings = ordered_json::parse(settingsJson);
+    }
+    catch (const std::exception &e)
+    {
+        return false;
+    }
+
+    ensureModel();
+
+    auto &taskList = *pDataModel->getTaskList();
+    if (taskList.getIndex(taskName) == C_INVALID_INDEX)
+        return false;
+
+    auto &task = (*pDataModel->getTaskList())[taskName];
+    auto *problem = dynamic_cast<CTrajectoryProblem *>(task.getProblem());
+    if (!problem)
+        return false;
+
+    setGroupFromJson(problem, settings);
+
+    // Handle specific settings that may not be covered by the group
+    if (dynamic_cast<CTrajectoryProblem*>(problem))
+    {
+        if (!settings["Duration"].empty())
+            problem->setDuration(settings["Duration"].get<double>());
+        if (!settings["StepNumber"].empty())
+            problem->setStepNumber(settings["StepNumber"].get<int>());
+        if (!settings["StepSize"].empty())
+            problem->setStepSize(settings["StepSize"].get<double>());
+        if (!settings["OutputStartTime"].empty())
+            problem->setOutputStartTime(settings["OutputStartTime"].get<double>());
+    }
+    if (!settings["method"].empty())
+    {
+        auto &m = settings["method"];
+        if (!m["name"].empty())
+            task.setMethodType(CTaskEnum::MethodName.toEnum(m["name"].get<string>()));
+        auto *method = task.getMethod();
+        setGroupFromJson(method, m);
+    }
+
+    return true;
+}
+
 void applyYaml(ordered_json &yaml)
 {
     auto &task = dynamic_cast<CTrajectoryTask &>((*pDataModel->getTaskList())["Time-Course"]);
@@ -1566,6 +1615,31 @@ std::string getTimeCourseSettings()
     return yaml.dump(2);
 }
 
+std::string getTaskSettings(const std::string &taskName)
+{
+    ensureModel();
+    ordered_json yaml;
+    if (pDataModel->getTaskList()->getIndex(taskName) == C_INVALID_INDEX)
+        return yaml.dump(2);
+
+    auto &task = (*pDataModel->getTaskList())[taskName];
+
+    yaml["update_model"] = task.isUpdateModel();
+    yaml["scheduled"] = task.isScheduled();
+
+    auto *problem = task.getProblem();
+    if (problem == NULL)
+        return yaml.dump(2);
+
+    auto json = convertGroupToJson(problem);
+    if (!json.is_null())
+        yaml["problem"] = json;
+
+    yaml["method"] = convertGroupToJson(task.getMethod());
+    yaml["method"]["name"] = task.getMethod()->getObjectName();
+    return yaml.dump(2);
+}
+
 void setTimeCourseSettings(const std::string &settings)
 {
     ensureModel();
@@ -1840,6 +1914,8 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("simulateEx", &simulateEx);
     emscripten::function("getTimeCourseSettings", &getTimeCourseSettings);
     emscripten::function("setTimeCourseSettings", &setTimeCourseSettings);
+    emscripten::function("getTaskSettings", &getTaskSettings);
+    emscripten::function("setTaskSettings", &setTaskSettings);
     emscripten::function("getFloatingSpeciesNames", &getFloatingSpeciesNames);
     emscripten::function("getFloatingSpeciesIds", &getFloatingSpeciesIds);
     emscripten::function("getBoundarySpeciesNames", &getBoundarySpeciesNames);

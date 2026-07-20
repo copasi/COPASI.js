@@ -462,6 +462,17 @@ std::string getLastMessages();
 /// @brief clears the last recorded messages from the COPASI library
 void clearMessages();
 
+/// @brief returns the settings of a task as json string
+/// @param taskName the name of the task to get
+/// @return the settings of the task as json string
+std::string getTaskSettings(const std::string& taskName);
+
+/// @brief sets the settings of a task from a json string
+/// @param taskName the name of the task to set
+/// @param settings the settings as json string
+/// @return true if successful
+bool setTaskSettings(const std::string& taskName, const std::string& settings);
+
 #pragma region  // internal calls Internal
 
 /// @brief frees a pointer allocated by the COPASI library

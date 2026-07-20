@@ -26,6 +26,23 @@ class COPASI {
     };
 
     /**
+     * @enum {string} TaskNames
+     * 
+     * enum for task names
+     * 
+     * @property {string} TimeCourse Time-Course
+     * @property {string} SteadyState Steady State
+     * @property {string} MetabolicControlAnalysis Metabolic Control Analysis
+     * @property {string} LinearNoiseApproximation Linear Noise Approximation
+     */
+    TaskNames = {
+        TimeCourse: 'Time-Course',
+        SteadyState: 'Steady-State',
+        MetabolicControlAnalysis: 'Metabolic Control Analysis',
+        LinearNoiseApproximation: 'Linear Noise Approximation',
+    };
+
+    /**
      * Constructs a new COPASI instance from the WASM module
      * @param Module the WASM module
      * 
@@ -496,6 +513,38 @@ class COPASI {
     getLNAResults(scaled)
     {
         return JSON.parse(this.Module.getLNAResults(scaled));
+    }
+
+    /**
+     * Retrieves the task setttings for the given task
+     * @param {string} taskName the name of the task to get
+     * @returns {object} the settings of the task as object
+     */
+    getTaskSettings(taskName)
+    {
+        return JSON.parse(this.Module.getTaskSettings(taskName));
+    }
+    
+    /** 
+     * Sets the task settings for the given task
+     * @param {string} taskName the name of the task to set
+     * @param {object|string} settings the settings as object or json string
+     * @returns {boolean} true if successful
+     */
+    setTaskSettings(taskName, settings)
+    {
+        if (typeof settings !== 'string') {
+            settings = JSON.stringify(settings);
+        }
+        return this.Module.setTaskSettings(taskName, settings);
+    }
+    
+    /**
+     * Clears the last recorded messages from the COPASI library
+     */
+    clearMessages()
+    {
+        this.Module.clearMessages();
     }
 }
 

@@ -1,6 +1,8 @@
-#include <catch2/catch_test_macros.hpp>
-#include <catch2/catch_approx.hpp>
-#include <catch2/matchers/catch_matchers_vector.hpp>
+//#include <catch2/catch_test_macros.hpp>
+//#include <catch2/catch_approx.hpp>
+//#include <catch2/matchers/catch_matchers_vector.hpp>
+#define CATCH_CONFIG_RUNNER
+#include <catch.hpp>
 #define COPASI_MAIN
 #include "copasijs.h"
 
@@ -272,7 +274,7 @@ TEST_CASE("Load SBML Model", "[copasijs][sbml][setValue]")
 
     // it should persist after reset
     reset();
-    REQUIRE(getValue("[S1]_0") == Catch::Approx(1.0));
+    REQUIRE(getValue("[S1]_0") == Approx(1.0));
     REQUIRE(getValue("S1") == 1.0);
 
     // and be reset after resetAll
@@ -387,7 +389,7 @@ TEST_CASE("Steadystate test", "[copasijs][steadystate]")
 }
 
 
-TEST_CASE("Load COVID Model", "[copasijs][mca]")
+TEST_CASE("Test MCA", "[copasijs][mca]")
 {
 	Instance instance;
 	std::string model = loadFromFile(getTestFile("../example_files/brusselator.cps"));
@@ -444,3 +446,15 @@ TEST_CASE("Load COVID Model", "[copasijs][mca]")
 	REQUIRE(dValue != dValue);
 }
 
+
+
+int main(int argc, char *argv[])
+{
+  CRootContainer::init(0, NULL);
+
+  int result = Catch::Session().run(argc, argv);
+
+  CRootContainer::destroy();
+
+  return result;
+}

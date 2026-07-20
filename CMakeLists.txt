@@ -94,22 +94,12 @@ target_link_libraries(copasijs PUBLIC LibCOPASISE)
 
 
 if (NOT EMSCRIPTEN)
-# compile a test executable
-Include(FetchContent)
-
-FetchContent_Declare(
-  Catch2
-  GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-  GIT_TAG        v3.4.0 # or a later release
-)
-
-FetchContent_MakeAvailable(Catch2)
-
 # These tests can use the Catch2-provided main
 add_executable(copasijs_test test/copasijs_test.cpp)
 target_include_directories(copasijs_test PUBLIC ${COPASIJS_DEPENDENCY_DIR}/include)
-target_include_directories(copasijs_test PRIVATE ${CMAKE_SOURCE_DIR}/src)
-target_link_libraries(copasijs_test PRIVATE Catch2::Catch2WithMain copasijs)
+target_include_directories(copasijs_test PRIVATE ${CMAKE_SOURCE_DIR}/src ${CMAKE_SOURCE_DIR}/dev)
+target_link_libraries(copasijs_test PRIVATE copasijs)
+
 if (APPLE)
   target_link_libraries(copasijs_test PRIVATE "-framework CoreFoundation -framework Accelerate")
 endif()

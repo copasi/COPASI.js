@@ -68,3 +68,7 @@
 
 .DS_Store
 *.pdb
+InitialDependencies.dot
+StructuralDependencies.dot
+trace
+TransientDependencies.dot

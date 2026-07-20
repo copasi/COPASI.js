@@ -171,6 +171,29 @@ double steadyState();
 /// @return boolean indicating success
 bool computeMca(bool performSteadyState=true);
 
+/// @brief runs the Linear Noise Approximation task
+/// @param useInitialValues if true the initial values are used, otherwise the current state is used
+/// @return boolean indicating success
+bool runLNA(bool useInitialValues=true);
+
+/// @brief returns the status and results of the last LNA run as JSON string
+/// @param scaled if true the scaled results are returned
+/// @return JSON string with status, covariance_matrix, reduced_covariance_matrix, and reduced_b_matrix
+///
+/// ```json
+/// {
+///   "status": "Steady State found.",
+///   "covariance_matrix": {
+///     "rows": ["X", "Y", ...],
+///     "columns": ["X", "Y", ...],
+///     "values": [[...], ...]
+///   },
+///   "reduced_covariance_matrix": { ... },
+///   "reduced_b_matrix": { ... }
+/// }
+/// ```
+std::string getLNAResults(bool scaled=true);
+
 /// @brief runs a simulation and returns the result as json string
 /// @param yaml the yaml string with the simulation settings and possibly 
 /// changed initial values the format is the same as @see applyYaml

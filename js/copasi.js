@@ -478,6 +478,25 @@ class COPASI {
         return this._vector2dToArray(this.Module.getElasticities2D(scaled));
     }
 
+    /**
+     * Runs the Linear Noise Approximation
+     * @param {bool} useInitialValues indicating whether the initial values should be used
+     * @returns {boolean} true if the LNA was run successfully
+     */
+    runLNA(useInitialValues)
+    {
+        return this.Module.runLNA(useInitialValues);
+    }
+
+    /**
+     * Retrieves the results of the Linear Noise Approximation
+     * @param {bool} scaled indicating whether the scaled (true) or unscaled results should be returned
+     * @returns {object} the results of the LNA as object
+     */
+    getLNAResults(scaled)
+    {
+        return JSON.parse(this.Module.getLNAResults(scaled));
+    }
 }
 
 // if module is defined, export the COPASI class

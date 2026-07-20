@@ -116,7 +116,19 @@ createApi().then((Module) => {
     console.log(instance.getElasticities(true));
     console.log(instance.getElasticities(false));
 
-    instance.reset();
 
+    // run lna
+    console.log(instance.runLNA(true));
+    scaledResults = instance.getLNAResults(true);
+    console.log("Scaled results: ");
+    console.log(scaledResults);
+    console.log("Covariance matrix: ");
+    console.log(scaledResults["covariance_matrix"]);
+    console.log("Reduced covariance matrix: ");
+    console.log(scaledResults["reduced_covariance_matrix"]);
+    console.log("Reduced b matrix: ");
+    console.log(scaledResults["reduced_b_matrix"]);
+
+    instance.reset();
 
 });

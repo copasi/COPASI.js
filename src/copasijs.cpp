@@ -1417,6 +1417,65 @@ bool computeMca(bool performSteadyState)
     return false;
 }
 
+static std::string buildLNAStatusMessage(CSteadyStateMethod::ReturnCode status, CLNAMethod::EVStatus eStatus)
+{
+    if (status == CSteadyStateMethod::found && eStatus == CLNAMethod::allNeg)
+        return "Steady State found.";
+    if (status == CSteadyStateMethod::foundEquilibrium && eStatus == CLNAMethod::allNeg)
+        return "Equilibrium steady state.";
+    if (status == CSteadyStateMethod::foundNegative)
+        return "Invalid steady state (negative concentrations). No LNA calculated!";
+    if (status == CSteadyStateMethod::notFound)
+        return "No steady state found. No LNA calculated!";
+    if (eStatus == CLNAMethod::nonNegEigenvaluesExist)
+        return "The reduced system has non-negative Eigen values! No LNA calculated!";
+
+    return "Unknown LNA status.";
+}
+
+bool runLNA(bool useInitialValues)
+{
+    ensureModel();
+
+    auto &task = dynamic_cast<CLNATask &>((*pDataModel->getTaskList())["Linear Noise Approximation"]);
+
+    task.setUpdateModel(true);
+
+    if (!task.initialize(CCopasiTask::OUTPUT_UI, pDataModel, NULL))
+        return false;
+
+    if (!task.process(useInitialValues))
+        return false;
+
+    if (!task.restore(true))
+        return false;
+
+    return true;
+}
+
+std::string getLNAResults(bool scaled)
+{
+    ensureModel();
+
+    auto &task = dynamic_cast<CLNATask &>((*pDataModel->getTaskList())["Linear Noise Approximation"]);
+    auto *method = dynamic_cast<CLNAMethod *>(task.getMethod());
+
+    ordered_json result;
+
+    if (method == NULL)
+    {
+        result["status"] = "LNA method not available.";
+        return result.dump(2);
+    }
+
+    result["status"] = buildLNAStatusMessage(method->getSteadyStateStatus(), method->getEigenValueStatus());
+    result["covariance_matrix"] = convertDataArray( scaled ? method->getScaledCovarianceMatrixAnn() : method->getUnscaledCovarianceMatrixAnn());
+    result["reduced_covariance_matrix"] = convertDataArray( scaled ? method->getScaledCovarianceMatrixReducedAnn() : method->getUnscaledCovarianceMatrixReducedAnn());
+    result["reduced_b_matrix"] = convertDataArray( scaled ? method->getScaledBMatrixReducedAnn() : method->getUnscaledBMatrixReducedAnn());
+
+    return result.dump(2);
+}
+
 std::string simulateJSON(ordered_json &yaml)
 {
     try
@@ -1808,6 +1867,8 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("oneStep", &oneStep);
     emscripten::function("steadyState", &steadyState);
     emscripten::function("computeMca", &computeMca);
+    emscripten::function("runLNA", &runLNA);
+    emscripten::function("getLNAResults", &getLNAResults);
 
     emscripten::function("getSelectionList", &getSelectionList);
     emscripten::function("getSelectedValues", &getSelectionValues);

@@ -158,6 +158,14 @@ std::vector<std::vector<double>> getSimulationResults2D();
 /// @return the closeness to steady state
 double steadyState();
 
+/// @brief returns the status of the last stability analysis as string
+/// @return the status of the last stability analysis as string
+std::string getStabilityAnalysis();
+
+/// @brief returns the steady state protocol as string
+/// @return the steady state protocol as string
+std::string getSteadyStateProtocol();
+
 /// @brief performs metabolic control analysis
 ///
 /// To retrieve the results use the following functions:
@@ -553,6 +561,18 @@ std::string getTaskSettings(const std::string& taskName);
 /// @param settings the settings as json string
 /// @return true if successful
 bool setTaskSettings(const std::string& taskName, const std::string& settings);
+
+/// @brief returns the names of all available methods for a task
+/// @param taskName the name of the task to get the methods for
+/// @return the names of all available methods for the task
+std::vector<std::string> getAvailableMethods(const std::string& taskName);
+
+/// @brief sets the method of a task
+/// @param taskName the name of the task to set the method for
+/// @param methodName the name of the method to set @see getAvailableMethods for available methods
+/// @return true if successful
+bool setMethod(const std::string& taskName, const std::string& methodName);
+
 
 #pragma region  // internal calls Internal
 

@@ -110,6 +110,16 @@ export default class COPASI {
     getElasticities(scaled: boolean): object;
     getElasticities2D(scaled: boolean): number[][];
 
+    setMethod(taskName: string, methodName: string): boolean;
+    getAvailableMethods(taskName: string): string[];
+    getSteadyStateProtocol(): string;
+    getStabilityAnalysis(): string;
+    getTaskSettings(taskName: string): object;
+    setTaskSettings(taskName: string, settings: object): void;
+    getLNAResults(scaled: boolean): object;
+    runLNA(useInitialValues: boolean): boolean;
+    
+
 }
 
 export {COPASI};

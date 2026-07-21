@@ -1099,6 +1099,18 @@ void resetAll()
     pModel->applyInitialValues();
 }
 
+bool setMethod(const std::string& taskName, const std::string& methodName)
+{
+    ensureModel();
+
+    auto &taskList = *pDataModel->getTaskList();
+    if (taskList.getIndex(taskName) == C_INVALID_INDEX)
+        return false;
+
+    auto &task = (*pDataModel->getTaskList())[taskName];
+    return task.setMethodType(CTaskEnum::MethodName.toEnum(methodName));
+}
+
 bool setTaskSettings(const std::string& taskName, const std::string& settingsJson)
 {
     ordered_json settings;
@@ -1451,6 +1463,31 @@ double steadyState()
     auto rateValue = std::stod(rate);
     return rateValue;
 }
+
+std::string getStabilityAnalysis()
+{
+    ensureModel();
+
+    auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
+
+    std::stringstream ss;
+    ss << task.getEigenValuesReduced();
+    return ss.str();
+}
+
+std::string getSteadyStateProtocol()
+{
+    ensureModel();
+
+    auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
+
+    auto pMethod = dynamic_cast<CSteadyStateMethod *>(task.getMethod());
+    if (!pMethod)
+        return "No steady state method available.";
+    
+    return pMethod->getMethodLog();
+}
+
 
 bool computeMca(bool performSteadyState)
 {
@@ -1881,6 +1918,28 @@ std::string getTaskSettings(const std::string &taskName)
     return yaml.dump(2);
 }
 
+
+std::vector<std::string> getAvailableMethods(const std::string& taskName)
+{
+    ensureModel();
+    if (pDataModel->getTaskList()->getIndex(taskName) == C_INVALID_INDEX)
+        return {};
+
+    auto &task = (*pDataModel->getTaskList())[taskName];
+    auto* pMethods = task.getValidMethods();
+    std::vector<std::string> methodNames;
+    if (pMethods)
+    {
+        int count = 0;
+        while (pMethods[count] != CTaskEnum::Method::UnsetMethod)
+        {
+            methodNames.push_back(CTaskEnum::MethodName[pMethods[count]]);
+            count++;
+        }
+    }
+    return methodNames;
+}
+
 void setTimeCourseSettings(const std::string &settings)
 {
     ensureModel();
@@ -2157,6 +2216,7 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("setTimeCourseSettings", &setTimeCourseSettings);
     emscripten::function("getTaskSettings", &getTaskSettings);
     emscripten::function("setTaskSettings", &setTaskSettings);
+    emscripten::function("getAvailableMethods", &getAvailableMethods);
     emscripten::function("getFloatingSpeciesNames", &getFloatingSpeciesNames);
     emscripten::function("getFloatingSpeciesIds", &getFloatingSpeciesIds);
     emscripten::function("getBoundarySpeciesNames", &getBoundarySpeciesNames);
@@ -2183,6 +2243,8 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
 
     emscripten::function("oneStep", &oneStep);
     emscripten::function("steadyState", &steadyState);
+    emscripten::function("getStabilityAnalysis", &getStabilityAnalysis);
+    emscripten::function("getSteadyStateProtocol", &getSteadyStateProtocol);
     emscripten::function("computeMca", &computeMca);
     emscripten::function("runLNA", &runLNA);
     emscripten::function("getLNAResults", &getLNAResults);

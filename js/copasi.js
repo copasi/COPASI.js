@@ -546,6 +546,38 @@ class COPASI {
     {
         this.Module.clearMessages();
     }
+
+    /**
+     * @returns  the status of the last stability analysis as string
+     */
+    getStabilityAnalysis() {
+        return this.Module.getStabilityAnalysis();
+    }
+
+    /**
+     * @returns  the steady state protocol as string
+     */
+    getSteadyStateProtocol() {
+        return this.Module.getSteadyStateProtocol();
+    }
+
+    /**
+     * @param {string} taskName the name of the task to get the available methods for
+     * @returns the names of all available methods for the task
+     */
+    getAvailableMethods(taskName) {
+        return this._vectorToArray(this.Module.getAvailableMethods(taskName));
+    }
+
+    /**
+     * Sets the method for the given task
+     * @param {string} taskName the name of the task to set the method for
+     * @param {string} methodName the name of the method to set
+     * @returns {boolean} true if successful
+     */
+    setMethod(taskName, methodName) {
+        return this.Module.setMethod(taskName, methodName);
+    }
 }
 
 // if module is defined, export the COPASI class

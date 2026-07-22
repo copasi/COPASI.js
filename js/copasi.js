@@ -58,8 +58,8 @@ class COPASI {
         this.oneStep = Module.oneStep;
         this.initCps = Module.initCps;
         this.destroy = Module.destroy;
-        this.getValue = Module.getValue;
-        this.setValue = Module.setValue;
+        this.getValue = Module.getModelValue;
+        this.setValue = Module.setModelValue;
         this.resetAll = Module.resetAll;
 
         // init runtime

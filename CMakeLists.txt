@@ -42,11 +42,13 @@ option(COPASIJS_INCLUDE_EXAMPLE_FILES "Include example files in the build" OFF)
 option(COPASIJS_SINGLE_FILE "Build single js (on) or js + wasm (if off)" OFF)
 set (COPASIJS_ENVIRONMENT "web" CACHE STRING "Environment for which to build one of: web, node")
 
-set (EXPORTED_FUNCTIONS "ccall,cwrap,getValue,setValue,initCps,destroy,steadyState,computeMca,oneStep,getVersion,getMessages,resetAll")
+# Only Emscripten runtime helpers belong in EXPORTED_RUNTIME_METHODS.
+# The COPASI API itself is exposed through embind in src/copasijs.cpp.
+set (EXPORTED_RUNTIME_METHODS "ccall,cwrap")
 set (PRELOAD_FILE)
 set (DATA_FILE)
 if (COPASIJS_INCLUDE_EXAMPLE_FILES)
-  set (EXPORTED_FUNCTIONS "${EXPORTED_FUNCTIONS},FS")
+  set (EXPORTED_RUNTIME_METHODS "${EXPORTED_RUNTIME_METHODS},FS")
   set (PRELOAD_FILE "--preload-file ${CMAKE_CURRENT_SOURCE_DIR}/example_files@/")
   set (DATA_FILE "${CMAKE_CURRENT_BINARY_DIR}/copasijs.data") 
 endif ()
@@ -69,7 +71,7 @@ set (SINGLE_FILE "-sSINGLE_FILE=0 ")
 endif()
 
 set_target_properties(copasijs PROPERTIES COMPILE_FLAGS "${COPASIJS_OPT_FLAGS}")
-set_target_properties(copasijs PROPERTIES LINK_FLAGS    "${COPASIJS_OPT_FLAGS} -s ALLOW_MEMORY_GROWTH=0 -sASSERTIONS -m32 -s WASM_MEM_MAX=0 -s WASM_BIGINT=0 -sENVIRONMENT=${COPASIJS_ENVIRONMENT} ${SINGLE_FILE} -s WASM=1 -sMODULARIZE=1 -s 'EXPORT_NAME=createCpsModule' --no-entry ${PRELOAD_FILE} -sEXPORTED_RUNTIME_METHODS=${EXPORTED_FUNCTIONS}")
+set_target_properties(copasijs PROPERTIES LINK_FLAGS    "${COPASIJS_OPT_FLAGS} -s ALLOW_MEMORY_GROWTH=0 -sASSERTIONS -m32 -s WASM_MEM_MAX=0 -s WASM_BIGINT=0 -sENVIRONMENT=${COPASIJS_ENVIRONMENT} ${SINGLE_FILE} -s WASM=1 -sMODULARIZE=1 -s 'EXPORT_NAME=createCpsModule' --no-entry ${PRELOAD_FILE} -sEXPORTED_RUNTIME_METHODS=${EXPORTED_RUNTIME_METHODS}")
 
 install(
   FILES 

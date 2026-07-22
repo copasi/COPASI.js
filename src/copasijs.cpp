@@ -2452,8 +2452,8 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("getLocalParameterNames", &getLocalParameterNames);
     emscripten::function("getLocalParameterValues", &getLocalParameterValues);
 
-    emscripten::function("getValue", &getValue);
-    emscripten::function("setValue", &setValue);
+    emscripten::function("getModelValue", &getValue);
+    emscripten::function("setModelValue", &setValue);
     emscripten::function("setValueByName", &setValueByName);
 
     emscripten::function("oneStep", &oneStep);

@@ -2236,6 +2236,7 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("getTaskSettings", &getTaskSettings);
     emscripten::function("setTaskSettings", &setTaskSettings);
     emscripten::function("getAvailableMethods", &getAvailableMethods);
+    emscripten::function("setMethod", &setMethod);
     emscripten::function("getFloatingSpeciesNames", &getFloatingSpeciesNames);
     emscripten::function("getFloatingSpeciesIds", &getFloatingSpeciesIds);
     emscripten::function("getBoundarySpeciesNames", &getBoundarySpeciesNames);
@@ -2300,5 +2301,6 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     // messages
     emscripten::function("getLastMessages", &getLastMessages);
     emscripten::function("clearMessages", &clearMessages);
+
 }
 #endif

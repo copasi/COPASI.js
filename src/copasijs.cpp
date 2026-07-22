@@ -763,6 +763,14 @@ void setSelectionList(const std::vector<std::string> &selectionList)
     }
 }
 
+std::string expressionToString(const CExpression *expr)
+{
+    if (!expr)
+        return std::string();
+
+    return expr->getInfix();
+}
+
 ordered_json buildModelInfo()
 {
     mFloatingSpecies.clear();
@@ -824,8 +832,8 @@ ordered_json buildModelInfo()
             mSelectionList.push_back(metab.getObjectName());
         }
 
-        m["initial_expression"] = metab.getInitialExpression();
-        m["expression"] = metab.getExpression();
+        m["initial_expression"] = expressionToString(metab.getInitialExpressionPtr());
+        m["expression"] = expressionToString(metab.getExpressionPtr());
 
         species.push_back(m);
     }
@@ -839,8 +847,8 @@ ordered_json buildModelInfo()
         c["id"] = compartment.getSBMLId();
         c["size"] = compartment.getInitialValue();
         c["type"] = CModelEntity::StatusName[compartment.getStatus()];
-        c["initial_expression"] = compartment.getInitialExpression();
-        c["expression"] = compartment.getExpression();
+        c["initial_expression"] = expressionToString(compartment.getInitialExpressionPtr());
+        c["expression"] = expressionToString(compartment.getExpressionPtr());
         compartments.push_back(c);
 
         CModelElement cp = {
@@ -922,8 +930,8 @@ ordered_json buildModelInfo()
         p["value"] = param.getValue();
         p["initial_value"] = param.getInitialValue();
         p["type"] = CModelEntity::StatusName[param.getStatus()];
-        p["initial_expression"] = param.getInitialExpression();
-        p["expression"] = param.getExpression();
+        p["initial_expression"] = expressionToString(param.getInitialExpressionPtr());
+        p["expression"] = expressionToString(param.getExpressionPtr());
         globalParameters.push_back(p);
 
         CModelElement gp = {
@@ -954,8 +962,9 @@ ordered_json buildModelInfo()
         {
             if (!assignment.getTargetObject())
                 continue;
-            targets << assignment.getTargetObject()->getObjectName() << " = " << assignment.getExpression() << "; ";
+            targets << assignment.getTargetObject()->getObjectName() << " = " << expressionToString(assignment.getExpressionPtr()) << "; ";
         }
+        e["assignments"] = targets.str();
         modelInfo["events"].push_back(e);
     }
 

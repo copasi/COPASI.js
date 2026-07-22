@@ -16,6 +16,8 @@ export interface SpeciesInfo {
     initial_particle_number: number;
     particle_number: number;
     type: string;
+    initial_expression: string;
+    expression: string;
 }
 
 export interface CompartmentInfo {
@@ -23,6 +25,8 @@ export interface CompartmentInfo {
     name: string;
     size: number;
     type: string;
+    initial_expression: string;
+    expression: string;
 }
 export interface LocalParamterInfo {
     name: string;
@@ -49,6 +53,17 @@ export interface GlobalParamterInfo {
     initial_value: number;
     id: string;
     type: string;
+    initial_expression: string;
+    expression: string;
+}
+
+export interface EventInfo {
+    id: string;
+    name: string;
+    trigger: string;
+    delay: string;
+    priority: string;
+    assignments: string;
 }
 
 export interface ModelInfo {
@@ -56,6 +71,7 @@ export interface ModelInfo {
     compartments: CompartmentInfo[];
     reactions: ReactionInfo[];
     global_parameters: GlobalParamterInfo[];
+    events: EventInfo[];
     model : ModelName;
     time: number;
     status: string;

@@ -787,6 +787,7 @@ ordered_json buildModelInfo()
     auto &pReactions = pModel->getReactions();
     auto &pCompartments = pModel->getCompartments();
     auto &pModelValues = pModel->getModelValues();
+    auto &pEvents = pModel->getEvents();
 
     std::vector<json> species;
     for (auto &metab : pMetabs)
@@ -823,6 +824,9 @@ ordered_json buildModelInfo()
             mSelectionList.push_back(metab.getObjectName());
         }
 
+        m["initial_expression"] = metab.getInitialExpression();
+        m["expression"] = metab.getExpression();
+
         species.push_back(m);
     }
     modelInfo["species"] = species;
@@ -835,6 +839,8 @@ ordered_json buildModelInfo()
         c["id"] = compartment.getSBMLId();
         c["size"] = compartment.getInitialValue();
         c["type"] = CModelEntity::StatusName[compartment.getStatus()];
+        c["initial_expression"] = compartment.getInitialExpression();
+        c["expression"] = compartment.getExpression();
         compartments.push_back(c);
 
         CModelElement cp = {
@@ -849,6 +855,7 @@ ordered_json buildModelInfo()
 
         if (compartment.getStatus() != CModelEntity::Status::FIXED)
             mSelectionList.push_back(compartment.getObjectName());
+
     }
     modelInfo["compartments"] = compartments;
 
@@ -915,6 +922,8 @@ ordered_json buildModelInfo()
         p["value"] = param.getValue();
         p["initial_value"] = param.getInitialValue();
         p["type"] = CModelEntity::StatusName[param.getStatus()];
+        p["initial_expression"] = param.getInitialExpression();
+        p["expression"] = param.getExpression();
         globalParameters.push_back(p);
 
         CModelElement gp = {
@@ -931,6 +940,24 @@ ordered_json buildModelInfo()
             mSelectionList.push_back(param.getObjectName());
     }
     modelInfo["global_parameters"] = globalParameters;
+
+    for (auto &event : pEvents)
+    {
+        ordered_json e;
+        e["name"] = event.getObjectName();
+        e["id"] = event.getSBMLId();
+        e["trigger"] = event.getTriggerExpression();
+        e["delay"] = event.getDelayExpression();
+        e["priority"] = event.getPriorityExpression();
+        std::stringstream targets;
+        for (auto& assignment :  event.getAssignments())
+        {
+            if (!assignment.getTargetObject())
+                continue;
+            targets << assignment.getTargetObject()->getObjectName() << " = " << assignment.getExpression() << "; ";
+        }
+        modelInfo["events"].push_back(e);
+    }
 
     modelInfo["time"] = pModel->getValue();
 

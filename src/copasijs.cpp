@@ -1039,6 +1039,15 @@ ordered_json buildModelInfo()
 
     modelInfo["model"]["name"] = pModel->getObjectName();
     modelInfo["model"]["notes"] = pModel->getNotes();
+    modelInfo["model"]["time_unit"] = pModel->getTimeUnit();
+    modelInfo["model"]["volume_unit"] = pModel->getVolumeUnit();
+    modelInfo["model"]["quantity_unit"] = pModel->getQuantityUnit();
+    modelInfo["model"]["area_unit"] = pModel->getAreaUnit();
+    modelInfo["model"]["length_unit"] = pModel->getLengthUnit();
+    modelInfo["model"]["initial_time"] = pModel->getInitialTime();
+    modelInfo["model"]["avogadro"] = pModel->getAvogadro();
+
+
 
     modelInfo["status"] = "success";
     modelInfo["messages"] = getMessages(0, "No Output");

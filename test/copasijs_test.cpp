@@ -51,7 +51,7 @@ TEST_CASE("Test version", "[copasijs]") {
     REQUIRE(!version.empty());
 }
 
-TEST_CASE("Load Model", "[copasijs]") 
+TEST_CASE("Load Model", "[copasijs][brusselator]") 
 {
     Instance instance;
     std::string model = loadFromFile(getTestFile("../example_files/brusselator.cps"));

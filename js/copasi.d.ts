@@ -45,6 +45,13 @@ export interface ModelName
 {
     name: string;
     notes: string;
+    time_unit: string;
+    volume_unit: string;
+    quantity_unit: string;
+    area_unit: string;
+    length_unit: string;
+    initial_time: number;
+    avogadro: number;
 }
 
 export interface GlobalParamterInfo {   

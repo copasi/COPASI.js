@@ -458,6 +458,28 @@ TEST_CASE("Test Settings", "[copasijs][settings]")
     REQUIRE(!settings.empty());
 }
 
+TEST_CASE("Test Optimization", "[copasijs][optimization]")
+{
+    Instance instance;
+    std::string model = loadFromFile(getTestFile("../example_files/HimmelblauFunction.cps"));
+    REQUIRE(!model.empty());
+    REQUIRE(model != "Error loading model");
+
+    REQUIRE(runOptimization(true));
+
+    auto optItems = getOptItems();
+    CAPTURE(optItems);
+    REQUIRE(!optItems.empty());
+
+    auto optSolution = getOptSolution();
+    CAPTURE(optSolution);
+    REQUIRE(!optSolution.empty());
+
+    auto optStatistic = getOptStatistic();
+    CAPTURE(optStatistic);
+    REQUIRE(!optStatistic.empty());
+}
+
 
 int main(int argc, char *argv[])
 {

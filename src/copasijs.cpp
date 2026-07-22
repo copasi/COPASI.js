@@ -1310,6 +1310,25 @@ std::string getJacobian()
     return convertDataArray(pMatrix).dump(2);
 }
 
+std::string getStoichiometryMatrix(bool reduced /*= false*/)
+{
+    ensureModel();
+    
+    auto *pMatrix = reduced ? pDataModel->getModel()->getRedStoiAnnotation() : pDataModel->getModel()->getStoiAnnotation();
+
+    return convertDataArray(pMatrix).dump(2);
+}
+
+std::string getLinkMatrix()
+{
+    ensureModel();
+    
+    auto *pMatrix = pDataModel->getModel()->getLAnnotation();
+
+    return convertDataArray(pMatrix).dump(2);
+}
+
+
 std::vector<std::vector<double>> getJacobian2D()
 {
     ensureModel();
@@ -2265,6 +2284,10 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("getJacobianReduced", &getJacobianReduced);
     emscripten::function("getJacobianReduced2D", &getJacobianReduced2D);
     emscripten::function("getEigenValuesReduced2D", &getEigenValuesReduced2D);
+
+
+    emscripten::function("getStoichiometryMatrix", &getStoichiometryMatrix);
+    emscripten::function("getLinkMatrix", &getLinkMatrix);
 
     // mca results
     emscripten::function("getFluxControlCoefficients", &getFluxControlCoefficients);

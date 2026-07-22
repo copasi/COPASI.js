@@ -102,6 +102,10 @@ export default class COPASI {
     readonly reducedJacobian: object;
     readonly reducedJacobian2D: number[][];
     readonly eigenValuesReduced2D: number[][];
+
+    readonly stoichiometryMatrix: object;
+	readonly reducedStoichiometryMatrix: object;
+    readonly linkMatrix: object;
     
     getFluxControlCoefficients(scaled: boolean): object;
     getFluxControlCoefficients2D(scaled: boolean): number[][];
@@ -118,7 +122,7 @@ export default class COPASI {
     setTaskSettings(taskName: string, settings: object): void;
     getLNAResults(scaled: boolean): object;
     runLNA(useInitialValues: boolean): boolean;
-    
+
 
 }
 

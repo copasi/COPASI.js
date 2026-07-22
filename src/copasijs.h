@@ -514,6 +514,40 @@ std::vector<std::vector<double>> getEigenValues2D();
 /// ```
 std::string getJacobianReduced();
 
+
+/// @brief returns the reduced Jacobian at steady state as JSON string
+/// @param reduced if true the reduced Jacobian is returned, otherwise the full Jacobian is returned
+/// @return the Jacobian as JSON string in the following format
+///
+/// ```json
+/// {
+///     "rows": ["X", "Y", ...],
+///     "columns": ["X", "Y", ...],
+///     "values": [
+///         [1.0, 0.0, ...],
+///         [0.0, 1.0, ...],
+///         ...
+///     ]
+/// }
+/// ```
+std::string getStoichiometryMatrix(bool reduced = false);
+
+/// @brief returns the stoichiometry matrix as JSON string
+/// @return the stoichiometry matrix as JSON string in the following format
+///
+/// ```json
+/// {
+///     "rows": ["X", "Y", ...],
+///     "columns": ["X", "Y", ...],
+///     "values": [
+///         [1.0, 0.0, ...],
+///         [0.0, 1.0, ...],
+///         ...
+///     ]
+/// }
+/// ```
+std::string getLinkMatrix();
+
 /// @brief returns the reduced Jacobian at steady state as 2D double vector
 std::vector<std::vector<double>> getJacobianReduced2D();
 

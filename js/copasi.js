@@ -578,6 +578,29 @@ class COPASI {
     setMethod(taskName, methodName) {
         return this.Module.setMethod(taskName, methodName);
     }
+
+    /**
+     * @property {object} stoichiometryMatrix the stoichiometry matrix as object
+     */
+    get stoichiometryMatrix() {
+        return JSON.parse(this.Module.getStoichiometryMatrix(false));
+    }
+
+    /**
+     * @property {object} reduced stoichiometryMatrix the stoichiometry matrix as object
+     */
+    get reducedStoichiometryMatrix() {
+        return JSON.parse(this.Module.getStoichiometryMatrix(true));
+    }
+
+
+    /**
+     * @property {object} linkMatrix the link matrix as object
+     */
+    get linkMatrix() {
+        return JSON.parse(this.Module.getLinkMatrix());
+    }
+
 }
 
 // if module is defined, export the COPASI class

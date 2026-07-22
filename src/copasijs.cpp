@@ -1111,6 +1111,44 @@ void loadCommon()
     _removeFixedElementsFromSet(newSet);
 }
 
+std::string loadCombineArchive(const std::string &modelFile)
+{
+    try
+    {
+        destroyAPI();
+        initCps();
+
+        CCopasiMessage::clearDeque();
+
+        if (!pDataModel->openCombineArchive(modelFile, NULL, true))
+            {
+                CCopasiMessage message(CCopasiMessage::ERROR, "Error loading model");
+                ordered_json modelInfo;
+                modelInfo["status"] = "error";
+                modelInfo["messages"] = getMessages();
+                return modelInfo.dump(2);
+            }
+
+        loadCommon();
+    }
+    catch (CCopasiException &e)
+    {
+        ordered_json modelInfo;
+        modelInfo["status"] = "error";
+        modelInfo["messages"] = getMessages();
+        return modelInfo.dump(2);
+    }
+    catch (std::exception &e)
+    {
+        ordered_json modelInfo;
+        modelInfo["status"] = "error";
+        modelInfo["messages"] = e.what();
+        return modelInfo.dump(2);
+    }
+
+    return buildModelInfo().dump(2);    
+}
+
 std::string loadFromFile(const std::string &modelFile)
 {
     try
@@ -2420,6 +2458,7 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("getMessages", &getMessages);
     emscripten::function("getModelInfo", &getModelInfo);
     emscripten::function("loadFromFile", &loadFromFile);
+    emscripten::function("loadCombineArchive", &loadCombineArchive);
     emscripten::function("loadModel", &loadModel);
     emscripten::function("reset", &reset);
     emscripten::function("resetAll", &resetAll);

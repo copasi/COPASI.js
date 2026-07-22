@@ -93,6 +93,8 @@ export default class COPASI {
     _vectorToArray(v: any): any[];
     loadExample(path: string) : ModelInfo;
     loadModel(modelCode: string): ModelInfo;
+    loadFromFile(modelFile: string): ModelInfo;
+    loadCombineArchive(modelFile: string): ModelInfo;
     simulate() : object;
     simulate2D() : number[][];
     simulateEx(startTime : number, endTime : number, numPoints : number) : SimResult;

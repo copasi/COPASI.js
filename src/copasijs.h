@@ -105,6 +105,12 @@ std::string getModelInfo();
 /// @return the model info as string
 std::string loadFromFile(const std::string& modelFile);
 
+
+/// @brief loads a model from a COMBINE archive
+/// @param modelFile the file to load
+/// @return the model info as string
+std::string loadCombineArchive(const std::string& modelFile);
+
 /// @brief loads a model from a string
 /// @param modelString the model as string can be sbml or copasi format
 /// @return the model info as string

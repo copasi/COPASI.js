@@ -90,6 +90,17 @@ class COPASI {
     }
 
     /**
+     * Loads a model from a COMBINE archive.
+     *
+     * @param {string} path the path to the COMBINE archive
+     * @returns model information as an object
+     */
+    loadCombineArchive(path)
+    {
+        return JSON.parse(this.Module.loadCombineArchive(path));
+    }
+
+    /**
      * simulates the currently loaded model with its current 
      * time course settings.
      * 

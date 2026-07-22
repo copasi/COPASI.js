@@ -44,7 +44,7 @@ set (COPASIJS_ENVIRONMENT "web" CACHE STRING "Environment for which to build one
 
 # Only Emscripten runtime helpers belong in EXPORTED_RUNTIME_METHODS.
 # The COPASI API itself is exposed through embind in src/copasijs.cpp.
-set (EXPORTED_RUNTIME_METHODS "ccall,cwrap")
+set (EXPORTED_RUNTIME_METHODS "ccall,cwrap,FS")
 set (PRELOAD_FILE)
 set (DATA_FILE)
 if (COPASIJS_INCLUDE_EXAMPLE_FILES)

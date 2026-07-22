@@ -481,6 +481,28 @@ TEST_CASE("Test Optimization", "[copasijs][optimization]")
 }
 
 
+TEST_CASE("Test Parameter Estimation", "[copasijs][parameter_estimation]")
+{
+    Instance instance;
+    std::string model = loadFromFile(getTestFile("../example_files/LM-test1.cps"));
+    REQUIRE(!model.empty());
+    REQUIRE(model != "Error loading model");
+
+    REQUIRE(runParameterEstimation(true));
+
+    auto fitItems = getFitItems();
+    CAPTURE(fitItems);
+    REQUIRE(!fitItems.empty());
+
+    auto fitSolution = getFitSolution();
+    CAPTURE(fitSolution);
+    REQUIRE(!fitSolution.empty());
+
+    auto fitStatistic = getFitStatistic();
+    CAPTURE(fitStatistic);
+    REQUIRE(!fitStatistic.empty());
+}
+
 int main(int argc, char *argv[])
 {
   CRootContainer::init(0, NULL);

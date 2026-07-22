@@ -9,6 +9,7 @@ using namespace emscripten;
 
 #include <copasi/core/CDataContainer.h>
 #include <copasi/steadystate/CEigen.h>
+#include <regex>
 
 #ifdef __cplusplus
 #define EXTERN extern "C"
@@ -592,6 +593,46 @@ CDataObject *resolveMcaObject(const std::string &item)
     return NULL;
 }
 
+static std::string cnToDisplayName(const std::string &cn)
+{
+    if (!pDataModel)
+        return cn;
+
+    auto *obj = const_cast<CDataObject *>(dynamic_cast<const CDataObject *>(pDataModel->getObject(CCommonName(cn))));
+    if (obj == NULL)
+        return cn;
+
+    auto isValidName = [](const std::string &name) -> bool
+    {
+        return !name.empty() && name.find("[not found]") == std::string::npos;
+    };
+
+    if (obj->getObjectType() == "Reference")
+    {
+        auto *parent = obj->getObjectParent();
+        if (parent != NULL && parent->getObjectType() != "Model")
+        {
+            auto parentDisplayName = parent->getObjectDisplayName();
+            if (isValidName(parentDisplayName))
+                return parentDisplayName;
+        }
+
+        auto objectName = obj->getObjectName();
+        if (isValidName(objectName))
+            return objectName;
+    }
+
+    auto displayName = obj->getObjectDisplayName();
+    if (isValidName(displayName))
+        return displayName;
+
+    auto objectName = obj->getObjectName();
+    if (isValidName(objectName))
+        return objectName;
+
+    return cn;
+}
+
 void setSelectionList(const std::vector<std::string> &selectionList)
 {
     mSelectionList = selectionList;
@@ -768,7 +809,33 @@ std::string expressionToString(const CExpression *expr)
     if (!expr)
         return std::string();
 
-    return expr->getInfix();
+    std::string infix = expr->getInfix();
+    // this is a string like <CN=Root,Model=Iron Mouse Pv4 - HPX,Vector=Values[c0],Reference=InitialValue>*3.84615e-05+(<CN=Root,Model=Iron Mouse Pv4 - HPX,Vector=Values[a3],Reference=InitialValue>*<CN=Root,Model=Iron Mouse Pv4 - HPX,Reference=Initial Time>^3-<CN=Root,Model=Iron Mouse Pv4 - HPX,Vector=Values[a2],Reference=InitialValue>*<CN=Root,Model=Iron Mouse Pv4 - HPX,Reference=Initial Time>^2+<CN=Root,Model=Iron Mouse Pv4 - HPX,Vector=Values[a1],Reference=InitialValue>*<CN=Root,Model=Iron Mouse Pv4 - HPX,Reference=Initial Time>-<CN=Root,Model=Iron Mouse Pv4 - HPX,Vector=Values[a0],Reference=InitialValue>)*3.84615e-05
+    // in a next step, we want to replace the CN=Root,Model=Iron Mouse Pv4 - HPX,Vector=Values[c0],Reference=InitialValue with the actual variable name
+    // so first we capture the cn, then we look up the object by CN, and then we replace the CN with the object name
+    // using the regex pattern: <(CN=([^\\\\>]|\\\\.)*)>
+
+    static const std::regex cnRegex(R"(<(CN=([^\\>]|\\.)*)>)");
+
+    std::string result;
+    std::sregex_iterator it(infix.begin(), infix.end(), cnRegex);
+    std::sregex_iterator end;
+    size_t lastPos = 0;
+
+    for (; it != end; ++it)
+    {
+        const auto &match = *it;
+        result.append(infix, lastPos, static_cast<size_t>(match.position()) - lastPos);
+        result += std::string("{") + cnToDisplayName(match[1].str()) + std::string("}");
+        lastPos = static_cast<size_t>(match.position() + match.length());
+    }
+
+    result.append(infix, lastPos, std::string::npos);
+
+    if (!result.empty())
+        return result;
+
+    return infix;
 }
 
 ordered_json buildModelInfo()
@@ -954,9 +1021,9 @@ ordered_json buildModelInfo()
         ordered_json e;
         e["name"] = event.getObjectName();
         e["id"] = event.getSBMLId();
-        e["trigger"] = event.getTriggerExpression();
-        e["delay"] = event.getDelayExpression();
-        e["priority"] = event.getPriorityExpression();
+        e["trigger"] = expressionToString(event.getTriggerExpressionPtr());
+        e["delay"] = expressionToString(event.getDelayExpressionPtr());
+        e["priority"] = expressionToString(event.getPriorityExpressionPtr());
         std::stringstream targets;
         for (auto& assignment :  event.getAssignments())
         {

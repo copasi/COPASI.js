@@ -207,6 +207,11 @@ std::string getLNAResults(bool scaled=true);
 /// @return boolean indicating success
 bool runOptimization(bool useInitialValues=true);
 
+
+/// @brief  returns the names of the optimization items as JSON string
+/// @return JSON array with the names of the optimization items
+std::string getOptItems();
+
 /// @brief returns the solution found for the optimization parameters as JSON string
 /// @return JSON array with name, lower, upper, and sol for each parameter
 ///
@@ -282,6 +287,11 @@ std::string getFitSolution();
 /// }
 /// ```
 std::string getFitStatistic();
+
+
+/// @brief returns the names of the fit items as JSON string
+/// @return JSON array with the names of the fit items
+std::string getFitItems();
 
 /// @brief runs a simulation and returns the result as json string
 /// @param yaml the yaml string with the simulation settings and possibly 

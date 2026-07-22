@@ -601,6 +601,68 @@ class COPASI {
         return JSON.parse(this.Module.getLinkMatrix());
     }
 
+    /**
+     * runs the optimization task with the current settings
+     * @param {boolean} useInitialValues whether to use initial values
+     * @returns {boolean} true if successful
+     */
+    runOptimization(useInitialValues) {
+        return this.Module.runOptimization(useInitialValues);
+    }
+
+
+    /** 
+     * @property {object} optItems returns the optimization items as object
+     */
+    get optItems() {
+        return JSON.parse(this.Module.getOptItems());
+    }
+
+    /**
+     * @property {object} optSolution returns the optimization solution as object
+     */
+    get optSolution() {
+        return JSON.parse(this.Module.getOptSolution());
+    }
+
+    /**
+     * @property {object} optStatistic returns the optimization statistics as object
+     */
+    get optStatistic() {
+        return JSON.parse(this.Module.getOptStatistic());
+    }
+
+    /**
+     * runs the parameter estimation task with the current settings
+     * @param {boolean} useInitialValues whether to use initial values
+     * @returns {boolean} true if successful
+     */
+    runParameterEstimation(useInitialValues) {
+        return this.Module.runParameterEstimation(useInitialValues);
+    }
+
+    
+    /**
+     * @property {object} fitSolution returns the fit solution as object
+     */
+    get fitSolution() {
+        return JSON.parse(this.Module.getFitSolution());
+    }
+
+    /**
+     * @property {object} fitItems returns the fit items as object
+     */
+    get fitItems() {
+        return JSON.parse(this.Module.getFitItems());
+    }
+
+    /**
+     * @property {object} fitStatistic returns the fit statistics as object
+     */
+    get fitStatistic() {
+        return JSON.parse(this.Module.getFitStatistic());
+    }
+
 }
 
 // if module is defined, export the COPASI class

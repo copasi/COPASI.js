@@ -1736,6 +1736,49 @@ bool runOptimization(bool useInitialValues)
     return true;
 }
 
+std::string getOptItems()
+{
+    ensureModel();
+
+    auto &task = dynamic_cast<COptTask &>((*pDataModel->getTaskList())["Optimization"]);
+    auto *problem = dynamic_cast<COptProblem *>(task.getProblem());
+
+    ordered_json result = ordered_json::array();
+
+    if (problem == NULL)
+        return result.dump(2);
+
+    const auto &items = problem->getOptItemList(false);
+    for (const auto *item : items)
+    {
+        if (item == NULL)
+            continue;
+
+
+        const CDataObject *obj = dynamic_cast<const CDataObject *>(
+            pDataModel->getObject(CCommonName(item->getObjectCN())));
+        if (obj == NULL)
+            continue;
+
+        const CDataObject *parent = obj->getObjectParent();
+        std::string name = parent != NULL ? parent->getObjectDisplayName() : obj->getObjectDisplayName();
+
+
+        ordered_json entry;
+        entry["lower"] = optBoundToDouble(item->getLowerBound());
+        entry["upper"] = optBoundToDouble(item->getUpperBound());
+        entry["start"] = item->getStartValue();
+        entry["name"] = name;
+        entry["object_cn"] = item->getObjectCN();
+
+
+        result.push_back(entry);
+    }
+
+    return result.dump(2);
+}
+
+
 std::string getOptSolution()
 {
     ensureModel();
@@ -1809,7 +1852,7 @@ std::string getOptStatistic()
     return result.dump(2);
 }
 
-static ordered_json getAffectedExperimentNames(CFitItem *fitItem)
+static ordered_json getAffectedExperimentNames(const CFitItem *fitItem)
 {
     ordered_json affected = ordered_json::array();
     if (fitItem == NULL)
@@ -1892,6 +1935,46 @@ std::string getFitSolution()
         entry["upper"] = optBoundToDouble(item->getUpperBound());
         entry["sol"] = solution[i];
         entry["affected"] = getAffectedExperimentNames(dynamic_cast<CFitItem *>(item));
+        result.push_back(entry);
+    }
+
+    return result.dump(2);
+}
+
+std::string getFitItems()
+{
+    ensureModel();
+
+    auto &task = dynamic_cast<CFitTask &>((*pDataModel->getTaskList())["Parameter Estimation"]);
+    auto *problem = dynamic_cast<CFitProblem *>(task.getProblem());
+
+    ordered_json result = ordered_json::array();
+
+    if (problem == NULL)
+        return result.dump(2);
+
+    const auto &items = problem->getOptItemList(false);
+    for (const auto *item : items)
+    {
+        if (item == NULL)
+            continue;
+
+        const CDataObject *obj = dynamic_cast<const CDataObject *>(
+            pDataModel->getObject(CCommonName(item->getObjectCN())));
+        if (obj == NULL)
+            continue;
+
+        const CDataObject *parent = obj->getObjectParent();
+        std::string name = parent != NULL ? parent->getObjectDisplayName() : obj->getObjectDisplayName();
+
+        ordered_json entry;
+        entry["lower"] = optBoundToDouble(item->getLowerBound());
+        entry["upper"] = optBoundToDouble(item->getUpperBound());
+        entry["start"] = item->getStartValue();
+        entry["name"] = name;
+        entry["object_cn"] = item->getObjectCN();
+        entry["affected"] = getAffectedExperimentNames(dynamic_cast<const CFitItem *>(item));
+
         result.push_back(entry);
     }
 
@@ -2381,10 +2464,12 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("runLNA", &runLNA);
     emscripten::function("getLNAResults", &getLNAResults);
     emscripten::function("runOptimization", &runOptimization);
+    emscripten::function("getOptItems", &getOptItems);
     emscripten::function("getOptSolution", &getOptSolution);
     emscripten::function("getOptStatistic", &getOptStatistic);
     emscripten::function("runParameterEstimation", &runParameterEstimation);
     emscripten::function("getFitSolution", &getFitSolution);
+    emscripten::function("getFitItems", &getFitItems);
     emscripten::function("getFitStatistic", &getFitStatistic);
 
     emscripten::function("getSelectionList", &getSelectionList);

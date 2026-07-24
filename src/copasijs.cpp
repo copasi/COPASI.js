@@ -251,7 +251,7 @@ void fillStream(const CTimeSeries &ts, std::stringstream &str)
         str << "<th>" << ts.getTitle(i) << "</th>";
     }
 
-    str << "</thread>";
+    str << "</thead>";
 
     for (int i = 0; i < ts.getRecordedSteps(); ++i)
     {
@@ -337,6 +337,7 @@ double getValue(const std::string &nameOrId)
     }
 
     // resolve display names:
+    if (pDataModel)
     {
         auto *obj = const_cast<CDataObject *>(pDataModel->findObjectByDisplayName(nameOrId));
         if (obj)
@@ -426,7 +427,10 @@ bool setModelElement(std::map<std::string, CModelElement> &map, std::map<std::st
             auto cn = pMetab->getCN();
             auto* pParam = dynamic_cast<CModelParameterSpecies*>( pGroup->getModelParameter(cn));
             if (pParam)
-            pParam->setValue(value, CCore::Framework::Concentration, true);
+            {
+                pParam->setValue(value, CCore::Framework::Concentration, true);
+                return true;
+            }
 
         }
     }
@@ -635,6 +639,8 @@ static std::string cnToDisplayName(const std::string &cn)
 
 void setSelectionList(const std::vector<std::string> &selectionList)
 {
+    ensureModel();
+
     mSelectionList = selectionList;
 
     if (mpDataHandler != NULL)
@@ -1678,7 +1684,7 @@ bool computeMca(bool performSteadyState)
     if (!task.restore())
         return false;
 
-    return false;
+    return true;
 }
 
 static std::string buildLNAStatusMessage(CSteadyStateMethod::ReturnCode status, CLNAMethod::EVStatus eStatus)
@@ -2215,6 +2221,9 @@ std::string simulateEx(double timeStart, double timeEnd, int numPoints)
 {
     ordered_json yaml;
     numPoints = numPoints > 1 ? numPoints - 1 : numPoints;
+    if (numPoints < 1)
+        numPoints = 1;
+
     yaml["problem"]["StepNumber"] = numPoints;
     yaml["problem"]["OutputStartTime"] = timeStart;
     yaml["problem"]["Duration"] = timeEnd;

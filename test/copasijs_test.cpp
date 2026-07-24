@@ -478,6 +478,10 @@ TEST_CASE("Test Optimization", "[copasijs][optimization]")
     auto optStatistic = getOptStatistic();
     CAPTURE(optStatistic);
     REQUIRE(!optStatistic.empty());
+
+    auto optSettings = getOptSettings();
+    CAPTURE(optSettings);
+    REQUIRE(!optSettings.empty());
 }
 
 
@@ -525,6 +529,10 @@ TEST_CASE("Test PE omex", "[copasijs][parameter_estimation][omex]")
     auto fitStatistic = getFitStatistic();
     CAPTURE(fitStatistic);
     REQUIRE(!fitStatistic.empty());
+
+    auto fitSettings = getFitSettings();
+    CAPTURE(fitSettings);
+    REQUIRE(!fitSettings.empty());
 }
 
 int main(int argc, char *argv[])

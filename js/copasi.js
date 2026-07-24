@@ -674,6 +674,20 @@ class COPASI {
         return JSON.parse(this.Module.getFitStatistic());
     }
 
+    get fitSettings() {
+        return JSON.parse(this.Module.getFitSettings());
+    }
+
+    get optSettings() {
+        return JSON.parse(this.Module.getOptSettings());
+    }
+
+    runTask(taskName, useInitialValues) {
+        return this.Module.runTask(taskName, useInitialValues);
+    }
+
+    
+
 }
 
 // if module is defined, export the COPASI class

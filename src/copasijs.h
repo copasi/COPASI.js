@@ -161,8 +161,10 @@ std::vector<std::vector<double>> getSimulationResults2D();
 
 /// @brief runs the steady state task and returns the 
 /// closeness to steady state as result. 
+/// @param stabilityAnalysis if true the stability analysis will be performed
+/// @param updateModel if true the model will be updated with the steady state values
 /// @return the closeness to steady state
-double steadyState();
+double steadyState(bool stabilityAnalysis=true, bool updateModel=true);
 
 /// @brief returns the status of the last stability analysis as string
 /// @return the status of the last stability analysis as string
@@ -183,7 +185,7 @@ std::string getSteadyStateProtocol();
 /// should be computed before the MCA computations
 ///
 /// @return boolean indicating success
-bool computeMca(bool performSteadyState=true);
+bool computeMca(bool performSteadyState=true, bool updateModel=true);
 
 /// @brief runs the Linear Noise Approximation task
 /// @param useInitialValues if true the initial values are used, otherwise the current state is used
@@ -601,6 +603,23 @@ std::string getLastMessages();
 /// @brief clears the last recorded messages from the COPASI library
 void clearMessages();
 
+/// @brief returns the settings for the optimization task as json string
+/// 
+/// Additionally to the settings returned by getTaskSettings, this
+/// method returns the objective function, subtask, optimization items
+/// and constraints.
+///
+/// @return  the settings for the optimization task as json string
+std::string getOptSettings();
+
+/// @brief returns the settings for the parameter estimation task as json string
+///
+/// Additionally to the settings returned by getTaskSettings, this
+/// method returns the fit items, constraints and data filenames.
+///
+/// @return  the settings for the parameter estimation task as json string
+std::string getFitSettings();
+
 /// @brief returns the settings of a task as json string
 /// @param taskName the name of the task to get
 /// @return the settings of the task as json string
@@ -623,6 +642,11 @@ std::vector<std::string> getAvailableMethods(const std::string& taskName);
 /// @return true if successful
 bool setMethod(const std::string& taskName, const std::string& methodName);
 
+/// @brief runs the named task and returns true if successful
+/// @param taskName the name of the task to run
+/// @param useInitialValues if true the initial values are used, otherwise the current state is used
+/// @return true if the task was run successfully
+bool runTask(const std::string& taskName, bool useInitialValues=true);
 
 #pragma region  // internal calls Internal
 
@@ -697,6 +721,14 @@ void loadCommon();
 std::string simulateJSON(nlohmann::ordered_json& yaml);
 
 CDataObject* resolveMcaObject(const std::string& item);
+
+std::string expressionToString(const CExpression *expr);
+std::string expressionToString(const std::string &infix);
+
+void addItemsToArray(nlohmann::ordered_json &jsonArray, const std::vector<COptItem *> &items);
+static double optBoundToDouble(const CRegisteredCommonName &bound);
+static nlohmann::ordered_json getAffectedExperimentNames(const CFitItem *fitItem);
+
 #pragma endregion
 
 

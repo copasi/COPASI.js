@@ -815,7 +815,11 @@ std::string expressionToString(const CExpression *expr)
     if (!expr)
         return std::string();
 
-    std::string infix = expr->getInfix();
+    return expressionToString(expr->getInfix());
+}
+
+std::string expressionToString(const std::string &infix)
+{
     // this is a string like <CN=Root,Model=Iron Mouse Pv4 - HPX,Vector=Values[c0],Reference=InitialValue>*3.84615e-05+(<CN=Root,Model=Iron Mouse Pv4 - HPX,Vector=Values[a3],Reference=InitialValue>*<CN=Root,Model=Iron Mouse Pv4 - HPX,Reference=Initial Time>^3-<CN=Root,Model=Iron Mouse Pv4 - HPX,Vector=Values[a2],Reference=InitialValue>*<CN=Root,Model=Iron Mouse Pv4 - HPX,Reference=Initial Time>^2+<CN=Root,Model=Iron Mouse Pv4 - HPX,Vector=Values[a1],Reference=InitialValue>*<CN=Root,Model=Iron Mouse Pv4 - HPX,Reference=Initial Time>-<CN=Root,Model=Iron Mouse Pv4 - HPX,Vector=Values[a0],Reference=InitialValue>)*3.84615e-05
     // in a next step, we want to replace the CN=Root,Model=Iron Mouse Pv4 - HPX,Vector=Values[c0],Reference=InitialValue with the actual variable name
     // so first we capture the cn, then we look up the object by CN, and then we replace the CN with the object name
@@ -1267,6 +1271,27 @@ bool setMethod(const std::string& taskName, const std::string& methodName)
     return task.setMethodType(CTaskEnum::MethodName.toEnum(methodName));
 }
 
+bool runTask(const std::string& taskName, bool useInitialValues)
+{
+    ensureModel();
+
+    auto &taskList = *pDataModel->getTaskList();
+    if (taskList.getIndex(taskName) == C_INVALID_INDEX)
+        return false;
+
+    auto &task = (*pDataModel->getTaskList())[taskName];
+    if (!task.initialize(CCopasiTask::OUTPUT_UI, pDataModel, NULL))
+        return false;
+
+    if (!task.process(useInitialValues))
+        return false;
+
+    if (!task.restore())
+        return false;
+
+    return true;
+}
+
 bool setTaskSettings(const std::string& taskName, const std::string& settingsJson)
 {
     ordered_json settings;
@@ -1601,16 +1626,16 @@ std::vector<std::vector<double>> getElasticities2D(bool scaled)
     return convertCArray(pMatrix->getArray());
 }
 
-double steadyState()
+double steadyState(bool stabilityAnalysis, bool updateModel)
 {
     ensureModel();
 
     auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
 
-    task.setUpdateModel(true);
+    task.setUpdateModel(updateModel);
+
     auto *problem = dynamic_cast<CSteadyStateProblem *>(task.getProblem());
-    bool request = true;
-    problem->setStabilityAnalysisRequested(request);
+    problem->setStabilityAnalysisRequested(stabilityAnalysis);
 
     if (!task.initialize(CCopasiTask::OUTPUT_UI, pDataModel, NULL))
         return std::numeric_limits<double>::quiet_NaN();
@@ -1664,13 +1689,13 @@ std::string getSteadyStateProtocol()
 }
 
 
-bool computeMca(bool performSteadyState)
+bool computeMca(bool performSteadyState, bool updateModel)
 {
     ensureModel();
 
     auto &task = dynamic_cast<CMCATask &>((*pDataModel->getTaskList())["Metabolic Control Analysis"]);
 
-    task.setUpdateModel(true);
+    task.setUpdateModel(updateModel);
 
     auto *problem = dynamic_cast<CMCAProblem *>(task.getProblem());
     problem->setSteadyStateRequested(performSteadyState);
@@ -1708,8 +1733,6 @@ bool runLNA(bool useInitialValues)
     ensureModel();
 
     auto &task = dynamic_cast<CLNATask &>((*pDataModel->getTaskList())["Linear Noise Approximation"]);
-
-    task.setUpdateModel(true);
 
     if (!task.initialize(CCopasiTask::OUTPUT_UI, pDataModel, NULL))
         return false;
@@ -1766,8 +1789,6 @@ bool runOptimization(bool useInitialValues)
 
     auto &task = dynamic_cast<COptTask &>((*pDataModel->getTaskList())["Optimization"]);
 
-    task.setUpdateModel(true);
-
     if (!task.initialize(CCopasiTask::OUTPUT_UI, pDataModel, NULL))
         return false;
 
@@ -1778,6 +1799,37 @@ bool runOptimization(bool useInitialValues)
         return false;
 
     return true;
+}
+
+void addItemsToArray(ordered_json &result, const std::vector<COptItem *> &items)
+{
+    for (const auto *item : items)
+    {
+        if (item == NULL)
+            continue;
+
+        const CDataObject *obj = dynamic_cast<const CDataObject *>(
+            pDataModel->getObject(CCommonName(item->getObjectCN())));
+        if (obj == NULL)
+            continue;
+
+        const CDataObject *parent = obj->getObjectParent();
+        std::string name = parent != NULL ? parent->getObjectDisplayName() : obj->getObjectDisplayName();
+
+        ordered_json entry;
+        entry["lower"] = optBoundToDouble(item->getLowerBound());
+        entry["upper"] = optBoundToDouble(item->getUpperBound());
+        entry["start"] = item->getStartValue();
+        entry["name"] = name;
+        entry["object_cn"] = item->getObjectCN();
+
+        auto* fitItem = dynamic_cast<const CFitItem *>(item);
+        if (fitItem != NULL)
+            entry["affected"] = getAffectedExperimentNames(fitItem);
+
+
+        result.push_back(entry);
+    }
 }
 
 std::string getOptItems()
@@ -1793,31 +1845,7 @@ std::string getOptItems()
         return result.dump(2);
 
     const auto &items = problem->getOptItemList(false);
-    for (const auto *item : items)
-    {
-        if (item == NULL)
-            continue;
-
-
-        const CDataObject *obj = dynamic_cast<const CDataObject *>(
-            pDataModel->getObject(CCommonName(item->getObjectCN())));
-        if (obj == NULL)
-            continue;
-
-        const CDataObject *parent = obj->getObjectParent();
-        std::string name = parent != NULL ? parent->getObjectDisplayName() : obj->getObjectDisplayName();
-
-
-        ordered_json entry;
-        entry["lower"] = optBoundToDouble(item->getLowerBound());
-        entry["upper"] = optBoundToDouble(item->getUpperBound());
-        entry["start"] = item->getStartValue();
-        entry["name"] = name;
-        entry["object_cn"] = item->getObjectCN();
-
-
-        result.push_back(entry);
-    }
+    addItemsToArray(result, items);
 
     return result.dump(2);
 }
@@ -1859,6 +1887,7 @@ std::string getOptSolution()
         entry["name"] = name;
         entry["lower"] = optBoundToDouble(item->getLowerBound());
         entry["upper"] = optBoundToDouble(item->getUpperBound());
+        entry["start"] = item->getStartValue();
         entry["sol"] = solution[i];
         result.push_back(entry);
     }
@@ -1927,8 +1956,6 @@ bool runParameterEstimation(bool useInitialValues)
     if (problem == NULL || problem->getOptItemSize() == 0)
         return false;
 
-    task.setUpdateModel(true);
-
     if (!task.initialize(CCopasiTask::OUTPUT_UI, pDataModel, NULL))
         return false;
 
@@ -1978,6 +2005,7 @@ std::string getFitSolution()
         entry["lower"] = optBoundToDouble(item->getLowerBound());
         entry["upper"] = optBoundToDouble(item->getUpperBound());
         entry["sol"] = solution[i];
+        entry["start"] = item->getStartValue();
         entry["affected"] = getAffectedExperimentNames(dynamic_cast<CFitItem *>(item));
         result.push_back(entry);
     }
@@ -1998,29 +2026,7 @@ std::string getFitItems()
         return result.dump(2);
 
     const auto &items = problem->getOptItemList(false);
-    for (const auto *item : items)
-    {
-        if (item == NULL)
-            continue;
-
-        const CDataObject *obj = dynamic_cast<const CDataObject *>(
-            pDataModel->getObject(CCommonName(item->getObjectCN())));
-        if (obj == NULL)
-            continue;
-
-        const CDataObject *parent = obj->getObjectParent();
-        std::string name = parent != NULL ? parent->getObjectDisplayName() : obj->getObjectDisplayName();
-
-        ordered_json entry;
-        entry["lower"] = optBoundToDouble(item->getLowerBound());
-        entry["upper"] = optBoundToDouble(item->getUpperBound());
-        entry["start"] = item->getStartValue();
-        entry["name"] = name;
-        entry["object_cn"] = item->getObjectCN();
-        entry["affected"] = getAffectedExperimentNames(dynamic_cast<const CFitItem *>(item));
-
-        result.push_back(entry);
-    }
+    addItemsToArray(result, items);
 
     return result.dump(2);
 }
@@ -2148,6 +2154,82 @@ std::string getTimeCourseSettings()
     yaml["problem"] = convertGroupToJson(problem);
     yaml["method"] = convertGroupToJson(task.getMethod());
     yaml["method"]["name"] = task.getMethod()->getObjectName();
+    return yaml.dump(2);
+}
+
+
+std::string getOptSettings()
+{
+    ensureModel();
+    auto &task = (*pDataModel->getTaskList())["Optimization"];
+    auto *problem = dynamic_cast<COptProblem*>(task.getProblem());
+    if (!problem)
+        return "";
+
+    ordered_json yaml;
+    
+    yaml["update_model"] = task.isUpdateModel();
+    yaml["scheduled"] = task.isScheduled();
+
+    
+    auto json = convertGroupToJson(problem);
+    if (!json.is_null())
+        yaml["problem"] = json;
+
+    yaml["method"] = convertGroupToJson(task.getMethod());
+    yaml["method"]["name"] = task.getMethod()->getObjectName();
+
+    yaml["objective"] = expressionToString(problem->getObjectiveFunction());
+    yaml["subtask"] = CTaskEnum::TaskName[problem->getSubtaskType()];
+    yaml["maximize"] = problem->maximize();
+
+    auto& optItems = problem->getOptItemList(false);
+    ordered_json items = ordered_json::array();
+    addItemsToArray(items, optItems);
+    yaml["items"] = items;
+
+    auto& optConstraints = problem->getConstraintList();
+    ordered_json constraints = ordered_json::array();
+    addItemsToArray(constraints, optConstraints);
+    yaml["constraints"] = constraints;
+    
+
+    return yaml.dump(2);
+}
+
+
+std::string getFitSettings()
+{
+    ensureModel();
+    auto &task = (*pDataModel->getTaskList())["Parameter Estimation"];
+    auto *problem = dynamic_cast<CFitProblem*>(task.getProblem());
+    if (!problem)
+        return "";
+
+    ordered_json yaml;
+    
+    yaml["update_model"] = task.isUpdateModel();
+    yaml["scheduled"] = task.isScheduled();
+
+    
+    auto json = convertGroupToJson(problem);
+    if (!json.is_null())
+        yaml["problem"] = json;
+
+    yaml["method"] = convertGroupToJson(task.getMethod());
+    yaml["method"]["name"] = task.getMethod()->getObjectName();
+
+    auto& optItems = problem->getOptItemList(false);
+    ordered_json items = ordered_json::array();
+    addItemsToArray(items, optItems);
+    yaml["items"] = items;
+
+    auto& optConstraints = problem->getConstraintList();
+    ordered_json constraints = ordered_json::array();
+    addItemsToArray(constraints, optConstraints);
+    yaml["constraints"] = constraints;
+    
+
     return yaml.dump(2);
 }
 
@@ -2478,6 +2560,7 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("setTimeCourseSettings", &setTimeCourseSettings);
     emscripten::function("getTaskSettings", &getTaskSettings);
     emscripten::function("setTaskSettings", &setTaskSettings);
+    emscripten::function("runTask", &runTask);
     emscripten::function("getAvailableMethods", &getAvailableMethods);
     emscripten::function("setMethod", &setMethod);
     emscripten::function("getFloatingSpeciesNames", &getFloatingSpeciesNames);
@@ -2515,10 +2598,12 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("getOptItems", &getOptItems);
     emscripten::function("getOptSolution", &getOptSolution);
     emscripten::function("getOptStatistic", &getOptStatistic);
+    emscripten::function("getOptSettings", &getOptSettings);
     emscripten::function("runParameterEstimation", &runParameterEstimation);
     emscripten::function("getFitSolution", &getFitSolution);
     emscripten::function("getFitItems", &getFitItems);
     emscripten::function("getFitStatistic", &getFitStatistic);
+    emscripten::function("getFitSettings", &getFitSettings);
 
     emscripten::function("getSelectionList", &getSelectionList);
     emscripten::function("getSelectedValues", &getSelectionValues);

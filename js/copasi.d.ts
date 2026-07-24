@@ -131,6 +131,9 @@ export default class COPASI {
     readonly stoichiometryMatrix: object;
 	readonly reducedStoichiometryMatrix: object;
     readonly linkMatrix: object;
+
+    readonly optSettings: object;
+    readonly fitSettings: object;
     
     getFluxControlCoefficients(scaled: boolean): object;
     getFluxControlCoefficients2D(scaled: boolean): number[][];
@@ -147,6 +150,8 @@ export default class COPASI {
     setTaskSettings(taskName: string, settings: object): void;
     getLNAResults(scaled: boolean): object;
     runLNA(useInitialValues: boolean): boolean;
+
+    runTask(taskName: string, useInitialValues: boolean): boolean;
 
 
 }

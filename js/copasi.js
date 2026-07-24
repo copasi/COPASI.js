@@ -53,8 +53,6 @@ class COPASI {
         // initialize wasm methods
         this.getVersion = Module.getVersion
         this.getMessages = Module.getMessages;
-        this.steadyState = Module.steadyState;
-        this.computeMca = Module.computeMca;
         this.oneStep = Module.oneStep;
         this.initCps = Module.initCps;
         this.destroy = Module.destroy;
@@ -507,11 +505,35 @@ class COPASI {
     }
 
     /**
+     * Runs steady-state analysis.
+     *
+     * @param {boolean} stabilityAnalysis whether to perform stability analysis
+     * @param {boolean} updateModel whether to update the model with steady-state values
+     * @returns {number} closeness to steady state
+     */
+    steadyState(stabilityAnalysis = true, updateModel = true)
+    {
+        return this.Module.steadyState(stabilityAnalysis, updateModel);
+    }
+
+    /**
+     * Computes metabolic control analysis.
+     *
+     * @param {boolean} performSteadyState whether to compute steady state first
+     * @param {boolean} updateModel whether to update the model
+     * @returns {boolean} true if MCA completed successfully
+     */
+    computeMca(performSteadyState = true, updateModel = true)
+    {
+        return this.Module.computeMca(performSteadyState, updateModel);
+    }
+
+    /**
      * Runs the Linear Noise Approximation
      * @param {bool} useInitialValues indicating whether the initial values should be used
      * @returns {boolean} true if the LNA was run successfully
      */
-    runLNA(useInitialValues)
+    runLNA(useInitialValues = true)
     {
         return this.Module.runLNA(useInitialValues);
     }
@@ -521,7 +543,7 @@ class COPASI {
      * @param {bool} scaled indicating whether the scaled (true) or unscaled results should be returned
      * @returns {object} the results of the LNA as object
      */
-    getLNAResults(scaled)
+    getLNAResults(scaled = true)
     {
         return JSON.parse(this.Module.getLNAResults(scaled));
     }
@@ -617,7 +639,7 @@ class COPASI {
      * @param {boolean} useInitialValues whether to use initial values
      * @returns {boolean} true if successful
      */
-    runOptimization(useInitialValues) {
+    runOptimization(useInitialValues = true) {
         return this.Module.runOptimization(useInitialValues);
     }
 
@@ -648,7 +670,7 @@ class COPASI {
      * @param {boolean} useInitialValues whether to use initial values
      * @returns {boolean} true if successful
      */
-    runParameterEstimation(useInitialValues) {
+    runParameterEstimation(useInitialValues = true) {
         return this.Module.runParameterEstimation(useInitialValues);
     }
 
@@ -682,7 +704,7 @@ class COPASI {
         return JSON.parse(this.Module.getOptSettings());
     }
 
-    runTask(taskName, useInitialValues) {
+    runTask(taskName, useInitialValues = true) {
         return this.Module.runTask(taskName, useInitialValues);
     }
 

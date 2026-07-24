@@ -144,14 +144,26 @@ export default class COPASI {
 
     setMethod(taskName: string, methodName: string): boolean;
     getAvailableMethods(taskName: string): string[];
+    steadyState(stabilityAnalysis?: boolean, updateModel?: boolean): number;
+    computeMca(performSteadyState?: boolean, updateModel?: boolean): boolean;
     getSteadyStateProtocol(): string;
     getStabilityAnalysis(): string;
     getTaskSettings(taskName: string): object;
     setTaskSettings(taskName: string, settings: object): void;
-    getLNAResults(scaled: boolean): object;
-    runLNA(useInitialValues: boolean): boolean;
+    getLNAResults(scaled?: boolean): object;
+    runLNA(useInitialValues?: boolean): boolean;
 
-    runTask(taskName: string, useInitialValues: boolean): boolean;
+    runOptimization(useInitialValues?: boolean): boolean;
+    readonly optItems: object;
+    readonly optSolution: object;
+    readonly optStatistic: object;
+
+    runParameterEstimation(useInitialValues?: boolean): boolean;
+    readonly fitSolution: object;
+    readonly fitItems: object;
+    readonly fitStatistic: object;
+
+    runTask(taskName: string, useInitialValues?: boolean): boolean;
 
 
 }

@@ -382,6 +382,30 @@ std::string simulate();
 ///
 std::string simulateEx(double timeStart, double timeEnd, int numPoints);
 
+/// @brief returns the last simulation result from the time course task
+// time series object as json string
+/// @return the result as json string in the following format
+///
+/// ```json
+/// {
+///     "num_variables": 3,
+///     "recorded_steps": 11,
+///     "titles": [
+///       "Time",
+///       ...
+///     ],
+///     "columns": [
+///       [
+///         0.0,
+///         1.0,
+///         ...
+///       ],
+///       ...
+///     ]
+/// }
+/// ```
+std::string getSimulationResults();
+
 /// @brief runs a simulation for one outputstep
 ///
 /// This is just a convenience function equivalent of running 

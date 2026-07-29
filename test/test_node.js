@@ -178,4 +178,6 @@ test('loads YeastGlycolysis model', async () => {
     const data = fs.readFileSync(yeastPath, 'utf8');
 
     console.log(instance.loadModel(data));
+    console.log(instance.runTask('Time-Course', true));
+    console.log(instance.simulationResults);
 });

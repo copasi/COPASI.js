@@ -494,6 +494,15 @@ class COPASI {
     }
 
     /**
+     * @property {object} simulationResults returns the simulation results as object
+     * 
+     * Note that the time course tasks should have run first.
+     */
+    get simulationResults() {
+        return JSON.parse(this.Module.getSimulationResults());
+    }
+
+    /**
      * Retrieves the elasticities
      * 
      * @param {bool} scaled indicating whether the scaled (true) or unscaled coefficients should be returned 

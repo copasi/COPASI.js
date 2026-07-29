@@ -545,6 +545,9 @@ TEST_CASE("Test GEPASI", "[copasijs][gepasi]")
     
     REQUIRE(runTask("Time-Course", true));
 
+    std::string results = getSimulationResults();
+    CAPTURE(results);
+    REQUIRE(!results.empty());
 
 }
 

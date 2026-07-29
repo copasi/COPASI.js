@@ -2067,6 +2067,17 @@ std::string getFitStatistic()
     return result.dump(2);
 }
 
+std::string getSimulationResults()
+{
+    ensureModel();
+
+    auto &task = dynamic_cast<CTrajectoryTask &>((*pDataModel->getTaskList())["Time-Course"]);
+    auto &ts = task.getTimeSeries();
+
+    return convertTimeSeriesToJSON(ts).dump(2);
+
+}
+
 std::string simulateJSON(ordered_json &yaml)
 {
     try
@@ -2556,6 +2567,7 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("simulate", &simulate);
     emscripten::function("simulateYaml", &simulateYaml);
     emscripten::function("simulateEx", &simulateEx);
+    emscripten::function("getSimulationResults", &getSimulationResults);
     emscripten::function("getTimeCourseSettings", &getTimeCourseSettings);
     emscripten::function("setTimeCourseSettings", &setTimeCourseSettings);
     emscripten::function("getTaskSettings", &getTaskSettings);

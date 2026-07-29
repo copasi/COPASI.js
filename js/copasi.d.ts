@@ -134,6 +134,8 @@ export default class COPASI {
 
     readonly optSettings: object;
     readonly fitSettings: object;
+
+    readonly simulationResults: object;
     
     getFluxControlCoefficients(scaled: boolean): object;
     getFluxControlCoefficients2D(scaled: boolean): number[][];

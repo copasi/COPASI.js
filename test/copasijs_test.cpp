@@ -535,6 +535,20 @@ TEST_CASE("Test PE omex", "[copasijs][parameter_estimation][omex]")
     REQUIRE(!fitSettings.empty());
 }
 
+
+TEST_CASE("Test GEPASI", "[copasijs][gepasi]")
+{
+    Instance instance;
+    std::string model = loadFromFile(getTestFile("../example_files/YeastGlycolysis.gps"));
+    REQUIRE(!model.empty());
+    REQUIRE(model != "Error loading model");
+    
+    REQUIRE(runTask("Time-Course", true));
+
+
+}
+
+
 int main(int argc, char *argv[])
 {
   CRootContainer::init(0, NULL);

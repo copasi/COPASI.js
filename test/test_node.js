@@ -1,216 +1,181 @@
-var createApi = require('./copasijs.js');
-var COPASI = require('./copasi.js');
-var fs = require("fs");
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const path = require('node:path');
+const fs = require('node:fs');
 
-var instance = null;
+const createApi = require('./copasijs.js');
+const COPASI = require('./copasi.js');
 
-function loadModelFromString(modelString) {
+const inputModelPath = process.argv[2];
+const himmelblauPath = path.resolve(__dirname, '../example_files/HimmelblauFunction.cps');
+const yeastPath = path.resolve(__dirname, '../example_files/YeastGlycolysis.gps');
 
-    // load model from string
-    console.log(instance.loadModel(modelString));
+let modulePromise = null;
 
-    // simulate the model
-    console.log(instance.simulateEx(0, 10, 11));
+function getModule() {
+    if (!modulePromise) {
+        modulePromise = createApi();
+    }
 
-    // run
+    return modulePromise;
 }
 
-createApi().then((Module) => {
-
-    // instantiate COPASI simulator
-    instance = new COPASI(Module);
-
-    // check version
+function createInstance(Module) {
+    const instance = new COPASI(Module);
     console.log('Using COPASI: ', instance.version);
+    return instance;
+}
 
-    // load a local file using the filesystem
-    var data = fs.readFileSync(process.argv[2], 'utf8');
+function loadInputModel() {
+    assert.ok(inputModelPath, 'Expected model path in process.argv[2]');
+    return fs.readFileSync(inputModelPath, 'utf8');
+}
 
-    // load model from string
-    loadModelFromString(data);
+test('loads model from string twice and simulates each run', async () => {
+    const Module = await getModule();
+    const instance = createInstance(Module);
+    const data = loadInputModel();
 
-    // load model from string
-    loadModelFromString(data);
+    console.log(instance.loadModel(data));
+    console.log(instance.simulateEx(0, 10, 11));
+
+    console.log(instance.loadModel(data));
+    console.log(instance.simulateEx(0, 10, 11));
 });
 
+test('runs time course and steady state with jacobian outputs', async () => {
+    const Module = await getModule();
+    const instance = createInstance(Module);
+    const data = loadInputModel();
 
-
-createApi().then((Module) => {
-
-    // instantiate COPASI simulator
-    var instance = new COPASI(Module);
-
-    // check version
-    console.log('Using COPASI: ', instance.version);
-
-    // load a local file using the filesystem 
-    var data = fs.readFileSync(process.argv[2], 'utf8');
-
-    // print model structure
     console.log(instance.loadModel(data));
-    
-    // simulate the model
+
     console.log(instance.getTaskSettings(instance.TaskNames.TimeCourse));
     console.log(instance.simulateEx(0, 10, 11));
 
-    // run steady state
     console.log(instance.getTaskSettings(instance.TaskNames.SteadyState));
     console.log(instance.steadyState());
 
-    // print jacobian
     console.log(instance.jacobian);
-
-    // print jacobian
     console.log(instance.jacobian2D);
-
-    // print eigenvalues
     console.log(instance.eigenValues2D);
-
-    // print jacobian
     console.log(instance.reducedJacobian);
-
-    // print jacobian
     console.log(instance.reducedJacobian2D);
-
-    // print eigenvalues
-    console.log(instance.eigenValuesReduced2D);    
-  
+    console.log(instance.eigenValuesReduced2D);
 });
 
+test('runs MCA, control coefficients, and LNA', async () => {
+    const Module = await getModule();
+    const instance = createInstance(Module);
+    const data = loadInputModel();
 
-createApi().then((Module) => {
-
-    // instantiate COPASI simulator
-    var instance = new COPASI(Module);
-
-    // check version
-    console.log('Using COPASI: ', instance.version);
-
-    // load a local file using the filesystem 
-    var data = fs.readFileSync(process.argv[2], 'utf8');
-
-    // print model structure
     console.log(instance.loadModel(data));
- 
-    var selection = instance.selectionList;
-    selection.push("EE(J0,S1)")
 
+    const selection = instance.selectionList;
+    selection.push('EE(J0,S1)');
 
     console.log(selection);
     instance.selectionList = selection;
 
-    var result = instance.simulateEx(0, 10, 11);
+    const result = instance.simulateEx(0, 10, 11);
     console.log(result);
 
-    // compute mca
     instance.computeMca(true);
     console.log(instance.getTaskSettings(instance.TaskNames.MetabolicControlAnalysis));
 
-    // print control coefficients
-    console.log("Flux control coefficients: ");
+    console.log('Flux control coefficients: ');
     console.log(instance.getFluxControlCoefficients(true));
     console.log(instance.getFluxControlCoefficients(false));
 
-    console.log("Concentration control coefficients: ");
+    console.log('Concentration control coefficients: ');
     console.log(instance.getConcentrationControlCoefficients(true));
     console.log(instance.getConcentrationControlCoefficients(false));
 
-    console.log("Elasticities: ");
+    console.log('Elasticities: ');
     console.log(instance.getElasticities(true));
     console.log(instance.getElasticities(false));
 
-
-    // run lna
-    console.log("Running LNA: ");
+    console.log('Running LNA: ');
     console.log(instance.getTaskSettings(instance.TaskNames.LinearNoiseApproximation));
     console.log(instance.runLNA(true));
-    scaledResults = instance.getLNAResults(true);
-    console.log("Scaled results: ");
+    const scaledResults = instance.getLNAResults(true);
+    console.log('Scaled results: ');
     console.log(scaledResults);
-    console.log("Covariance matrix: ");
-    console.log(scaledResults["covariance_matrix"]);
-    console.log("Reduced covariance matrix: ");
-    console.log(scaledResults["reduced_covariance_matrix"]);
-    console.log("Reduced b matrix: ");
-    console.log(scaledResults["reduced_b_matrix"]);
+    console.log('Covariance matrix: ');
+    console.log(scaledResults.covariance_matrix);
+    console.log('Reduced covariance matrix: ');
+    console.log(scaledResults.reduced_covariance_matrix);
+    console.log('Reduced b matrix: ');
+    console.log(scaledResults.reduced_b_matrix);
 
+    console.log(instance.getTaskSettings('Optimization'));
+    console.log(instance.getTaskSettings('Parameter Estimation'));
 
-    // other task settings
-    console.log(instance.getTaskSettings("Optimization"));
-    console.log(instance.getTaskSettings("Parameter Estimation"));
-
-    // reset instance
     instance.reset();
-
 });
 
+test('runs optimization for Himmelblau example', async () => {
+    const Module = await getModule();
+    const instance = createInstance(Module);
+    const data = fs.readFileSync(himmelblauPath, 'utf8');
 
-createApi().then((Module) => {
-
-    // instantiate COPASI simulator
-    var instance = new COPASI(Module);
-
-    // check version
-    console.log('Using COPASI: ', instance.version);
-
-    // load Himmelblau optimization example
-    var data = fs.readFileSync('../example_files/HimmelblauFunction.cps', 'utf8');
     console.log(instance.loadModel(data));
 
-    console.log("Optimization settings: ");
-    console.log(instance.getTaskSettings("Optimization"));
+    console.log('Optimization settings: ');
+    console.log(instance.getTaskSettings('Optimization'));
 
-    // switch to a faster local method for the test
-    instance.setTaskSettings("Optimization", {
+    instance.setTaskSettings('Optimization', {
         problem: {
-            "Randomize Start Values": false
+            'Randomize Start Values': false,
         },
         method: {
-            name: "Levenberg - Marquardt",
-            "Iteration Limit": 200,
-            Tolerance: 1e-6
-        }
+            name: 'Levenberg - Marquardt',
+            'Iteration Limit': 200,
+            Tolerance: 1e-6,
+        },
     });
 
-    console.log("Running Optimization: ");
-    var ok = instance.Module.runOptimization(true);
+    console.log('Running Optimization: ');
+    const ok = instance.Module.runOptimization(true);
     console.log(ok);
+    assert.ok(ok);
 
-    var solution = JSON.parse(instance.Module.getOptSolution());
-    console.log("Opt solution: ");
+    const solution = JSON.parse(instance.Module.getOptSolution());
+    console.log('Opt solution: ');
     console.log(solution);
 
-    var statistic = JSON.parse(instance.Module.getOptStatistic());
-    console.log("Opt statistic: ");
+    const statistic = JSON.parse(instance.Module.getOptStatistic());
+    console.log('Opt statistic: ');
     console.log(statistic);
-
 });
 
+test('runs parameter estimation for LM-test1 example', async () => {
+    const Module = await getModule();
+    const instance = createInstance(Module);
 
-createApi().then((Module) => {
+    console.log(instance.loadExample('/LM-test1.cps'));
 
-    // instantiate COPASI simulator
-    var instance = new COPASI(Module);
+    console.log('Parameter Estimation settings: ');
+    console.log(instance.getTaskSettings('Parameter Estimation'));
 
-    // check version
-    console.log('Using COPASI: ', instance.version);
-
-    // load LM-test1 from embedded FS so experiment data (mmspect3.txt) resolves
-    console.log(instance.loadExample("/LM-test1.cps"));
-
-    console.log("Parameter Estimation settings: ");
-    console.log(instance.getTaskSettings("Parameter Estimation"));
-
-    console.log("Running Parameter Estimation: ");
-    var ok = instance.Module.runParameterEstimation(true);
+    console.log('Running Parameter Estimation: ');
+    const ok = instance.Module.runParameterEstimation(true);
     console.log(ok);
+    assert.ok(ok);
 
-    var solution = JSON.parse(instance.Module.getFitSolution());
-    console.log("Fit solution: ");
+    const solution = JSON.parse(instance.Module.getFitSolution());
+    console.log('Fit solution: ');
     console.log(solution);
 
-    var statistic = JSON.parse(instance.Module.getFitStatistic());
-    console.log("Fit statistic: ");
+    const statistic = JSON.parse(instance.Module.getFitStatistic());
+    console.log('Fit statistic: ');
     console.log(statistic);
+});
 
+test('loads YeastGlycolysis model', async () => {
+    const Module = await getModule();
+    const instance = createInstance(Module);
+    const data = fs.readFileSync(yeastPath, 'utf8');
+
+    console.log(instance.loadModel(data));
 });

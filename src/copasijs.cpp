@@ -3,6 +3,38 @@
 #include <emscripten/bind.h>
 using namespace emscripten;
 #define COPASI_MAIN
+
+#include <sys/resource.h>
+#include <sys/time.h>
+#include <errno.h>
+
+extern "C"
+int getrusage(int who, struct rusage *usage)
+{
+    if (usage == nullptr)
+    {
+        errno = EFAULT;
+        return -1;
+    }
+
+    // Accept the values COPASI uses.
+    if (who != RUSAGE_SELF && who != RUSAGE_THREAD)
+    {
+        errno = EINVAL;
+        return -1;
+    }
+
+    memset(usage, 0, sizeof(*usage));
+
+    const double ms = emscripten_get_now();
+
+    usage->ru_utime.tv_sec  = static_cast<time_t>(ms / 1000.0);
+    usage->ru_utime.tv_usec = static_cast<suseconds_t>(
+        static_cast<long long>(ms * 1000.0) % 1000000);
+
+    return 0;
+}
+
 #endif
 
 #include "copasijs.h"

@@ -41,6 +41,9 @@ test('loads model from string twice and simulates each run', async () => {
 
     console.log(instance.loadModel(data));
     console.log(instance.simulateEx(0, 10, 11));
+    
+    // cleanup
+    instance.destroy();
 });
 
 test('runs time course and steady state with jacobian outputs', async () => {
@@ -62,6 +65,9 @@ test('runs time course and steady state with jacobian outputs', async () => {
     console.log(instance.reducedJacobian);
     console.log(instance.reducedJacobian2D);
     console.log(instance.eigenValuesReduced2D);
+
+    // cleanup
+    instance.destroy();
 });
 
 test('runs MCA, control coefficients, and LNA', async () => {
@@ -112,6 +118,9 @@ test('runs MCA, control coefficients, and LNA', async () => {
     console.log(instance.getTaskSettings('Parameter Estimation'));
 
     instance.reset();
+
+    // cleanup
+    instance.destroy();
 });
 
 test('runs optimization for Himmelblau example', async () => {
@@ -147,6 +156,9 @@ test('runs optimization for Himmelblau example', async () => {
     const statistic = JSON.parse(instance.Module.getOptStatistic());
     console.log('Opt statistic: ');
     console.log(statistic);
+
+    // cleanup
+    instance.destroy();
 });
 
 test('runs parameter estimation for LM-test1 example', async () => {
@@ -170,6 +182,9 @@ test('runs parameter estimation for LM-test1 example', async () => {
     const statistic = JSON.parse(instance.Module.getFitStatistic());
     console.log('Fit statistic: ');
     console.log(statistic);
+
+    // cleanup
+    instance.destroy();
 });
 
 test('loads YeastGlycolysis model', async () => {
@@ -177,7 +192,12 @@ test('loads YeastGlycolysis model', async () => {
     const instance = createInstance(Module);
     const data = fs.readFileSync(yeastPath, 'utf8');
 
-    console.log(instance.loadModel(data));
+    model = instance.loadModel(data);
+    assert.ok(model.status != 'error')
+    console.log(instance);
     console.log(instance.runTask('Time-Course', true));
     console.log(instance.simulationResults);
+
+    // cleanup
+    instance.destroy();
 });

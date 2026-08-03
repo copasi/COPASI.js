@@ -166,6 +166,10 @@ std::vector<std::vector<double>> getSimulationResults2D();
 /// @return the closeness to steady state
 double steadyState(bool stabilityAnalysis=true, bool updateModel=true);
 
+/// @brief returns the steady state status
+/// @return the steady state status as string
+std::string getSteadyStateStatus();
+
 /// @brief returns the status of the last stability analysis as string
 /// @return the status of the last stability analysis as string
 std::string getStabilityAnalysis();

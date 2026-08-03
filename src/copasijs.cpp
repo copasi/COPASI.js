@@ -1696,6 +1696,26 @@ double steadyState(bool stabilityAnalysis, bool updateModel)
     return rateValue;
 }
 
+std::string getSteadyStateStatus()
+{
+    ensureModel();
+
+    auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
+    auto& result = task.getResult();
+
+    if (result == CSteadyStateMethod::found)
+        return "A steady state with given resolution was found.";
+    else if (result == CSteadyStateMethod::notFound)
+        return "No steady state with given resolution was found!";
+    else if (result == CSteadyStateMethod::foundEquilibrium)
+        return "An equilibrium steady state (zero fluxes) was found.";
+    else if (result == CSteadyStateMethod::foundNegative)
+        return "An invalid steady state (negative concentrations) was found.";
+    else
+        return "A steady state with given resolution couldn't be found.";
+
+}
+
 std::string getStabilityAnalysis()
 {
     ensureModel();

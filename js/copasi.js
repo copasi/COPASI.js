@@ -604,6 +604,13 @@ class COPASI {
     }
 
     /**
+     * @returns the status of the last steady-state run as string
+     */
+    getSteadyStateStatus() {
+        return this.Module.getSteadyStateStatus();
+    }
+
+    /**
      * @param {string} taskName the name of the task to get the available methods for
      * @returns the names of all available methods for the task
      */

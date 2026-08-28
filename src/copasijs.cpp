@@ -66,6 +66,9 @@ void __wrap___cxa_throw(void* ex, void* type, void (*dest)(void*))
 #include <copasi/core/CDataContainer.h>
 #include <copasi/steadystate/CEigen.h>
 #include <regex>
+#include <cstring>
+#include <limits>
+#include <algorithm>
 
 #ifdef __cplusplus
 #define EXTERN extern "C"
@@ -84,37 +87,147 @@ struct CModelElement
     CRegisteredCommonName cnInitial;
     CRegisteredCommonName cn;
     const double *pValue;
-    const double *pRates = NULL;
+    const double *pRates = nullptr;
 };
 
-static CDataModel *pDataModel = NULL;
+static CDataModel *pDataModel = nullptr;
 static std::map<std::string, CModelElement> mFloatingSpecies = {};
 static std::map<std::string, std::string> mFloatingSpeciesIdMap = {};
+static std::vector<std::string> mFloatingSpeciesOrder = {};
 static std::map<std::string, CModelElement> mBoundarySpecies = {};
 static std::map<std::string, std::string> mBoundarySpeciesIdMap = {};
+static std::vector<std::string> mBoundarySpeciesOrder = {};
 static std::map<std::string, CModelElement> mCompartments = {};
 static std::map<std::string, std::string> mCompartmentsIdMap = {};
+static std::vector<std::string> mCompartmentOrder = {};
 static std::map<std::string, CModelElement> mReactions = {};
 static std::map<std::string, std::string> mReactionsIdMap = {};
+static std::vector<std::string> mReactionOrder = {};
 static std::map<std::string, CModelElement> mLocalParameters = {};
+static std::vector<std::string> mLocalParameterOrder = {};
 static std::map<std::string, CModelElement> mGlobalParameters = {};
 static std::map<std::string, std::string> mGlobalParametersIdMap = {};
+static std::vector<std::string> mGlobalParameterOrder = {};
 static std::vector<std::string> mSelectionList = {};
 static std::vector<const double *> mSelectedValues = {};
-static std::vector<std::string> mAllIds = {};
-static CDataHandler *mpDataHandler = NULL;
+static CDataHandler *mpDataHandler = nullptr;
 
-static std::string mLastSimulationJSON = "";
-static std::vector<std::vector<double>> mLastSimulationResults2D = {};
-static ordered_json mLastSimulationResults = {};
+static bool jsonHas(const ordered_json &j, const std::string &key)
+{
+    if (!j.contains(key))
+        return false;
+    const auto &v = j.at(key);
+    if (v.is_null() || v.is_discarded())
+        return false;
+    if (v.is_object() || v.is_array() || v.is_string())
+        return !v.empty();
+    return true;
+}
+
+static std::string jsonError(const std::string &messages)
+{
+    ordered_json modelInfo;
+    modelInfo["status"] = "error";
+    modelInfo["messages"] = messages;
+    return modelInfo.dump(2);
+}
+
+static CModelElement *findElement(std::map<std::string, CModelElement> &map,
+                                  const std::map<std::string, std::string> *idMap,
+                                  const std::string &name)
+{
+    auto it = map.find(name);
+    if (it == map.end() && idMap != nullptr)
+    {
+        auto idIt = idMap->find(name);
+        if (idIt != idMap->end())
+            it = map.find(idIt->second);
+    }
+    if (it == map.end())
+        return nullptr;
+    return &it->second;
+}
+
+template <typename T>
+static T *getTaskPtr(const std::string &taskName)
+{
+    ensureModel();
+    if (pDataModel == nullptr)
+        return nullptr;
+    auto *taskList = pDataModel->getTaskList();
+    if (taskList == nullptr || taskList->getIndex(taskName) == C_INVALID_INDEX)
+        return nullptr;
+    return dynamic_cast<T *>(&(*taskList)[taskName]);
+}
+
+static std::vector<std::string> orderedIds(const std::vector<std::string> &order,
+                                           const std::map<std::string, CModelElement> &map)
+{
+    std::vector<std::string> ids;
+    ids.reserve(order.size());
+    for (const auto &name : order)
+    {
+        auto it = map.find(name);
+        ids.push_back(it != map.end() ? it->second.sbmlId : std::string());
+    }
+    return ids;
+}
+
+static std::vector<double> orderedValues(const std::vector<std::string> &order,
+                                         const std::map<std::string, CModelElement> &map)
+{
+    std::vector<double> values;
+    values.reserve(order.size());
+    for (const auto &name : order)
+    {
+        auto it = map.find(name);
+        if (it != map.end() && it->second.pValue != nullptr)
+            values.push_back(*it->second.pValue);
+        else
+            values.push_back(std::numeric_limits<double>::quiet_NaN());
+    }
+    return values;
+}
+
+static CModelParameterSet *getNamedParameterSet(CModel *pModel, const std::string &name)
+{
+    if (pModel == nullptr)
+        return nullptr;
+    auto &sets = pModel->getModelParameterSets();
+    auto idx = sets.getIndex(name);
+    if (idx == C_INVALID_INDEX)
+        return nullptr;
+    return &sets[idx];
+}
+
+struct DataHandlerInterfaceGuard
+{
+    CDataModel *dm = nullptr;
+    CDataHandler *handler = nullptr;
+
+    DataHandlerInterfaceGuard(CDataModel *d, CDataHandler *h) : dm(d), handler(h)
+    {
+        if (dm != nullptr && handler != nullptr)
+            dm->addInterface(handler);
+    }
+
+    ~DataHandlerInterfaceGuard()
+    {
+        if (dm != nullptr && handler != nullptr)
+            dm->removeInterface(handler);
+    }
+};
 
 ordered_json convertGroupToJson(CCopasiParameterGroup *pGroup, bool basicOnly /* = true*/)
 {
-    ordered_json group;
+    ordered_json group = ordered_json::object();
+    if (pGroup == nullptr)
+        return group;
+
     for (size_t i = 0; i < pGroup->size(); ++i)
     {
         auto *param = pGroup->getParameter(i);
-        if (param == NULL || dynamic_cast<CCopasiParameterGroup *>(param) != NULL || !param->isEditable() || (basicOnly && !param->isBasic()))
+        if (param == nullptr || dynamic_cast<CCopasiParameterGroup *>(param) != nullptr || !param->isEditable() || (basicOnly && !param->isBasic()))
             continue;
 
         auto name = param->getObjectName();
@@ -146,45 +259,61 @@ ordered_json convertGroupToJson(CCopasiParameterGroup *pGroup, bool basicOnly /*
 
 void setGroupFromJson(CCopasiParameterGroup *pGroup, ordered_json &settings)
 {
+    if (pGroup == nullptr)
+        return;
+
     for (auto &el : settings.items())
     {
         auto *param = pGroup->getParameter(el.key());
-        if (param == NULL || dynamic_cast<CCopasiParameterGroup *>(param) != NULL)
+        if (param == nullptr || dynamic_cast<CCopasiParameterGroup *>(param) != nullptr)
             continue;
-        if (el.value().empty())
+        if (el.value().is_null() || el.value().empty())
             continue;
-        auto type = param->getType();
-        switch (type)
+
+        try
         {
-        case CCopasiParameter::Type::DOUBLE:
-        case CCopasiParameter::Type::UDOUBLE:
-            param->setValue(el.value().get<double>());
-            break;
-        case CCopasiParameter::Type::INT:
-            param->setValue(el.value().get<int>());
-            break;
-        case CCopasiParameter::Type::UINT:
-            param->setValue(el.value().get<unsigned C_INT32>());
-            break;
-        case CCopasiParameter::Type::BOOL:
-            param->setValue(el.value().get<bool>());
-            break;
-        case CCopasiParameter::Type::STRING:
-            param->setValue(el.value().get<std::string>());
-            break;
-        default:
-            break;
+            auto type = param->getType();
+            switch (type)
+            {
+            case CCopasiParameter::Type::DOUBLE:
+            case CCopasiParameter::Type::UDOUBLE:
+                if (el.value().is_number())
+                    param->setValue(el.value().get<double>());
+                break;
+            case CCopasiParameter::Type::INT:
+                if (el.value().is_number())
+                    param->setValue(el.value().get<int>());
+                break;
+            case CCopasiParameter::Type::UINT:
+                if (el.value().is_number())
+                    param->setValue(el.value().get<unsigned C_INT32>());
+                break;
+            case CCopasiParameter::Type::BOOL:
+                if (el.value().is_boolean())
+                    param->setValue(el.value().get<bool>());
+                break;
+            case CCopasiParameter::Type::STRING:
+                if (el.value().is_string())
+                    param->setValue(el.value().get<std::string>());
+                break;
+            default:
+                break;
+            }
+        }
+        catch (const std::exception &)
+        {
+            continue;
         }
     }
 }
 
 int initCps()
 {
-    CRootContainer::init(0, NULL);
-    if (CRootContainer::getRoot() == NULL)
+    CRootContainer::init(0, nullptr);
+    if (CRootContainer::getRoot() == nullptr)
         return -1;
     pDataModel = CRootContainer::addDatamodel();
-    pDataModel->newModel(NULL, true);
+    pDataModel->newModel(nullptr, true);
     return 0;
 }
 
@@ -192,33 +321,34 @@ void destroyAPI()
 {
     mFloatingSpecies.clear();
     mFloatingSpeciesIdMap.clear();
+    mFloatingSpeciesOrder.clear();
     mBoundarySpecies.clear();
     mBoundarySpeciesIdMap.clear();
+    mBoundarySpeciesOrder.clear();
     mCompartments.clear();
     mCompartmentsIdMap.clear();
+    mCompartmentOrder.clear();
     mReactions.clear();
     mReactionsIdMap.clear();
+    mReactionOrder.clear();
     mLocalParameters.clear();
+    mLocalParameterOrder.clear();
     mGlobalParameters.clear();
     mGlobalParametersIdMap.clear();
+    mGlobalParameterOrder.clear();
     mSelectionList.clear();
     mSelectedValues.clear();
-    mAllIds.clear();
 
-    mLastSimulationJSON = "";
-    mLastSimulationResults2D.clear();
-    mLastSimulationResults.clear();
-
-    if (mpDataHandler != NULL)
+    if (mpDataHandler != nullptr)
     {
         delete mpDataHandler;
-        mpDataHandler = NULL;
+        mpDataHandler = nullptr;
     }
 
-    if (pDataModel != NULL)
+    if (pDataModel != nullptr)
         CRootContainer::removeDatamodel(pDataModel);
 
-    pDataModel = NULL;
+    pDataModel = nullptr;
     CRootContainer::destroy();
 }
 
@@ -259,12 +389,17 @@ ordered_json convertDataHandlerToJSON(const CDataHandler &dh)
     j["titles"] = mSelectionList;
 
     std::vector<std::vector<double>> columns;
+    columns.reserve(mSelectionList.size());
     for (size_t i = 0; i < mSelectionList.size(); ++i)
     {
         std::vector<double> column;
+        column.reserve(data.size());
         for (size_t j = 0; j < data.size(); ++j)
         {
-            column.push_back(data[j][i]);
+            if (i < data[j].size())
+                column.push_back(data[j][i]);
+            else
+                column.push_back(std::numeric_limits<double>::quiet_NaN());
         }
         columns.push_back(column);
     }
@@ -330,70 +465,28 @@ void cpsFree(char *ptr)
 
 double getValue(const std::string &nameOrId)
 {
-    auto it = mFloatingSpecies.find(nameOrId);
-    if (it == mFloatingSpecies.end())
-    {
-        auto idIt = mFloatingSpeciesIdMap.find(nameOrId);
-        if (idIt != mFloatingSpeciesIdMap.end())
-            it = mFloatingSpecies.find(idIt->second);
-    }
-    if (it != mFloatingSpecies.end())
-        return *it->second.pValue;
+    if (auto *el = findElement(mFloatingSpecies, &mFloatingSpeciesIdMap, nameOrId))
+        return el->pValue ? *el->pValue : std::numeric_limits<double>::quiet_NaN();
 
-    it = mBoundarySpecies.find(nameOrId);
-    if (it == mBoundarySpecies.end())
-    {
-        auto idIt = mBoundarySpeciesIdMap.find(nameOrId);
-        if (idIt != mBoundarySpeciesIdMap.end())
-            it = mBoundarySpecies.find(idIt->second);
-    }
-    if (it != mBoundarySpecies.end())
-        return *it->second.pValue;
+    if (auto *el = findElement(mBoundarySpecies, &mBoundarySpeciesIdMap, nameOrId))
+        return el->pValue ? *el->pValue : std::numeric_limits<double>::quiet_NaN();
 
-    it = mCompartments.find(nameOrId);
-    if (it == mCompartments.end())
-    {
-        auto idIt = mCompartmentsIdMap.find(nameOrId);
-        if (idIt != mCompartmentsIdMap.end())
-            it = mCompartments.find(idIt->second);
-    }
-    if (it != mCompartments.end())
-        return *it->second.pValue;
+    if (auto *el = findElement(mCompartments, &mCompartmentsIdMap, nameOrId))
+        return el->pValue ? *el->pValue : std::numeric_limits<double>::quiet_NaN();
 
-    it = mReactions.find(nameOrId);
-    if (it == mReactions.end())
-    {
-        auto idIt = mReactionsIdMap.find(nameOrId);
-        if (idIt != mReactionsIdMap.end())
-            it = mReactions.find(idIt->second);
-    }
-    if (it != mReactions.end())
-        return *it->second.pValue;
+    if (auto *el = findElement(mReactions, &mReactionsIdMap, nameOrId))
+        return el->pValue ? *el->pValue : std::numeric_limits<double>::quiet_NaN();
 
-    it = mLocalParameters.find(nameOrId);
-    if (it != mLocalParameters.end())
-        return *it->second.pValue;
+    if (auto *el = findElement(mLocalParameters, nullptr, nameOrId))
+        return el->pValue ? *el->pValue : std::numeric_limits<double>::quiet_NaN();
 
-    it = mGlobalParameters.find(nameOrId);
-    if (it == mGlobalParameters.end())
-    {
-        auto idIt = mGlobalParametersIdMap.find(nameOrId);
-        if (idIt != mGlobalParametersIdMap.end())
-            it = mGlobalParameters.find(idIt->second);
-    }
-    if (it != mGlobalParameters.end())
-        return *it->second.pValue;
+    if (auto *el = findElement(mGlobalParameters, &mGlobalParametersIdMap, nameOrId))
+        return el->pValue ? *el->pValue : std::numeric_limits<double>::quiet_NaN();
 
-    // resolve mcaSymbols
-    {
     auto *ccObj = resolveMcaObject(nameOrId);
     if (ccObj)
-    {
         return *reinterpret_cast<const double *>(ccObj->getValuePointer());
-    }
-    }
 
-    // resolve display names:
     if (pDataModel)
     {
         auto *obj = const_cast<CDataObject *>(pDataModel->findObjectByDisplayName(nameOrId));
@@ -423,73 +516,64 @@ double getValue(const std::string &nameOrId)
 
 bool setModelElement(std::map<std::string, CModelElement> &map, std::map<std::string, std::string> &idMap, const std::string &name, double value, CModel *model)
 {
-    auto it = map.find(name);
-    if (it == map.end())
+    auto *el = findElement(map, &idMap, name);
+    if (el == nullptr)
+        return false;
+
+    CMetab *pMetab = dynamic_cast<CMetab *>(el->pObj);
+    if (pMetab)
     {
-        auto idIt = idMap.find(name);
-        if (idIt != idMap.end())
-            it = map.find(idIt->second);
-    }
-    if (it != map.end())
-    {
-        CMetab *pMetab = dynamic_cast<CMetab *>(it->second.pObj);
-        if (pMetab)
-        {
-            model->updateInitialValues(pMetab->getInitialConcentrationReference(), false);
+        model->updateInitialValues(pMetab->getInitialConcentrationReference(), false);
 
-            double oldValue = model->getMathContainer().getMathObject(pMetab->getInitialConcentrationReference())->getValue();
+        pMetab->setConcentration(value);
+        pMetab->setInitialConcentration(value);
+        model->updateInitialValues(pMetab->getInitialConcentrationReference(), false);
 
-            pMetab->setConcentration(value);
-            pMetab->setInitialConcentration(value);
-            model->updateInitialValues(pMetab->getInitialConcentrationReference(), false);
-
-            double newValue = model->getMathContainer().getMathObject(pMetab->getInitialConcentrationReference())->getValue();
-
-            return true;
-        }
-
-        CModelEntity *pEntity = dynamic_cast<CModelEntity *>(it->second.pObj);
-        if (pEntity)
-        {
-            pEntity->setValue(value);
-            pEntity->setInitialValue(value);
-            std::set<const CDataObject *> changes = {pEntity->getInitialValueReference(), pEntity->getValueReference()};
-
-            model->updateInitialValues(changes, true);
-            return true;
-        }
+        return true;
     }
 
-    // resolve other possibilities
-
-    // displaynames like [S1]_0, only run if name ends with _0
-    if (name.rfind("_0") == name.size() -2)
+    CModelEntity *pEntity = dynamic_cast<CModelEntity *>(el->pObj);
+    if (pEntity)
     {
-        auto* obj = const_cast<CDataObject*>(pDataModel->findObjectByDisplayName(name));
-        auto &set = pDataModel->getModel()->getModelParameterSets()["_initial_state_variables_only"];
-        auto* pGroup =  const_cast<CModelParameterGroup*>(dynamic_cast<const CModelParameterGroup*>(set.getModelParameter("String=Initial Species Values")));
+        pEntity->setValue(value);
+        pEntity->setInitialValue(value);
+        std::set<const CDataObject *> changes = {pEntity->getInitialValueReference(), pEntity->getValueReference()};
 
-        if (obj && pGroup)
-        {
-            auto object_name = obj->getObjectName();
-            auto object_type = obj->getObjectType();
+        model->updateInitialValues(changes, true);
+        return true;
+    }
 
-            model->updateInitialValues(obj, false);
+    return false;
+}
 
-            auto* pMetab = dynamic_cast<CMetab*>(obj->getObjectParent());
+static bool setInitialConcentrationByDisplayName(const std::string &name, double value, CModel *model)
+{
+    if (name.size() < 2 || name.compare(name.size() - 2, 2, "_0") != 0 || pDataModel == nullptr)
+        return false;
 
-            pMetab->setInitialConcentration(value);
-            model->updateInitialValues(obj, false);
+    auto *obj = const_cast<CDataObject *>(pDataModel->findObjectByDisplayName(name));
+    auto *set = getNamedParameterSet(model, "_initial_state_variables_only");
+    if (obj == nullptr || set == nullptr)
+        return false;
 
-            auto cn = pMetab->getCN();
-            auto* pParam = dynamic_cast<CModelParameterSpecies*>( pGroup->getModelParameter(cn));
-            if (pParam)
-            {
-                pParam->setValue(value, CCore::Framework::Concentration, true);
-                return true;
-            }
+    auto *pGroup = const_cast<CModelParameterGroup *>(
+        dynamic_cast<const CModelParameterGroup *>(set->getModelParameter("String=Initial Species Values")));
+    if (pGroup == nullptr)
+        return false;
 
-        }
+    auto *pMetab = dynamic_cast<CMetab *>(obj->getObjectParent());
+    if (pMetab == nullptr)
+        return false;
+
+    model->updateInitialValues(obj, false);
+    pMetab->setInitialConcentration(value);
+    model->updateInitialValues(obj, false);
+
+    auto *pParam = dynamic_cast<CModelParameterSpecies *>(pGroup->getModelParameter(pMetab->getCN()));
+    if (pParam)
+    {
+        pParam->setValue(value, CCore::Framework::Concentration, true);
+        return true;
     }
 
     return false;
@@ -504,22 +588,19 @@ void setValue(const std::string &nameOrId, double value)
     if (!model)
         return;
 
-    // look through floating species by name first, falling back
-    // for id if not found
     if (setModelElement(mFloatingSpecies, mFloatingSpeciesIdMap, nameOrId, value, model))
         return;
 
-    // boundary species
     if (setModelElement(mBoundarySpecies, mBoundarySpeciesIdMap, nameOrId, value, model))
         return;
 
-    // now compartments
     if (setModelElement(mCompartments, mCompartmentsIdMap, nameOrId, value, model))
         return;
 
-    // and global parameters
     if (setModelElement(mGlobalParameters, mGlobalParametersIdMap, nameOrId, value, model))
         return;
+
+    setInitialConcentrationByDisplayName(nameOrId, value, model);
 }
 
 void setValueByName(const std::string &key, double dValue)
@@ -591,12 +672,18 @@ CDataObject *resolveSpecificMcaObject(const std::string &item, const std::string
         if (surroundArg2 && arg2[0] != '(' && arg2[arg2.size() - 1] != ')')
             arg2 = "(" + arg2 + ")";
 
-        // retrieve MCA task
-        auto &task = dynamic_cast<CMCATask &>((*pDataModel->getTaskList())["Metabolic Control Analysis"]);
-        auto method = dynamic_cast<CMCAMethod *>(task.getMethod());
+        if (pDataModel == nullptr || pDataModel->getTaskList() == nullptr)
+            return nullptr;
 
-        if (method == NULL)
-            return NULL;
+        auto *taskList = pDataModel->getTaskList();
+        if (taskList->getIndex("Metabolic Control Analysis") == C_INVALID_INDEX)
+            return nullptr;
+
+        auto *task = dynamic_cast<CMCATask *>(&(*taskList)["Metabolic Control Analysis"]);
+        auto *method = task ? dynamic_cast<CMCAMethod *>(task->getMethod()) : nullptr;
+
+        if (method == nullptr)
+            return nullptr;
 
         std::string cn = method->getCN() + std::string(",Array=") + arrayName + std::string("[") + arg1 + std::string("][") + arg2 + std::string("]");
 
@@ -700,12 +787,21 @@ void setSelectionList(const std::vector<std::string> &selectionList)
 
     mSelectionList = selectionList;
 
-    if (mpDataHandler != NULL)
+    if (mpDataHandler != nullptr)
         delete mpDataHandler;
     mpDataHandler = new CDataHandler();
     mSelectedValues.clear();
 
     std::vector<std::string> toBeRemoved;
+
+    auto addElement = [&](CModelElement *el) -> bool
+    {
+        if (el == nullptr || el->pValue == nullptr)
+            return false;
+        mSelectedValues.push_back(el->pValue);
+        mpDataHandler->addDuringName(el->cn);
+        return true;
+    };
 
     for (auto &item : mSelectionList)
     {
@@ -716,90 +812,25 @@ void setSelectionList(const std::vector<std::string> &selectionList)
             continue;
         }
 
-        auto it = mFloatingSpecies.find(item);
-        if (it == mFloatingSpecies.end())
-        {
-            auto idIt = mFloatingSpeciesIdMap.find(item);
-            if (idIt != mFloatingSpeciesIdMap.end())
-                it = mFloatingSpecies.find(idIt->second);
-        }
-        if (it != mFloatingSpecies.end())
-        {
-            mSelectedValues.push_back(it->second.pValue);
-            mpDataHandler->addDuringName(it->second.cn);
+        if (addElement(findElement(mFloatingSpecies, &mFloatingSpeciesIdMap, item)))
             continue;
-        }
-
-        it = mBoundarySpecies.find(item);
-        if (it == mBoundarySpecies.end())
-        {
-            auto idIt = mBoundarySpeciesIdMap.find(item);
-            if (idIt != mBoundarySpeciesIdMap.end())
-                it = mBoundarySpecies.find(idIt->second);
-        }
-        if (it != mBoundarySpecies.end())
-        {
-            mSelectedValues.push_back(it->second.pValue);
-            mpDataHandler->addDuringName(it->second.cn);
+        if (addElement(findElement(mBoundarySpecies, &mBoundarySpeciesIdMap, item)))
             continue;
-        }
-
-        it = mCompartments.find(item);
-        if (it == mCompartments.end())
-        {
-            auto idIt = mCompartmentsIdMap.find(item);
-            if (idIt != mCompartmentsIdMap.end())
-                it = mCompartments.find(idIt->second);
-        }
-        if (it != mCompartments.end())
-        {
-            mSelectedValues.push_back(it->second.pValue);
-            mpDataHandler->addDuringName(it->second.cn);
+        if (addElement(findElement(mCompartments, &mCompartmentsIdMap, item)))
             continue;
-        }
-
-        it = mReactions.find(item);
-        if (it == mReactions.end())
-        {
-            auto idIt = mReactionsIdMap.find(item);
-            if (idIt != mReactionsIdMap.end())
-                it = mReactions.find(idIt->second);
-        }
-        if (it != mReactions.end())
-        {
-            mSelectedValues.push_back(it->second.pValue);
-            mpDataHandler->addDuringName(it->second.cn);
+        if (addElement(findElement(mReactions, &mReactionsIdMap, item)))
             continue;
-        }
-
-        it = mLocalParameters.find(item);
-        if (it != mLocalParameters.end())
-        {
-            mSelectedValues.push_back(it->second.pValue);
-            mpDataHandler->addDuringName(it->second.cn);
+        if (addElement(findElement(mLocalParameters, nullptr, item)))
             continue;
-        }
-
-        it = mGlobalParameters.find(item);
-        if (it == mGlobalParameters.end())
-        {
-            auto idIt = mGlobalParametersIdMap.find(item);
-            if (idIt != mGlobalParametersIdMap.end())
-                it = mGlobalParameters.find(idIt->second);
-        }
-        if (it != mGlobalParameters.end())
-        {
-            mSelectedValues.push_back(it->second.pValue);
-            mpDataHandler->addDuringName(it->second.cn);
+        if (addElement(findElement(mGlobalParameters, &mGlobalParametersIdMap, item)))
             continue;
-        }
 
         // see if item is a CN, in which case resolve it directly
         if (item.find("CN=") == 0)
         {
             auto *obj = const_cast<CDataObject *>(dynamic_cast<const CDataObject *>(pDataModel->getObject(item)));
             std::string name = obj ? obj->getObjectName() : std::string();
-            if (obj != NULL && name.find("[not found]") == std::string::npos)
+            if (obj != nullptr && name.find("[not found]") == std::string::npos)
             {
                 mSelectedValues.push_back(reinterpret_cast<const double *>(obj->getValuePointer()));
                 mpDataHandler->addDuringName(obj->getCN());
@@ -909,21 +940,33 @@ ordered_json buildModelInfo()
 {
     mFloatingSpecies.clear();
     mFloatingSpeciesIdMap.clear();
+    mFloatingSpeciesOrder.clear();
     mBoundarySpecies.clear();
     mBoundarySpeciesIdMap.clear();
+    mBoundarySpeciesOrder.clear();
     mCompartments.clear();
     mCompartmentsIdMap.clear();
+    mCompartmentOrder.clear();
     mReactions.clear();
     mReactionsIdMap.clear();
+    mReactionOrder.clear();
     mLocalParameters.clear();
+    mLocalParameterOrder.clear();
     mGlobalParameters.clear();
     mGlobalParametersIdMap.clear();
+    mGlobalParameterOrder.clear();
     mSelectionList.clear();
     mSelectionList.push_back("Time");
     mSelectedValues.clear();
-    mAllIds.clear();
 
     ordered_json modelInfo;
+    if (pDataModel == nullptr || pDataModel->getModel() == nullptr)
+    {
+        modelInfo["status"] = "error";
+        modelInfo["messages"] = "No model loaded";
+        return modelInfo;
+    }
+
     auto *pModel = pDataModel->getModel();
     auto &pMetabs = pModel->getMetabolites();
     auto &pReactions = pModel->getReactions();
@@ -937,7 +980,7 @@ ordered_json buildModelInfo()
         ordered_json m;
         m["name"] = metab.getObjectName();
         m["id"] = metab.getSBMLId();
-        m["compartment"] = metab.getCompartment()->getObjectName();
+        m["compartment"] = metab.getCompartment() ? metab.getCompartment()->getObjectName() : "";
         m["initial_concentration"] = metab.getInitialConcentration();
         m["initial_particle_number"] = metab.getInitialValue();
         m["particle_number"] = metab.getValue();
@@ -952,17 +995,17 @@ ordered_json buildModelInfo()
             &metab.getConcentration(),
             reinterpret_cast<const double *>(metab.getConcentrationRateReference()->getValuePointer())};
 
-        mAllIds.push_back(metab.getSBMLId());
-
         if (metab.getStatus() == CModelEntity::Status::FIXED)
         {
             mBoundarySpecies[metab.getObjectName()] = s;
             mBoundarySpeciesIdMap[metab.getSBMLId()] = metab.getObjectName();
+            mBoundarySpeciesOrder.push_back(metab.getObjectName());
         }
         else
         {
             mFloatingSpecies[metab.getObjectName()] = s;
             mFloatingSpeciesIdMap[metab.getSBMLId()] = metab.getObjectName();
+            mFloatingSpeciesOrder.push_back(metab.getObjectName());
             mSelectionList.push_back(metab.getObjectName());
         }
 
@@ -993,7 +1036,7 @@ ordered_json buildModelInfo()
             &compartment.getValue()};
         mCompartments[compartment.getObjectName()] = cp;
         mCompartmentsIdMap[compartment.getSBMLId()] = compartment.getObjectName();
-        mAllIds.push_back(compartment.getSBMLId());
+        mCompartmentOrder.push_back(compartment.getObjectName());
 
         if (compartment.getStatus() != CModelEntity::Status::FIXED)
             mSelectionList.push_back(compartment.getObjectName());
@@ -1011,7 +1054,6 @@ ordered_json buildModelInfo()
         r["scheme"] = reaction.getReactionScheme();
 
         std::vector<json> localParameters;
-        auto &params = reaction.getParameters();
         auto &fun_params = reaction.getFunctionParameters();
         auto num_params = fun_params.size();
         for (size_t i = 0; i < num_params; ++i)
@@ -1036,8 +1078,10 @@ ordered_json buildModelInfo()
                 "",
                 cns[0],
                 cns[0],
-                &reaction.getParameterValue(name)};
-            mLocalParameters[obj[0]->getObjectDisplayName()] = lp;
+                obj[0] ? reinterpret_cast<const double *>(obj[0]->getValuePointer()) : nullptr};
+            auto displayName = obj[0]->getObjectDisplayName();
+            mLocalParameters[displayName] = lp;
+            mLocalParameterOrder.push_back(displayName);
         }
         r["local_parameters"] = localParameters;
         reactions.push_back(r);
@@ -1050,7 +1094,7 @@ ordered_json buildModelInfo()
             &reaction.getFlux()};
         mReactions[reaction.getObjectName()] = re;
         mReactionsIdMap[reaction.getSBMLId()] = reaction.getObjectName();
-        mAllIds.push_back(reaction.getSBMLId());
+        mReactionOrder.push_back(reaction.getObjectName());
     }
     modelInfo["reactions"] = reactions;
 
@@ -1076,13 +1120,14 @@ ordered_json buildModelInfo()
             &param.getValue()};
         mGlobalParameters[param.getObjectName()] = gp;
         mGlobalParametersIdMap[param.getSBMLId()] = param.getObjectName();
-        mAllIds.push_back(param.getSBMLId());
+        mGlobalParameterOrder.push_back(param.getObjectName());
 
         if (param.getStatus() != CModelEntity::Status::FIXED)
             mSelectionList.push_back(param.getObjectName());
     }
     modelInfo["global_parameters"] = globalParameters;
 
+    modelInfo["events"] = ordered_json::array();
     for (auto &event : pEvents)
     {
         ordered_json e;
@@ -1126,10 +1171,14 @@ ordered_json buildModelInfo()
 
 std::string getModelInfo()
 {
-    if (pDataModel == NULL)
+    if (pDataModel == nullptr)
         initCps();
 
-    return buildModelInfo().dump(2);
+    auto savedSelection = mSelectionList;
+    auto info = buildModelInfo();
+    if (!savedSelection.empty())
+        setSelectionList(savedSelection);
+    return info.dump(2);
 }
 
 void _removeFixedElementsFromSet(CModelParameterGroup *group)
@@ -1167,15 +1216,21 @@ void loadCommon()
     auto *pModel = pDataModel->getModel();
     pModel->applyInitialValues();
     auto &sets = pModel->getModelParameterSets();
-    auto *newSet = new CModelParameterSet("_initial_state");
-    sets.add(newSet, true);
-    newSet->createFromModel();
 
-    // now create a second one with only the state variables
-    newSet = new CModelParameterSet("_initial_state_variables_only");
-    sets.add(newSet, true);
-    newSet->createFromModel();
-    _removeFixedElementsFromSet(newSet);
+    auto ensureSet = [&](const std::string &name) -> CModelParameterSet *
+    {
+        auto idx = sets.getIndex(name);
+        if (idx != C_INVALID_INDEX)
+            sets.remove(name);
+        auto *set = new CModelParameterSet(name);
+        sets.add(set, true);
+        set->createFromModel();
+        return set;
+    };
+
+    ensureSet("_initial_state");
+    auto *variablesOnly = ensureSet("_initial_state_variables_only");
+    _removeFixedElementsFromSet(variablesOnly);
 }
 
 std::string loadCombineArchive(const std::string &modelFile)
@@ -1296,23 +1351,27 @@ std::string loadModel(const std::string &cpsCode)
 
 void reset()
 {
-    if (pDataModel == NULL)
+    if (pDataModel == nullptr)
         initCps();
 
-    auto *pModel = pDataModel->getModel();
-    auto &set = pModel->getModelParameterSets()["_initial_state_variables_only"];
-    set.updateModel();
+    auto *pModel = pDataModel ? pDataModel->getModel() : nullptr;
+    auto *set = getNamedParameterSet(pModel, "_initial_state_variables_only");
+    if (set == nullptr || pModel == nullptr)
+        return;
+    set->updateModel();
     pModel->applyInitialValues();
 }
 
 void resetAll()
 {
-    if (pDataModel == NULL)
+    if (pDataModel == nullptr)
         initCps();
 
-    auto *pModel = pDataModel->getModel();
-    auto &set = pModel->getModelParameterSets()["_initial_state"];
-    set.updateModel();
+    auto *pModel = pDataModel ? pDataModel->getModel() : nullptr;
+    auto *set = getNamedParameterSet(pModel, "_initial_state");
+    if (set == nullptr || pModel == nullptr)
+        return;
+    set->updateModel();
     pModel->applyInitialValues();
 }
 
@@ -1373,32 +1432,32 @@ bool setTaskSettings(const std::string& taskName, const std::string& settingsJso
         return false;
 
     ordered_json problemSettings = settings;
-    if (settings.contains("problem") && !settings["problem"].is_null())
+    if (jsonHas(settings, "problem"))
         problemSettings = settings["problem"];
     setGroupFromJson(problem, problemSettings);
 
     // Handle specific settings that may not be covered by the group
     if (auto *trajProblem = dynamic_cast<CTrajectoryProblem *>(problem))
     {
-        if (!problemSettings["Duration"].empty())
+        if (jsonHas(problemSettings, "Duration"))
             trajProblem->setDuration(problemSettings["Duration"].get<double>());
-        if (!problemSettings["StepNumber"].empty())
+        if (jsonHas(problemSettings, "StepNumber"))
             trajProblem->setStepNumber(problemSettings["StepNumber"].get<int>());
-        if (!problemSettings["StepSize"].empty())
+        if (jsonHas(problemSettings, "StepSize"))
             trajProblem->setStepSize(problemSettings["StepSize"].get<double>());
-        if (!problemSettings["OutputStartTime"].empty())
+        if (jsonHas(problemSettings, "OutputStartTime"))
             trajProblem->setOutputStartTime(problemSettings["OutputStartTime"].get<double>());
     }
 
-    if (!settings["update_model"].empty())
+    if (jsonHas(settings, "update_model"))
         task.setUpdateModel(settings["update_model"].get<bool>());
-    if (!settings["scheduled"].empty())
+    if (jsonHas(settings, "scheduled"))
         task.setScheduled(settings["scheduled"].get<bool>());
 
-    if (!settings["method"].empty())
+    if (jsonHas(settings, "method"))
     {
         auto &m = settings["method"];
-        if (!m["name"].empty())
+        if (jsonHas(m, "name"))
             task.setMethodType(CTaskEnum::MethodName.toEnum(m["name"].get<string>()));
         auto *method = task.getMethod();
         setGroupFromJson(method, m);
@@ -1409,63 +1468,81 @@ bool setTaskSettings(const std::string& taskName, const std::string& settingsJso
 
 void applyYaml(ordered_json &yaml)
 {
-    auto &task = dynamic_cast<CTrajectoryTask &>((*pDataModel->getTaskList())["Time-Course"]);
-    task.setUpdateModel(true);
-    auto *problem = dynamic_cast<CTrajectoryProblem *>(task.getProblem());
+    auto *task = getTaskPtr<CTrajectoryTask>("Time-Course");
+    if (task == nullptr)
+        return;
 
-    if (yaml.contains("problem") && !yaml["problem"].is_null())
+    auto *problem = dynamic_cast<CTrajectoryProblem *>(task->getProblem());
+
+    if (jsonHas(yaml, "update_model"))
+        task->setUpdateModel(yaml["update_model"].get<bool>());
+
+    if (jsonHas(yaml, "problem") && problem != nullptr)
     {
         auto &p = yaml["problem"];
         setGroupFromJson(problem, p);
 
         // need to take extra care with step number / stepsize
         // as those might not be honored if set via group
-        if (!p["Duration"].empty())
+        if (jsonHas(p, "Duration"))
             problem->setDuration(p["Duration"].get<double>());
-        if (!p["StepNumber"].empty())
+        if (jsonHas(p, "StepNumber"))
             problem->setStepNumber(p["StepNumber"].get<int>());
-        if (!p["StepSize"].empty())
+        if (jsonHas(p, "StepSize"))
             problem->setStepSize(p["StepSize"].get<double>());
-        if (!p["OutputStartTime"].empty())
+        if (jsonHas(p, "OutputStartTime"))
             problem->setOutputStartTime(p["OutputStartTime"].get<double>());
     }
 
-    if (!yaml["method"].empty())
+    if (jsonHas(yaml, "method"))
     {
         auto &m = yaml["method"];
-        if (!m["name"].empty())
-            task.setMethodType(CTaskEnum::MethodName.toEnum(m["name"].get<string>()));
-        auto *method = task.getMethod();
+        if (jsonHas(m, "name"))
+            task->setMethodType(CTaskEnum::MethodName.toEnum(m["name"].get<string>()));
+        auto *method = task->getMethod();
         setGroupFromJson(method, m);
     }
 
-    if (!yaml["initial_values"].empty())
+    if (jsonHas(yaml, "initial_values"))
     {
         auto &iv = yaml["initial_values"];
         auto *model = pDataModel->getModel();
+        if (model == nullptr)
+            return;
         for (auto &[key, value] : iv.items())
         {
-            double dValue = value.get<double>();
-            setValueByName(key, dValue);
+            if (!value.is_number())
+                continue;
+            setValueByName(key, value.get<double>());
         }
     }
 }
 
 void ensureModel()
 {
-    if (pDataModel == NULL)
-        initCps();
+    if (pDataModel == nullptr)
+    {
+        if (initCps() != 0)
+            return;
+    }
 
-    pDataModel = &(*CRootContainer::getDatamodelList())[0];
+    auto *list = CRootContainer::getDatamodelList();
+    if (list == nullptr || list->size() == 0)
+        return;
+
+    pDataModel = &(*list)[0];
 }
 
 std::vector<std::vector<double>> getSimulationResults2D()
 {
-    if (mpDataHandler != NULL)
+    if (mpDataHandler != nullptr)
         return mpDataHandler->getDuringData();
 
-    auto &task = dynamic_cast<CTrajectoryTask &>((*pDataModel->getTaskList())["Time-Course"]);
-    auto &ts = task.getTimeSeries();
+    auto *task = getTaskPtr<CTrajectoryTask>("Time-Course");
+    if (task == nullptr)
+        return {};
+
+    auto &ts = task->getTimeSeries();
 
     std::vector<std::vector<double>> results;
     for (int i = 0; i < ts.getRecordedSteps(); ++i)
@@ -1538,20 +1615,44 @@ ordered_json convertDataArray(const CDataArray *pArray)
     return result;
 }
 
+static CSteadyStateTask *getSteadyStateTask()
+{
+    return getTaskPtr<CSteadyStateTask>("Steady-State");
+}
+
+static CMCAMethod *getMcaMethod()
+{
+    auto *task = getTaskPtr<CMCATask>("Metabolic Control Analysis");
+    return task ? dynamic_cast<CMCAMethod *>(task->getMethod()) : nullptr;
+}
+
+static COptProblem *getOptProblem()
+{
+    auto *task = getTaskPtr<COptTask>("Optimization");
+    return task ? dynamic_cast<COptProblem *>(task->getProblem()) : nullptr;
+}
+
+static CFitProblem *getFitProblem()
+{
+    auto *task = getTaskPtr<CFitTask>("Parameter Estimation");
+    return task ? dynamic_cast<CFitProblem *>(task->getProblem()) : nullptr;
+}
+
 std::string getJacobian()
 {
-    ensureModel();
+    auto *task = getSteadyStateTask();
+    if (task == nullptr)
+        return convertDataArray(nullptr).dump(2);
 
-    auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
-    auto *pMatrix = task.getJacobianAnnotated();
-
-    return convertDataArray(pMatrix).dump(2);
+    return convertDataArray(task->getJacobianAnnotated()).dump(2);
 }
 
 std::string getStoichiometryMatrix(bool reduced /*= false*/)
 {
     ensureModel();
-    
+    if (pDataModel == nullptr || pDataModel->getModel() == nullptr)
+        return convertDataArray(nullptr).dump(2);
+
     auto *pMatrix = reduced ? pDataModel->getModel()->getRedStoiAnnotation() : pDataModel->getModel()->getStoiAnnotation();
 
     return convertDataArray(pMatrix).dump(2);
@@ -1560,155 +1661,153 @@ std::string getStoichiometryMatrix(bool reduced /*= false*/)
 std::string getLinkMatrix()
 {
     ensureModel();
-    
-    auto *pMatrix = pDataModel->getModel()->getLAnnotation();
+    if (pDataModel == nullptr || pDataModel->getModel() == nullptr)
+        return convertDataArray(nullptr).dump(2);
 
-    return convertDataArray(pMatrix).dump(2);
+    return convertDataArray(pDataModel->getModel()->getLAnnotation()).dump(2);
 }
 
 
 std::vector<std::vector<double>> getJacobian2D()
 {
-    ensureModel();
+    auto *task = getSteadyStateTask();
+    if (task == nullptr)
+        return {};
 
-    auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
-    auto *pMatrix = task.getJacobianAnnotated();
+    auto *pMatrix = task->getJacobianAnnotated();
+    if (pMatrix == nullptr)
+        return {};
 
     return convertCArray(pMatrix->getArray());
 }
 
 std::vector<std::vector<double>> getEigenValues2D()
 {
-    ensureModel();
+    auto *task = getSteadyStateTask();
+    if (task == nullptr)
+        return {};
 
-    auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
-    const auto &eValues = task.getEigenValues();
-
-    return convertCEigen(eValues);
+    return convertCEigen(task->getEigenValues());
 }
 
 std::string getJacobianReduced()
 {
-    ensureModel();
+    auto *task = getSteadyStateTask();
+    if (task == nullptr)
+        return convertDataArray(nullptr).dump(2);
 
-    auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
-    auto *pMatrix = task.getJacobianXAnnotated();
-
-    return convertDataArray(pMatrix).dump(2);
+    return convertDataArray(task->getJacobianXAnnotated()).dump(2);
 }
 
 std::vector<std::vector<double>> getJacobianReduced2D()
 {
-    ensureModel();
+    auto *task = getSteadyStateTask();
+    if (task == nullptr)
+        return {};
 
-    auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
-    auto *pMatrix = task.getJacobianXAnnotated();
+    auto *pMatrix = task->getJacobianXAnnotated();
+    if (pMatrix == nullptr)
+        return {};
 
     return convertCArray(pMatrix->getArray());
 }
 
 std::vector<std::vector<double>> getEigenValuesReduced2D()
 {
-    ensureModel();
+    auto *task = getSteadyStateTask();
+    if (task == nullptr)
+        return {};
 
-    auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
-    const auto &eValues = task.getEigenValuesReduced();
-
-    return convertCEigen(eValues);
+    return convertCEigen(task->getEigenValuesReduced());
 }
 
 std::string getFluxControlCoefficients(bool scaled)
 {
-    ensureModel();
+    auto *method = getMcaMethod();
+    if (method == nullptr)
+        return convertDataArray(nullptr).dump(2);
 
-    auto &task = dynamic_cast<CMCATask &>((*pDataModel->getTaskList())["Metabolic Control Analysis"]);
-    auto method = dynamic_cast<CMCAMethod *>(task.getMethod());
     auto *pMatrix = scaled ? method->getScaledFluxCCAnn() : method->getUnscaledFluxCCAnn();
-
     return convertDataArray(pMatrix).dump(2);
 }
 
 std::vector<std::vector<double>> getFluxControlCoefficients2D(bool scaled)
 {
-    ensureModel();
+    auto *method = getMcaMethod();
+    if (method == nullptr)
+        return {};
 
-    auto &task = dynamic_cast<CMCATask &>((*pDataModel->getTaskList())["Metabolic Control Analysis"]);
-    auto method = dynamic_cast<CMCAMethod *>(task.getMethod());
     auto *pMatrix = scaled ? method->getScaledFluxCCAnn() : method->getUnscaledFluxCCAnn();
-
-    return convertCArray(pMatrix->getArray());
+    return pMatrix ? convertCArray(pMatrix->getArray()) : std::vector<std::vector<double>>{};
 }
 
 std::string getConcentrationControlCoefficients(bool scaled)
 {
-    ensureModel();
+    auto *method = getMcaMethod();
+    if (method == nullptr)
+        return convertDataArray(nullptr).dump(2);
 
-    auto &task = dynamic_cast<CMCATask &>((*pDataModel->getTaskList())["Metabolic Control Analysis"]);
-    auto method = dynamic_cast<CMCAMethod *>(task.getMethod());
     auto *pMatrix = scaled ? method->getScaledConcentrationCCAnn() : method->getUnscaledConcentrationCCAnn();
-
     return convertDataArray(pMatrix).dump(2);
 }
 
 std::vector<std::vector<double>> getConcentrationControlCoefficients2D(bool scaled)
 {
-    ensureModel();
+    auto *method = getMcaMethod();
+    if (method == nullptr)
+        return {};
 
-    auto &task = dynamic_cast<CMCATask &>((*pDataModel->getTaskList())["Metabolic Control Analysis"]);
-    auto method = dynamic_cast<CMCAMethod *>(task.getMethod());
     auto *pMatrix = scaled ? method->getScaledConcentrationCCAnn() : method->getUnscaledConcentrationCCAnn();
-
-    return convertCArray(pMatrix->getArray());
+    return pMatrix ? convertCArray(pMatrix->getArray()) : std::vector<std::vector<double>>{};
 }
 
 std::string getElasticities(bool scaled)
 {
-    ensureModel();
+    auto *method = getMcaMethod();
+    if (method == nullptr)
+        return convertDataArray(nullptr).dump(2);
 
-    auto &task = dynamic_cast<CMCATask &>((*pDataModel->getTaskList())["Metabolic Control Analysis"]);
-    auto method = dynamic_cast<CMCAMethod *>(task.getMethod());
     auto *pMatrix = scaled ? method->getScaledElasticitiesAnn() : method->getUnscaledElasticitiesAnn();
-
     return convertDataArray(pMatrix).dump(2);
 }
 
 std::vector<std::vector<double>> getElasticities2D(bool scaled)
 {
-    ensureModel();
+    auto *method = getMcaMethod();
+    if (method == nullptr)
+        return {};
 
-    auto &task = dynamic_cast<CMCATask &>((*pDataModel->getTaskList())["Metabolic Control Analysis"]);
-    auto method = dynamic_cast<CMCAMethod *>(task.getMethod());
     auto *pMatrix = scaled ? method->getScaledElasticitiesAnn() : method->getUnscaledElasticitiesAnn();
-
-    return convertCArray(pMatrix->getArray());
+    return pMatrix ? convertCArray(pMatrix->getArray()) : std::vector<std::vector<double>>{};
 }
 
 double steadyState(bool stabilityAnalysis, bool updateModel)
 {
-    ensureModel();
+    auto *task = getSteadyStateTask();
+    if (task == nullptr)
+        return std::numeric_limits<double>::quiet_NaN();
 
-    auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
+    task->setUpdateModel(updateModel);
 
-    task.setUpdateModel(updateModel);
-
-    auto *problem = dynamic_cast<CSteadyStateProblem *>(task.getProblem());
+    auto *problem = dynamic_cast<CSteadyStateProblem *>(task->getProblem());
+    if (problem == nullptr)
+        return std::numeric_limits<double>::quiet_NaN();
     problem->setStabilityAnalysisRequested(stabilityAnalysis);
 
-    if (!task.initialize(CCopasiTask::OUTPUT_UI, pDataModel, NULL))
+    if (!task->initialize(CCopasiTask::OUTPUT_UI, pDataModel, nullptr))
         return std::numeric_limits<double>::quiet_NaN();
 
-    if (!task.process(false))
+    if (!task->process(false))
         return std::numeric_limits<double>::quiet_NaN();
 
-    if (!task.restore())
+    if (!task->restore())
         return std::numeric_limits<double>::quiet_NaN();
 
-    auto *method = dynamic_cast<CSteadyStateMethod *>(task.getMethod());
-    if (method == NULL)
+    auto *method = dynamic_cast<CSteadyStateMethod *>(task->getMethod());
+    if (method == nullptr)
         return std::numeric_limits<double>::quiet_NaN();
     auto log = method->getMethodLog();
 
-    // rfind last instance of 'rate:' <number> and extract number
     auto pos = log.rfind("Rate: ");
     if (pos == std::string::npos)
         return std::numeric_limits<double>::quiet_NaN();
@@ -1717,16 +1816,23 @@ double steadyState(bool stabilityAnalysis, bool updateModel)
     if (end == std::string::npos)
         return std::numeric_limits<double>::quiet_NaN();
     auto rate = log.substr(pos, end - pos);
-    auto rateValue = std::stod(rate);
-    return rateValue;
+    try
+    {
+        return std::stod(rate);
+    }
+    catch (const std::exception &)
+    {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
 }
 
 std::string getSteadyStateStatus()
 {
-    ensureModel();
+    auto *task = getSteadyStateTask();
+    if (task == nullptr)
+        return "A steady state with given resolution couldn't be found.";
 
-    auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
-    auto& result = task.getResult();
+    auto& result = task->getResult();
 
     if (result == CSteadyStateMethod::found)
         return "A steady state with given resolution was found.";
@@ -1743,22 +1849,22 @@ std::string getSteadyStateStatus()
 
 std::string getStabilityAnalysis()
 {
-    ensureModel();
-
-    auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
+    auto *task = getSteadyStateTask();
+    if (task == nullptr)
+        return "";
 
     std::stringstream ss;
-    ss << task.getEigenValuesReduced();
+    ss << task->getEigenValuesReduced();
     return ss.str();
 }
 
 std::string getSteadyStateProtocol()
 {
-    ensureModel();
+    auto *task = getSteadyStateTask();
+    if (task == nullptr)
+        return "No steady state method available.";
 
-    auto &task = dynamic_cast<CSteadyStateTask &>((*pDataModel->getTaskList())["Steady-State"]);
-
-    auto pMethod = dynamic_cast<CSteadyStateMethod *>(task.getMethod());
+    auto pMethod = dynamic_cast<CSteadyStateMethod *>(task->getMethod());
     if (!pMethod)
         return "No steady state method available.";
     
@@ -1768,22 +1874,24 @@ std::string getSteadyStateProtocol()
 
 bool computeMca(bool performSteadyState, bool updateModel)
 {
-    ensureModel();
+    auto *task = getTaskPtr<CMCATask>("Metabolic Control Analysis");
+    if (task == nullptr)
+        return false;
 
-    auto &task = dynamic_cast<CMCATask &>((*pDataModel->getTaskList())["Metabolic Control Analysis"]);
+    task->setUpdateModel(updateModel);
 
-    task.setUpdateModel(updateModel);
-
-    auto *problem = dynamic_cast<CMCAProblem *>(task.getProblem());
+    auto *problem = dynamic_cast<CMCAProblem *>(task->getProblem());
+    if (problem == nullptr)
+        return false;
     problem->setSteadyStateRequested(performSteadyState);
 
-    if (!task.initialize(CCopasiTask::OUTPUT_UI, pDataModel, NULL))
+    if (!task->initialize(CCopasiTask::OUTPUT_UI, pDataModel, nullptr))
         return false;
 
-    if (!task.process(false))
+    if (!task->process(false))
         return false;
 
-    if (!task.restore())
+    if (!task->restore())
         return false;
 
     return true;
@@ -1807,17 +1915,17 @@ static std::string buildLNAStatusMessage(CSteadyStateMethod::ReturnCode status, 
 
 bool runLNA(bool useInitialValues)
 {
-    ensureModel();
-
-    auto &task = dynamic_cast<CLNATask &>((*pDataModel->getTaskList())["Linear Noise Approximation"]);
-
-    if (!task.initialize(CCopasiTask::OUTPUT_UI, pDataModel, NULL))
+    auto *task = getTaskPtr<CLNATask>("Linear Noise Approximation");
+    if (task == nullptr)
         return false;
 
-    if (!task.process(useInitialValues))
+    if (!task->initialize(CCopasiTask::OUTPUT_UI, pDataModel, nullptr))
         return false;
 
-    if (!task.restore(true))
+    if (!task->process(useInitialValues))
+        return false;
+
+    if (!task->restore(true))
         return false;
 
     return true;
@@ -1825,14 +1933,12 @@ bool runLNA(bool useInitialValues)
 
 std::string getLNAResults(bool scaled)
 {
-    ensureModel();
-
-    auto &task = dynamic_cast<CLNATask &>((*pDataModel->getTaskList())["Linear Noise Approximation"]);
-    auto *method = dynamic_cast<CLNAMethod *>(task.getMethod());
+    auto *task = getTaskPtr<CLNATask>("Linear Noise Approximation");
+    auto *method = task ? dynamic_cast<CLNAMethod *>(task->getMethod()) : nullptr;
 
     ordered_json result;
 
-    if (method == NULL)
+    if (method == nullptr)
     {
         result["status"] = "LNA method not available.";
         return result.dump(2);
@@ -1858,21 +1964,27 @@ static double optBoundToDouble(const CRegisteredCommonName &bound)
     }
 }
 
+static ordered_json getAffectedExperimentNames(const CFitItem *fitItem);
+
 bool runOptimization(bool useInitialValues)
 {
     ensureModel();
-
-    pDataModel->getModel()->compileIfNecessary(NULL);
-
-    auto &task = dynamic_cast<COptTask &>((*pDataModel->getTaskList())["Optimization"]);
-
-    if (!task.initialize(CCopasiTask::OUTPUT_UI, pDataModel, NULL))
+    if (pDataModel == nullptr || pDataModel->getModel() == nullptr)
         return false;
 
-    if (!task.process(useInitialValues))
+    pDataModel->getModel()->compileIfNecessary(nullptr);
+
+    auto *task = getTaskPtr<COptTask>("Optimization");
+    if (task == nullptr)
         return false;
 
-    if (!task.restore(true))
+    if (!task->initialize(CCopasiTask::OUTPUT_UI, pDataModel, nullptr))
+        return false;
+
+    if (!task->process(useInitialValues))
+        return false;
+
+    if (!task->restore(true))
         return false;
 
     return true;
@@ -1911,14 +2023,11 @@ void addItemsToArray(ordered_json &result, const std::vector<COptItem *> &items)
 
 std::string getOptItems()
 {
-    ensureModel();
-
-    auto &task = dynamic_cast<COptTask &>((*pDataModel->getTaskList())["Optimization"]);
-    auto *problem = dynamic_cast<COptProblem *>(task.getProblem());
+    auto *problem = getOptProblem();
 
     ordered_json result = ordered_json::array();
 
-    if (problem == NULL)
+    if (problem == nullptr)
         return result.dump(2);
 
     const auto &items = problem->getOptItemList(false);
@@ -1930,14 +2039,11 @@ std::string getOptItems()
 
 std::string getOptSolution()
 {
-    ensureModel();
-
-    auto &task = dynamic_cast<COptTask &>((*pDataModel->getTaskList())["Optimization"]);
-    auto *problem = dynamic_cast<COptProblem *>(task.getProblem());
+    auto *problem = getOptProblem();
 
     ordered_json result = ordered_json::array();
 
-    if (problem == NULL)
+    if (problem == nullptr)
         return result.dump(2);
 
     const auto &solution = problem->getSolutionVariables(false);
@@ -1974,14 +2080,11 @@ std::string getOptSolution()
 
 std::string getOptStatistic()
 {
-    ensureModel();
-
-    auto &task = dynamic_cast<COptTask &>((*pDataModel->getTaskList())["Optimization"]);
-    auto *problem = dynamic_cast<COptProblem *>(task.getProblem());
+    auto *problem = getOptProblem();
 
     ordered_json result;
 
-    if (problem == NULL)
+    if (problem == nullptr)
         return result.dump(2);
 
     result["obj"] = problem->getSolutionValue();
@@ -2021,25 +2124,23 @@ static ordered_json getAffectedExperimentNames(const CFitItem *fitItem)
 bool runParameterEstimation(bool useInitialValues)
 {
     ensureModel();
-
-    pDataModel->getModel()->compileIfNecessary(NULL);
-
-    // Parameter estimation will not run if errors remain in the message log
-    if (CCopasiMessage::getHighestSeverity() > CCopasiMessage::WARNING)
-        CCopasiMessage::clearDeque();
-
-    auto &task = dynamic_cast<CFitTask &>((*pDataModel->getTaskList())["Parameter Estimation"]);
-    auto *problem = dynamic_cast<CFitProblem *>(task.getProblem());
-    if (problem == NULL || problem->getOptItemSize() == 0)
+    if (pDataModel == nullptr || pDataModel->getModel() == nullptr)
         return false;
 
-    if (!task.initialize(CCopasiTask::OUTPUT_UI, pDataModel, NULL))
+    pDataModel->getModel()->compileIfNecessary(nullptr);
+
+    auto *task = getTaskPtr<CFitTask>("Parameter Estimation");
+    auto *problem = task ? dynamic_cast<CFitProblem *>(task->getProblem()) : nullptr;
+    if (problem == nullptr || problem->getOptItemSize() == 0)
         return false;
 
-    if (!task.process(useInitialValues))
+    if (!task->initialize(CCopasiTask::OUTPUT_UI, pDataModel, nullptr))
         return false;
 
-    if (!task.restore(true))
+    if (!task->process(useInitialValues))
+        return false;
+
+    if (!task->restore(true))
         return false;
 
     return true;
@@ -2047,14 +2148,11 @@ bool runParameterEstimation(bool useInitialValues)
 
 std::string getFitSolution()
 {
-    ensureModel();
-
-    auto &task = dynamic_cast<CFitTask &>((*pDataModel->getTaskList())["Parameter Estimation"]);
-    auto *problem = dynamic_cast<CFitProblem *>(task.getProblem());
+    auto *problem = getFitProblem();
 
     ordered_json result = ordered_json::array();
 
-    if (problem == NULL)
+    if (problem == nullptr)
         return result.dump(2);
 
     const auto &solution = problem->getSolutionVariables(false);
@@ -2092,14 +2190,11 @@ std::string getFitSolution()
 
 std::string getFitItems()
 {
-    ensureModel();
-
-    auto &task = dynamic_cast<CFitTask &>((*pDataModel->getTaskList())["Parameter Estimation"]);
-    auto *problem = dynamic_cast<CFitProblem *>(task.getProblem());
+    auto *problem = getFitProblem();
 
     ordered_json result = ordered_json::array();
 
-    if (problem == NULL)
+    if (problem == nullptr)
         return result.dump(2);
 
     const auto &items = problem->getOptItemList(false);
@@ -2110,14 +2205,11 @@ std::string getFitItems()
 
 std::string getFitStatistic()
 {
-    ensureModel();
-
-    auto &task = dynamic_cast<CFitTask &>((*pDataModel->getTaskList())["Parameter Estimation"]);
-    auto *problem = dynamic_cast<CFitProblem *>(task.getProblem());
+    auto *problem = getFitProblem();
 
     ordered_json result;
 
-    if (problem == NULL)
+    if (problem == nullptr)
         return result.dump(2);
 
     auto &experiments = problem->getExperimentSet();
@@ -2146,13 +2238,19 @@ std::string getFitStatistic()
 
 std::string getSimulationResults()
 {
-    ensureModel();
+    auto *task = getTaskPtr<CTrajectoryTask>("Time-Course");
+    if (task == nullptr)
+    {
+        ordered_json j;
+        j["status"] = "success";
+        j["num_variables"] = 0;
+        j["recorded_steps"] = 0;
+        j["titles"] = std::vector<std::string>{};
+        j["columns"] = std::vector<std::vector<double>>{};
+        return j.dump(2);
+    }
 
-    auto &task = dynamic_cast<CTrajectoryTask &>((*pDataModel->getTaskList())["Time-Course"]);
-    auto &ts = task.getTimeSeries();
-
-    return convertTimeSeriesToJSON(ts).dump(2);
-
+    return convertTimeSeriesToJSON(task->getTimeSeries()).dump(2);
 }
 
 std::string simulateJSON(ordered_json &yaml)
@@ -2163,109 +2261,88 @@ std::string simulateJSON(ordered_json &yaml)
 
         CCopasiMessage::clearDeque();
 
-        auto &task = dynamic_cast<CTrajectoryTask &>((*pDataModel->getTaskList())["Time-Course"]);
-        task.setUpdateModel(true);
-        auto *problem = dynamic_cast<CTrajectoryProblem *>(task.getProblem());
+        auto *task = getTaskPtr<CTrajectoryTask>("Time-Course");
+        if (task == nullptr)
+            return jsonError("Time-Course task not available.");
+
+        task->setUpdateModel(true);
+        auto *problem = dynamic_cast<CTrajectoryProblem *>(task->getProblem());
 
         applyYaml(yaml);
-        problem->setTimeSeriesRequested(true);
-
-        std::stringstream str;
+        if (problem != nullptr)
+            problem->setTimeSeriesRequested(true);
 
         size_t pos = CCopasiMessage::size();
 
         setSelectionList(mSelectionList);
 
-        if (mpDataHandler)
-            pDataModel->addInterface(mpDataHandler);
+        DataHandlerInterfaceGuard handlerGuard(pDataModel, mpDataHandler);
 
-        if (!task.initialize(CCopasiTask::OUTPUT_UI, pDataModel, NULL))
-        {
-            ordered_json modelInfo;
-            modelInfo["status"] = "error";
-            modelInfo["messages"] = getMessages(pos, "No Output");
-            return modelInfo.dump(2);
-        }
+        if (!task->initialize(CCopasiTask::OUTPUT_UI, pDataModel, nullptr))
+            return jsonError(getMessages(pos, "No Output"));
 
-        if (!task.process(true))
-        {
-            ordered_json modelInfo;
-            modelInfo["status"] = "error";
-            modelInfo["messages"] = getMessages(pos, "No Output");
-            return modelInfo.dump(2);
-        }
+        if (!task->process(true))
+            return jsonError(getMessages(pos, "No Output"));
 
-        if (!task.restore())
-        {
-            ordered_json modelInfo;
-            modelInfo["status"] = "error";
-            modelInfo["messages"] = getMessages(pos, "No Output");
-            return modelInfo.dump(2);
-        }
+        if (!task->restore())
+            return jsonError(getMessages(pos, "No Output"));
 
         if (mpDataHandler)
-        {
-            pDataModel->removeInterface(mpDataHandler);
             return convertDataHandlerToJSON(*mpDataHandler).dump(2);
-        }
-        else
-        {
-            auto &ts = task.getTimeSeries();
-            // fillStream(ts, str);
 
-            // return str.str().c_str();
-            return convertTimeSeriesToJSON(ts).dump(2);
-        }
+        return convertTimeSeriesToJSON(task->getTimeSeries()).dump(2);
     }
     catch (CCopasiException &e)
     {
-        ordered_json modelInfo;
-        modelInfo["status"] = "error";
-        modelInfo["messages"] = getMessages(0, "No Output");
-        return modelInfo.dump(2);
+        return jsonError(getMessages(0, "No Output"));
     }
     catch (std::exception &e)
     {
-        ordered_json modelInfo;
-        modelInfo["status"] = "error";
-        modelInfo["messages"] = e.what();
-        return modelInfo.dump(2);
+        return jsonError(e.what());
     }
 }
 
 std::string getTimeCourseSettings()
 {
-    ensureModel();
     ordered_json yaml;
-    auto &task = dynamic_cast<CTrajectoryTask &>((*pDataModel->getTaskList())["Time-Course"]);
-    auto *problem = dynamic_cast<CTrajectoryProblem *>(task.getProblem());
-    yaml["problem"] = convertGroupToJson(problem);
-    yaml["method"] = convertGroupToJson(task.getMethod());
-    yaml["method"]["name"] = task.getMethod()->getObjectName();
+    auto *task = getTaskPtr<CTrajectoryTask>("Time-Course");
+    if (task == nullptr)
+        return yaml.dump(2);
+
+    auto *problem = dynamic_cast<CTrajectoryProblem *>(task->getProblem());
+    if (problem != nullptr)
+        yaml["problem"] = convertGroupToJson(problem);
+
+    auto *method = task->getMethod();
+    if (method != nullptr)
+    {
+        yaml["method"] = convertGroupToJson(method);
+        yaml["method"]["name"] = method->getObjectName();
+    }
     return yaml.dump(2);
 }
 
 
 std::string getOptSettings()
 {
-    ensureModel();
-    auto &task = (*pDataModel->getTaskList())["Optimization"];
-    auto *problem = dynamic_cast<COptProblem*>(task.getProblem());
-    if (!problem)
+    auto *task = getTaskPtr<COptTask>("Optimization");
+    auto *problem = task ? dynamic_cast<COptProblem *>(task->getProblem()) : nullptr;
+    if (!task || !problem)
         return "";
 
     ordered_json yaml;
     
-    yaml["update_model"] = task.isUpdateModel();
-    yaml["scheduled"] = task.isScheduled();
+    yaml["update_model"] = task->isUpdateModel();
+    yaml["scheduled"] = task->isScheduled();
 
-    
-    auto json = convertGroupToJson(problem);
-    if (!json.is_null())
-        yaml["problem"] = json;
+    yaml["problem"] = convertGroupToJson(problem);
 
-    yaml["method"] = convertGroupToJson(task.getMethod());
-    yaml["method"]["name"] = task.getMethod()->getObjectName();
+    auto *method = task->getMethod();
+    if (method != nullptr)
+    {
+        yaml["method"] = convertGroupToJson(method);
+        yaml["method"]["name"] = method->getObjectName();
+    }
 
     yaml["objective"] = expressionToString(problem->getObjectiveFunction());
     yaml["subtask"] = CTaskEnum::TaskName[problem->getSubtaskType()];
@@ -2288,24 +2365,24 @@ std::string getOptSettings()
 
 std::string getFitSettings()
 {
-    ensureModel();
-    auto &task = (*pDataModel->getTaskList())["Parameter Estimation"];
-    auto *problem = dynamic_cast<CFitProblem*>(task.getProblem());
-    if (!problem)
+    auto *task = getTaskPtr<CFitTask>("Parameter Estimation");
+    auto *problem = task ? dynamic_cast<CFitProblem *>(task->getProblem()) : nullptr;
+    if (!task || !problem)
         return "";
 
     ordered_json yaml;
     
-    yaml["update_model"] = task.isUpdateModel();
-    yaml["scheduled"] = task.isScheduled();
+    yaml["update_model"] = task->isUpdateModel();
+    yaml["scheduled"] = task->isScheduled();
 
-    
-    auto json = convertGroupToJson(problem);
-    if (!json.is_null())
-        yaml["problem"] = json;
+    yaml["problem"] = convertGroupToJson(problem);
 
-    yaml["method"] = convertGroupToJson(task.getMethod());
-    yaml["method"]["name"] = task.getMethod()->getObjectName();
+    auto *method = task->getMethod();
+    if (method != nullptr)
+    {
+        yaml["method"] = convertGroupToJson(method);
+        yaml["method"]["name"] = method->getObjectName();
+    }
 
     auto& optItems = problem->getOptItemList(false);
     ordered_json items = ordered_json::array();
@@ -2325,6 +2402,8 @@ std::string getTaskSettings(const std::string &taskName)
 {
     ensureModel();
     ordered_json yaml;
+    if (pDataModel == nullptr || pDataModel->getTaskList() == nullptr)
+        return yaml.dump(2);
     if (pDataModel->getTaskList()->getIndex(taskName) == C_INVALID_INDEX)
         return yaml.dump(2);
 
@@ -2334,15 +2413,17 @@ std::string getTaskSettings(const std::string &taskName)
     yaml["scheduled"] = task.isScheduled();
 
     auto *problem = task.getProblem();
-    if (problem == NULL)
+    if (problem == nullptr)
         return yaml.dump(2);
 
-    auto json = convertGroupToJson(problem);
-    if (!json.is_null())
-        yaml["problem"] = json;
+    yaml["problem"] = convertGroupToJson(problem);
 
-    yaml["method"] = convertGroupToJson(task.getMethod());
-    yaml["method"]["name"] = task.getMethod()->getObjectName();
+    auto *method = task.getMethod();
+    if (method != nullptr)
+    {
+        yaml["method"] = convertGroupToJson(method);
+        yaml["method"]["name"] = method->getObjectName();
+    }
     return yaml.dump(2);
 }
 
@@ -2371,14 +2452,27 @@ std::vector<std::string> getAvailableMethods(const std::string& taskName)
 void setTimeCourseSettings(const std::string &settings)
 {
     ensureModel();
-    ordered_json yaml = ordered_json::parse(settings);
-    applyYaml(yaml);
+    try
+    {
+        ordered_json yaml = ordered_json::parse(settings);
+        applyYaml(yaml);
+    }
+    catch (const std::exception &)
+    {
+    }
 }
 
 std::string simulateYaml(const std::string &processingYaml)
 {
-    auto yaml = nlohmann::ordered_json::parse(processingYaml);
-    return simulateJSON(yaml);
+    try
+    {
+        auto yaml = nlohmann::ordered_json::parse(processingYaml);
+        return simulateJSON(yaml);
+    }
+    catch (const std::exception &e)
+    {
+        return jsonError(e.what());
+    }
 }
 
 std::string simulate()
@@ -2405,185 +2499,102 @@ std::string simulateEx(double timeStart, double timeEnd, int numPoints)
 
 std::vector<std::string> getReactionNames()
 {
-    std::vector<std::string> names;
-    for (auto &[key, value] : mReactions)
-    {
-        names.push_back(key);
-    }
-    return names;
+    return mReactionOrder;
 }
 
 std::vector<std::string> getReactionIds()
 {
-    std::vector<std::string> ids;
-    for (auto &[key, value] : mReactionsIdMap)
-    {
-        ids.push_back(key);
-    }
-    return ids;
+    return orderedIds(mReactionOrder, mReactions);
 }
 
 std::vector<double> getReactionRates()
 {
-    std::vector<double> rates;
-    for (auto &[key, value] : mReactions)
-    {
-        rates.push_back(*value.pValue);
-    }
-    return rates;
+    return orderedValues(mReactionOrder, mReactions);
 }
 
 std::vector<std::string> getFloatingSpeciesNames()
 {
-    std::vector<std::string> names;
-    for (auto &[key, value] : mFloatingSpecies)
-    {
-        names.push_back(key);
-    }
-    return names;
+    return mFloatingSpeciesOrder;
 }
 
 std::vector<std::string> getFloatingSpeciesIds()
 {
-    std::vector<std::string> ids;
-    for (auto &[key, value] : mFloatingSpeciesIdMap)
-    {
-        ids.push_back(key);
-    }
-    return ids;
+    return orderedIds(mFloatingSpeciesOrder, mFloatingSpecies);
 }
 
 std::vector<double> getFloatingSpeciesConcentrations()
 {
-    std::vector<double> concentrations;
-    for (auto &[key, value] : mFloatingSpecies)
-    {
-        concentrations.push_back(*value.pValue);
-    }
-    return concentrations;
+    return orderedValues(mFloatingSpeciesOrder, mFloatingSpecies);
 }
 
 std::vector<double> getRatesOfChange()
 {
-    std::vector<double> concentrations;
-    for (auto &[key, value] : mFloatingSpecies)
+    std::vector<double> rates;
+    rates.reserve(mFloatingSpeciesOrder.size());
+    for (const auto &name : mFloatingSpeciesOrder)
     {
-        if (value.pRates != NULL)
-            concentrations.push_back(*value.pRates);
+        auto it = mFloatingSpecies.find(name);
+        if (it != mFloatingSpecies.end() && it->second.pRates != nullptr)
+            rates.push_back(*it->second.pRates);
         else
-            concentrations.push_back(std::numeric_limits<double>::quiet_NaN());
+            rates.push_back(std::numeric_limits<double>::quiet_NaN());
     }
-    return concentrations;
+    return rates;
 }
 
 std::vector<std::string> getBoundarySpeciesNames()
 {
-    std::vector<std::string> names;
-    for (auto &[key, value] : mBoundarySpecies)
-    {
-        names.push_back(key);
-    }
-    return names;
+    return mBoundarySpeciesOrder;
 }
 
 std::vector<std::string> getBoundarySpeciesIds()
 {
-    std::vector<std::string> ids;
-    for (auto &[key, value] : mBoundarySpeciesIdMap)
-    {
-        ids.push_back(key);
-    }
-    return ids;
+    return orderedIds(mBoundarySpeciesOrder, mBoundarySpecies);
 }
 
 std::vector<double> getBoundarySpeciesConcentrations()
 {
-    std::vector<double> concentrations;
-    for (auto &[key, value] : mBoundarySpecies)
-    {
-        concentrations.push_back(*value.pValue);
-    }
-    return concentrations;
+    return orderedValues(mBoundarySpeciesOrder, mBoundarySpecies);
 }
 
 std::vector<std::string> getCompartmentNames()
 {
-    std::vector<std::string> names;
-    for (auto &[key, value] : mCompartments)
-    {
-        names.push_back(key);
-    }
-    return names;
+    return mCompartmentOrder;
 }
 
 std::vector<std::string> getCompartmentIds()
 {
-    std::vector<std::string> ids;
-    for (auto &[key, value] : mCompartmentsIdMap)
-    {
-        ids.push_back(key);
-    }
-    return ids;
+    return orderedIds(mCompartmentOrder, mCompartments);
 }
 
 std::vector<double> getCompartmentSizes()
 {
-    std::vector<double> sizes;
-    for (auto &[key, value] : mCompartments)
-    {
-        sizes.push_back(*value.pValue);
-    }
-    return sizes;
+    return orderedValues(mCompartmentOrder, mCompartments);
 }
 
 std::vector<std::string> getGlobalParameterNames()
 {
-    std::vector<std::string> names;
-    for (auto &[key, value] : mGlobalParameters)
-    {
-        names.push_back(key);
-    }
-    return names;
+    return mGlobalParameterOrder;
 }
 
 std::vector<std::string> getGlobalParameterIds()
 {
-    std::vector<std::string> ids;
-    for (auto &[key, value] : mGlobalParametersIdMap)
-    {
-        ids.push_back(key);
-    }
-    return ids;
+    return orderedIds(mGlobalParameterOrder, mGlobalParameters);
 }
 
 std::vector<double> getGlobalParameterValues()
 {
-    std::vector<double> values;
-    for (auto &[key, value] : mGlobalParameters)
-    {
-        values.push_back(*value.pValue);
-    }
-    return values;
+    return orderedValues(mGlobalParameterOrder, mGlobalParameters);
 }
 
 std::vector<std::string> getLocalParameterNames()
 {
-    std::vector<std::string> names;
-    for (auto &[key, value] : mLocalParameters)
-    {
-        names.push_back(key);
-    }
-    return names;
+    return mLocalParameterOrder;
 }
 
 std::vector<double> getLocalParameterValues()
 {
-    std::vector<double> values;
-    for (auto &[key, value] : mLocalParameters)
-    {
-        values.push_back(*value.pValue);
-    }
-    return values;
+    return orderedValues(mLocalParameterOrder, mLocalParameters);
 }
 
 double oneStep(double startTime, double stepSize)
@@ -2592,7 +2603,17 @@ double oneStep(double startTime, double stepSize)
     yaml["problem"]["StepSize"] = stepSize;
     yaml["problem"]["OutputStartTime"] = startTime;
     yaml["problem"]["Duration"] = startTime + stepSize;
-    simulateJSON(yaml);
+    auto result = simulateJSON(yaml);
+    try
+    {
+        auto j = ordered_json::parse(result);
+        if (j.contains("status") && j["status"] == "error")
+            return std::numeric_limits<double>::quiet_NaN();
+    }
+    catch (const std::exception &)
+    {
+        return std::numeric_limits<double>::quiet_NaN();
+    }
     return startTime + stepSize;
 }
 
@@ -2604,9 +2625,10 @@ std::vector<std::string> getSelectionList()
 std::vector<double> getSelectionValues()
 {
     std::vector<double> values;
+    values.reserve(mSelectedValues.size());
     for (auto *pValue : mSelectedValues)
     {
-        values.push_back(*pValue);
+        values.push_back(pValue ? *pValue : std::numeric_limits<double>::quiet_NaN());
     }
     return values;
 }
@@ -2634,6 +2656,12 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("initCps", &initCps);
     emscripten::function("destroy", &destroyAPI);
     emscripten::function("getVersion", &getVersion);
+    emscripten::function("getMessages", optional_override([]() {
+        return getMessages(0, std::string());
+    }));
+    emscripten::function("getMessages", optional_override([](int start) {
+        return getMessages(start, std::string());
+    }));
     emscripten::function("getMessages", &getMessages);
     emscripten::function("getModelInfo", &getModelInfo);
     emscripten::function("loadFromFile", &loadFromFile);

@@ -149,6 +149,7 @@ export default class COPASI {
     steadyState(stabilityAnalysis?: boolean, updateModel?: boolean): number;
     computeMca(performSteadyState?: boolean, updateModel?: boolean): boolean;
     getSteadyStateProtocol(): string;
+    getSteadyStateStatus(): string;
     getStabilityAnalysis(): string;
     getTaskSettings(taskName: string): object;
     setTaskSettings(taskName: string, settings: object): void;

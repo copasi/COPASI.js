@@ -36,9 +36,6 @@ std::vector<std::string> getSelectionList();
 /// @return the current selected values
 std::vector<double> getSelectionValues();
 
-/// @brief gets the selection list
-std::vector<std::string> getSelectionList();
-
 /// @brief builds a model info object
 /// @return the model info as json object
 ///
@@ -561,9 +558,9 @@ std::vector<std::vector<double>> getEigenValues2D();
 std::string getJacobianReduced();
 
 
-/// @brief returns the reduced Jacobian at steady state as JSON string
-/// @param reduced if true the reduced Jacobian is returned, otherwise the full Jacobian is returned
-/// @return the Jacobian as JSON string in the following format
+/// @brief returns the stoichiometry matrix as JSON string
+/// @param reduced if true the reduced stoichiometry matrix is returned, otherwise the full matrix is returned
+/// @return the matrix as JSON string in the following format
 ///
 /// ```json
 /// {
@@ -578,8 +575,8 @@ std::string getJacobianReduced();
 /// ```
 std::string getStoichiometryMatrix(bool reduced = false);
 
-/// @brief returns the stoichiometry matrix as JSON string
-/// @return the stoichiometry matrix as JSON string in the following format
+/// @brief returns the link matrix as JSON string
+/// @return the link matrix as JSON string in the following format
 ///
 /// ```json
 /// {
@@ -685,7 +682,7 @@ void cpsFree(char *ptr);
 ///
 /// This function also ensures that a data model exists
 ///
-/// @return true if successful
+/// @return 0 if successful, -1 otherwise
 int initCps();
 
 /// @brief destroys the API, datamodel and root container
@@ -754,8 +751,6 @@ std::string expressionToString(const CExpression *expr);
 std::string expressionToString(const std::string &infix);
 
 void addItemsToArray(nlohmann::ordered_json &jsonArray, const std::vector<COptItem *> &items);
-static double optBoundToDouble(const CRegisteredCommonName &bound);
-static nlohmann::ordered_json getAffectedExperimentNames(const CFitItem *fitItem);
 
 #pragma endregion
 

@@ -35,6 +35,30 @@ int getrusage(int who, struct rusage *usage)
     return 0;
 }
 
+#ifdef COPASIJS_EXCEPTION_DEBUG
+
+#include <emscripten/emscripten.h>
+#include <cstdio>
+
+extern "C" void __real___cxa_throw(void*, void*, void (*)(void*));
+
+extern "C"
+void __wrap___cxa_throw(void* ex, void* type, void (*dest)(void*))
+{
+    fprintf(stderr, "\n========== C++ exception thrown ==========\n");
+
+    const char *stack = emscripten_run_script_string(R"(
+        (new Error()).stack
+    )");
+
+    if (stack)
+        fprintf(stderr, "%s\n", stack);
+
+    __real___cxa_throw(ex, type, dest);
+}
+
+#endif
+
 #endif
 
 #include "copasijs.h"
@@ -209,8 +233,9 @@ std::string getMessages(int start, const std::string &filter)
     if (CCopasiMessage::size() <= start)
         return "";
 
+    int numMessages = CCopasiMessage::size();
     std::stringstream str;
-    for (size_t i = start; i < CCopasiMessage::size(); ++i)
+    for (size_t i = start; i < numMessages; ++i)
     {
         auto msg = CCopasiMessage::getFirstMessage();
         auto text = msg.getText();
@@ -1348,7 +1373,7 @@ bool setTaskSettings(const std::string& taskName, const std::string& settingsJso
         return false;
 
     ordered_json problemSettings = settings;
-    if (!settings["problem"].empty())
+    if (settings.contains("problem") && !settings["problem"].is_null())
         problemSettings = settings["problem"];
     setGroupFromJson(problem, problemSettings);
 
@@ -1388,7 +1413,7 @@ void applyYaml(ordered_json &yaml)
     task.setUpdateModel(true);
     auto *problem = dynamic_cast<CTrajectoryProblem *>(task.getProblem());
 
-    if (!yaml["problem"].empty())
+    if (yaml.contains("problem") && !yaml["problem"].is_null())
     {
         auto &p = yaml["problem"];
         setGroupFromJson(problem, p);
@@ -2654,6 +2679,7 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("oneStep", &oneStep);
     emscripten::function("steadyState", &steadyState);
     emscripten::function("getStabilityAnalysis", &getStabilityAnalysis);
+    emscripten::function("getSteadyStateStatus", &getSteadyStateStatus);
     emscripten::function("getSteadyStateProtocol", &getSteadyStateProtocol);
     emscripten::function("computeMca", &computeMca);
     emscripten::function("runLNA", &runLNA);

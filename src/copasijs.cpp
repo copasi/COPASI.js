@@ -2511,7 +2511,16 @@ std::vector<std::vector<double>> getExperimentData(const std::string& experiment
         std::string cell;
         while (std::getline(ss, cell, exp->getSeparator()[0]))
         {
-            row.push_back(std::stod(cell));
+            try
+            {
+                row.push_back(std::stod(cell));
+            }
+            catch(const std::exception& e)
+            {
+                row.push_back(std::numeric_limits<double>::quiet_NaN());
+            }
+            
+            
         }
         data.push_back(row);
     }
@@ -2669,12 +2678,16 @@ std::string getCurrentFit(bool computeCurrentSolution/*=true*/)
     std::string steadyStateSettings = getTaskSettings("Steady State");
     
     auto& expSet = problem->getExperimentSet();
+
     for (size_t i = 0; i < expSet.size(); ++i)
     {
 
         auto* exp = expSet.getExperiment(i);
         if (!exp)
             continue;
+
+        // apply all independent values 
+        exp->updateModelWithIndependentData(0);
 
         nlohmann::json expData;
         expData["name"] = exp->getObjectName();
@@ -2722,14 +2735,9 @@ std::string getCurrentFit(bool computeCurrentSolution/*=true*/)
             // automatic?
             timeCourseProblem->setAutomaticStepSize(true);
 
-            if (!timeCourseTask->initialize(CCopasiTask::OUTPUT_UI, nullptr, nullptr))
-                continue;
-
-            if (!timeCourseTask->process(false))
-                continue;
-
-            if (!timeCourseTask->restore(true))
-                continue;
+            timeCourseTask->initialize(CCopasiTask::OUTPUT_UI, nullptr, nullptr);
+            timeCourseTask->process(false);
+            timeCourseTask->restore(true);
 
             pDataModel->removeInterface(&dataHandler);
 
@@ -2737,6 +2745,8 @@ std::string getCurrentFit(bool computeCurrentSolution/*=true*/)
             expData["simulated_data"] = dataHandler.getDuringData();
 
             setTaskSettings("Time Course", timeCourseSettings);
+
+            dataHandler.cleanup();
 
         }
     }
@@ -2768,6 +2778,8 @@ std::string getCurrentFit(bool computeCurrentSolution/*=true*/)
 
                 expData["dependent_cn"] = names;
                 expData["simulated_data"] = dataHandler.getAfterData();
+
+                dataHandler.cleanup();
 
                 setTaskSettings("Steady State", steadyStateSettings);
 

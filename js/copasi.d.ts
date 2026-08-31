@@ -169,6 +169,16 @@ export default class COPASI {
     runTask(taskName: string, useInitialValues?: boolean): boolean;
 
 
+    readonly experimentNames: string[];
+    readonly experimentDefinitions: object;
+    
+    getCurrentFit(computeCurrentSolution?: boolean): object;
+    
+    setExperimentDefinition(experimentName: string, experimentDefinition: object): boolean;
+    getExperimentDefinition(experimentName: string): object;
+    setExperimentFilename(experimentName: string, experimentFilename: string): boolean;
+    
+
 }
 
 export {COPASI};

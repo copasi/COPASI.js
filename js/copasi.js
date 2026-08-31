@@ -724,7 +724,33 @@ class COPASI {
         return this.Module.runTask(taskName, useInitialValues);
     }
 
-    
+    get experimentDefinitions() {
+        return JSON.parse(this.Module.getExperimentDefinitions());
+    }
+
+    setExperimentDefinition(experimentName, experimentDefinition) {
+        if (typeof experimentDefinition !== 'string') {
+            experimentDefinition = JSON.stringify(experimentDefinition);
+        }
+        return this.Module.setExperimentDefinition(experimentName, experimentDefinition);
+    }
+
+    getExperimentDefinition(experimentName) {
+        return JSON.parse(this.Module.getExperimentDefinition(experimentName));
+    }
+
+    get experimentNames() {
+        return this._vectorToArray(this.Module.getExperimentNames());
+    }
+
+    setExperimentFilename(experimentName, experimentFilename) {
+        return this.Module.setExperimentFilename(experimentName, experimentFilename);
+    }
+
+    getCurrentFit(computeCurrentSolution = true) {
+        return JSON.parse(this.Module.getCurrentFit(computeCurrentSolution));
+    }
+
 
 }
 

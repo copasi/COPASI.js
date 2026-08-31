@@ -183,6 +183,13 @@ test('runs parameter estimation for LM-test1 example', async () => {
     console.log('Fit statistic: ');
     console.log(statistic);
 
+    
+    // experiments
+    console.log(instance.experimentNames);
+    console.log(instance.experimentDefinitions);
+    console.log(instance.getCurrentFit());
+
+
     // cleanup
     instance.destroy();
 });

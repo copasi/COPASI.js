@@ -10,6 +10,8 @@
 
 #include <sstream>
 
+class CExperiment;
+
 /// @brief returns the version of the COPASI library
 std::string getVersion();
 
@@ -644,6 +646,80 @@ std::string getOptSettings();
 ///
 /// @return  the settings for the parameter estimation task as json string
 std::string getFitSettings();
+
+/// @brief returns the names of all experiments
+/// @return the names of all experiments
+std::vector<std::string> getExperimentNames();
+
+/// @brief returns the experiment with the given name
+/// @param experimentName the name of the experiment to get
+/// @return the experiment as json object
+///
+/// ```json
+/// {
+///     "name": "Experiment 1",
+///     "filename": "data.csv",
+///     "type": "Time-Course" | "SteadyState"
+///     "separator": "\t",
+///     "first_row": "1",
+///     "last_row": "10",
+///     "weight_method": "Mean" | "Mean Square" | "Standard Deviation" | "Value Scaling",
+///     "normalize_per_experiment": "false",
+///     "mapping": [{'column': 0,
+///         'type': 'independent',
+///         'cn': 'CN=Root,Model=Kinetics of a  Michaelian enzyme measured spectrophotometrically,Vector=Compartments[compartment],Vector=Metabolites[S],Reference=InitialConcentration',
+///         'object': '[S]_0'},
+///        {'column': 1, 'type': 'time'},
+///        {'column': 2,
+///         'type': 'dependent',
+///         'cn': 'CN=Root,Model=Kinetics of a  Michaelian enzyme measured spectrophotometrically,Vector=Values[signal],Reference=Value',
+///         'object': 'Values[signal]'}]}]
+/// }
+/// ```
+nlohmann::ordered_json _getExperimentDefinition(const std::string& experimentName);
+
+/// @brief returns the definition of an experiment as json string
+/// @param experimentName the name of the experiment to get the definition for
+/// @return the definition of the experiment as json string
+std::string getExperimentDefinition(const std::string& experimentName);
+
+/// @brief returns the definitions of all experiments as json string
+/// @return the definitions of all experiments as json string
+std::string getExperimentDefinitions();
+
+/// @brief returns the data of an experiment
+/// @param experimentName the name of the experiment to get the data for
+/// @return the data of the experiment as a 2D double vector
+std::vector<std::vector<double>> getExperimentData(const std::string& experimentName);
+
+/// @brief sets the data of an experiment
+/// @param experimentName the name of the experiment to set the data for
+/// @param fileName the name of the file to set the data for (will be overwritten)
+/// @param data the data to set for the experiment
+/// @return true if successful
+bool setExperimentData(const std::string& experimentName, 
+    const std::string& fileName, 
+    const std::vector<std::vector<double>>& data);
+
+/// @brief sets the filename of an experiment
+/// @param experimentName the name of the experiment to set the filename for
+/// @param fileName the name of the file to set the filename for (has to exist!)
+/// @return true if successful
+bool setExperimentFilename(const std::string& experimentName, const std::string& fileName);
+
+/// @brief sets the definition of an experiment from a json string
+/// @param experimentName the name of the experiment to set the definition for
+/// @param definition the definition as json string
+/// @return true if successful
+bool setExperimentDefinition(const std::string& experimentName, const std::string& definition);
+
+/// @brief returns the current fit as json string
+/// @param computeCurrentSolution if true the current solution is computed
+/// 
+/// This function computes the fit of each experiment against the model 
+///
+/// @return the current fit as json string
+std::string getCurrentFit(bool computeCurrentSolution=true);
 
 /// @brief returns the settings of a task as json string
 /// @param taskName the name of the task to get

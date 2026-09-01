@@ -533,6 +533,10 @@ TEST_CASE("Test PE omex", "[copasijs][parameter_estimation][omex]")
     auto fitSettings = getFitSettings();
     CAPTURE(fitSettings);
     REQUIRE(!fitSettings.empty());
+
+    auto currentFit = getCurrentFit();
+    CAPTURE(currentFit);
+    REQUIRE(!currentFit.empty());
 }
 
 

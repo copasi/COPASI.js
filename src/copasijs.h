@@ -713,6 +713,24 @@ bool setExperimentFilename(const std::string& experimentName, const std::string&
 /// @return true if successful
 bool setExperimentDefinition(const std::string& experimentName, const std::string& definition);
 
+/// @brief applies the current parameter estimation values to the model
+///
+/// Uses the Statistics method of the Parameter Estimation task so that
+/// subsequent experiment simulations use the current parameter values.
+///
+/// @return true if successful
+bool computeCurrentFitSolution();
+
+/// @brief simulates a time-course experiment with the current model state
+/// @param experimentName the name of the experiment to simulate
+/// @return JSON with name, type, exp_data, dependent_cn, and simulated_data
+std::string computeFitTrajectory(const std::string& experimentName);
+
+/// @brief computes a steady-state for the given experiment
+/// @param experimentName the name of the experiment to simulate
+/// @return JSON with name, type, exp_data, dependent_cn, and simulated_data
+std::string computeFitSteadyState(const std::string& experimentName);
+
 /// @brief returns the current fit as json string
 /// @param computeCurrentSolution if true the current solution is computed
 /// 

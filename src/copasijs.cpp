@@ -2627,145 +2627,191 @@ bool setExperimentDefinition(const std::string &experimentName, const std::strin
     }
 }
 
-std::string getCurrentFit(bool computeCurrentSolution /*=true*/)
+static CExperiment *getExperimentByName(const std::string &experimentName)
+{
+    auto *problem = getFitProblem();
+    if (!problem)
+        return nullptr;
+
+    auto &expSet = problem->getExperimentSet();
+    auto index = expSet.getIndex(experimentName);
+    if (index == C_INVALID_INDEX)
+        return nullptr;
+
+    return expSet.getExperiment(index);
+}
+
+static nlohmann::json experimentFitBase(CExperiment *exp)
+{
+    nlohmann::json expData;
+    if (!exp)
+        return expData;
+
+    expData["name"] = exp->getObjectName();
+    expData["type"] = CTaskEnum::TaskName[exp->getExperimentType()];
+    expData["exp_data"] = getExperimentData(exp->getObjectName());
+    return expData;
+}
+
+bool computeCurrentFitSolution()
 {
     ensureModel();
     auto *task = getTaskPtr<CFitTask>("Parameter Estimation");
     auto *problem = task ? dynamic_cast<CFitProblem *>(task->getProblem()) : nullptr;
     if (!task || !problem)
-        return "";
+        return false;
 
-    if (computeCurrentSolution)
+    std::string peSettings = getTaskSettings("Parameter Estimation");
+    task->setMethodType(CTaskEnum::Method::Statistics);
+    problem->setCalculateStatistics(false);
+    problem->setCreateParameterSets(false);
+    task->setUpdateModel(true);
+
+    bool success = false;
+    if (task->initialize(CCopasiTask::OUTPUT_UI, nullptr, nullptr))
     {
-        std::string peSettings = getTaskSettings("Parameter Estimation");
-        task->setMethodType(CTaskEnum::Method::Statistics);
-        problem->setCalculateStatistics(false);
-        problem->setCreateParameterSets(false);
-        task->setUpdateModel(true);
-
-        if (!task->initialize(CCopasiTask::OUTPUT_UI, nullptr, nullptr))
-            return "";
-
-        if (!task->process(false))
-            return "";
-
+        success = task->process(false);
         if (!task->restore(true))
-            return "";
-
-        setTaskSettings("Parameter Estimation", peSettings);
+            success = false;
     }
 
-    auto results = nlohmann::json::array();
-    std::string timeCourseSettings = getTaskSettings("Time Course");
-    std::string steadyStateSettings = getTaskSettings("Steady State");
+    setTaskSettings("Parameter Estimation", peSettings);
+    return success;
+}
 
+static nlohmann::json _computeFitTrajectory(CExperiment *exp)
+{
+    nlohmann::json expData = experimentFitBase(exp);
+    if (!exp)
+        return expData;
+
+    exp->updateModelWithIndependentData(0);
+
+    auto &times = exp->getTimeData();
+    if (times.size() == 0)
+        return expData;
+
+    CTrajectoryTask *timeCourseTask = getTaskPtr<CTrajectoryTask>("Time-Course");
+    CTrajectoryProblem *timeCourseProblem = timeCourseTask ? dynamic_cast<CTrajectoryProblem *>(timeCourseTask->getProblem()) : nullptr;
+    if (!timeCourseTask || !timeCourseProblem)
+        return expData;
+
+    std::string timeCourseSettings = getTaskSettings("Time-Course");
+
+    timeCourseProblem->setOutputStartTime(times[0]);
+    timeCourseProblem->setDuration(times[times.size() - 1]);
+    timeCourseProblem->setStepNumber(times.size());
+    timeCourseTask->setUpdateModel(false);
+    timeCourseProblem->setStartInSteadyState(exp->getTimeSeriesStartInSteadyState());
+    timeCourseProblem->setAutomaticStepSize(true);
+
+    CDataHandler dataHandler;
+    std::vector<std::string> duringNames;
+
+    duringNames.push_back(pDataModel->getModel()->getValueReference()->getCN());
+    dataHandler.addDuringName(pDataModel->getModel()->getValueReference()->getCN());
+
+    for (auto &[pObj, index] : exp->getDependentObjectsMap())
+    {
+        duringNames.push_back(pObj->getCN());
+        dataHandler.addDuringName(pObj->getCN());
+    }
+
+    {
+        DataHandlerInterfaceGuard guard(pDataModel, &dataHandler);
+        timeCourseTask->initialize(CCopasiTask::OUTPUT_UI, pDataModel, nullptr);
+        timeCourseTask->process(false);
+        timeCourseTask->restore(true);
+    }
+
+    expData["dependent_cn"] = duringNames;
+    expData["simulated_data"] = dataHandler.getDuringData();
+
+    setTaskSettings("Time-Course", timeCourseSettings);
+    dataHandler.cleanup();
+    return expData;
+}
+
+std::string computeFitTrajectory(const std::string &experimentName)
+{
+    ensureModel();
+    auto *exp = getExperimentByName(experimentName);
+    if (!exp)
+        return "";
+    return _computeFitTrajectory(exp).dump(2);
+}
+
+static nlohmann::json _computeFitSteadyState(CExperiment *exp)
+{
+    nlohmann::json expData = experimentFitBase(exp);
+    if (!exp)
+        return expData;
+
+    exp->updateModelWithIndependentData(0);
+
+    CSteadyStateTask *steadyStateTask = getTaskPtr<CSteadyStateTask>("Steady-State");
+    CSteadyStateProblem *steadyStateProblem = steadyStateTask ? dynamic_cast<CSteadyStateProblem *>(steadyStateTask->getProblem()) : nullptr;
+    if (!steadyStateTask || !steadyStateProblem)
+        return expData;
+
+    std::string steadyStateSettings = getTaskSettings("Steady-State");
+
+    CDataHandler dataHandler;
+    std::vector<std::string> names;
+
+    for (auto &[pObj, index] : exp->getDependentObjectsMap())
+    {
+        names.push_back(pObj->getCN());
+        dataHandler.addAfterName(pObj->getCN());
+    }
+
+    {
+        DataHandlerInterfaceGuard guard(pDataModel, &dataHandler);
+        steadyStateTask->initialize(CCopasiTask::OUTPUT_UI, pDataModel, nullptr);
+        steadyStateTask->process(false);
+        steadyStateTask->restore(true);
+    }
+
+    expData["dependent_cn"] = names;
+    expData["simulated_data"] = dataHandler.getAfterData();
+
+    dataHandler.cleanup();
+    setTaskSettings("Steady-State", steadyStateSettings);
+    return expData;
+}
+
+std::string computeFitSteadyState(const std::string &experimentName)
+{
+    ensureModel();
+    auto *exp = getExperimentByName(experimentName);
+    if (!exp)
+        return "";
+    return _computeFitSteadyState(exp).dump(2);
+}
+
+std::string getCurrentFit(bool computeCurrentSolution /*=true*/)
+{
+    ensureModel();
+    auto *problem = getFitProblem();
+    if (!problem)
+        return "";
+
+    if (computeCurrentSolution && !computeCurrentFitSolution())
+        return "";
+
+    auto results = nlohmann::json::array();
     auto &expSet = problem->getExperimentSet();
 
     for (size_t i = 0; i < expSet.size(); ++i)
     {
-
         auto *exp = expSet.getExperiment(i);
         if (!exp)
             continue;
 
-        // apply all independent values
-        exp->updateModelWithIndependentData(0);
-
-        nlohmann::json expData;
-        expData["name"] = exp->getObjectName();
-        expData["type"] = CTaskEnum::TaskName[exp->getExperimentType()];
-        expData["exp_data"] = getExperimentData(exp->getObjectName());
-
         if (exp->getExperimentType() == CTaskEnum::Task::timeCourse)
-        {
-            // if time course, get start, end time from experiment
-            // run time course, collecting the data for time and dependent values
-            // automatic?
-            auto &times = exp->getTimeData();
-
-            CTrajectoryTask *timeCourseTask = getTaskPtr<CTrajectoryTask>("Time Course");
-            CTrajectoryProblem *timeCourseProblem = timeCourseTask ? dynamic_cast<CTrajectoryProblem *>(timeCourseTask->getProblem()) : nullptr;
-            if (timeCourseTask && timeCourseProblem)
-            {
-
-                timeCourseProblem->setOutputStartTime(times[0]);
-                timeCourseProblem->setDuration(times[times.size() - 1]);
-                timeCourseProblem->setStepNumber(times.size());
-
-                timeCourseTask->setUpdateModel(false);
-
-                timeCourseProblem->setStartInSteadyState(exp->getTimeSeriesStartInSteadyState());
-
-                CDataHandler dataHandler;
-
-                std::vector<std::string> duringNames;
-
-                // add time
-                duringNames.push_back(pDataModel->getModel()->getValueReference()->getCN());
-                dataHandler.addDuringName(pDataModel->getModel()->getValueReference()->getCN());
-
-                // and dependent data
-                for (auto &[pObj, index] : exp->getDependentObjectsMap())
-                {
-                    duringNames.push_back(pObj->getCN());
-                    dataHandler.addDuringName(pObj->getCN());
-                }
-
-                pDataModel->addInterface(&dataHandler);
-
-                // automatic?
-                timeCourseProblem->setAutomaticStepSize(true);
-
-                timeCourseTask->initialize(CCopasiTask::OUTPUT_UI, nullptr, nullptr);
-                timeCourseTask->process(false);
-                timeCourseTask->restore(true);
-
-                pDataModel->removeInterface(&dataHandler);
-
-                expData["dependent_cn"] = duringNames;
-                expData["simulated_data"] = dataHandler.getDuringData();
-
-                setTaskSettings("Time Course", timeCourseSettings);
-
-                dataHandler.cleanup();
-            }
-        }
-        else if (exp->getExperimentType() == CTaskEnum::Task::steadyState)
-        {
-            // if steady state, run steady state collect the values for the dependent values
-
-            CSteadyStateTask *steadyStateTask = getTaskPtr<CSteadyStateTask>("Steady State");
-            CSteadyStateProblem *steadyStateProblem = steadyStateTask ? dynamic_cast<CSteadyStateProblem *>(steadyStateTask->getProblem()) : nullptr;
-            if (steadyStateTask && steadyStateProblem)
-            {
-                CDataHandler dataHandler;
-
-                std::vector<std::string> names;
-
-                // and dependent data
-                for (auto &[pObj, index] : exp->getDependentObjectsMap())
-                {
-                    names.push_back(pObj->getCN());
-                    dataHandler.addAfterName(pObj->getCN());
-                }
-
-                pDataModel->addInterface(&dataHandler);
-
-                steadyStateTask->initialize(CCopasiTask::OUTPUT_UI, nullptr, nullptr);
-                steadyStateTask->process(false);
-                steadyStateTask->restore(true);
-                pDataModel->removeInterface(&dataHandler);
-
-                expData["dependent_cn"] = names;
-                expData["simulated_data"] = dataHandler.getAfterData();
-
-                dataHandler.cleanup();
-
-                setTaskSettings("Steady State", steadyStateSettings);
-            }
-        }
-
-        results.push_back(expData);
+            results.push_back(_computeFitTrajectory(exp));
+        else
+            results.push_back(_computeFitSteadyState(exp));
     }
     return results.dump(2);
 }
@@ -3125,6 +3171,9 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("setExperimentData", &setExperimentData);
     emscripten::function("setExperimentFilename", &setExperimentFilename);
     emscripten::function("setExperimentDefinition", &setExperimentDefinition);
+    emscripten::function("computeCurrentFitSolution", &computeCurrentFitSolution);
+    emscripten::function("computeFitTrajectory", &computeFitTrajectory);
+    emscripten::function("computeFitSteadyState", &computeFitSteadyState);
     emscripten::function("getCurrentFit", &getCurrentFit);
 }
 #endif

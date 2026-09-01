@@ -539,6 +539,43 @@ TEST_CASE("Test PE omex", "[copasijs][parameter_estimation][omex]")
     REQUIRE(!currentFit.empty());
 }
 
+TEST_CASE("Test current fit helpers", "[copasijs][parameter_estimation][current_fit]")
+{
+    Instance instance;
+    std::string model = loadFromFile(getTestFile("../example_files/LM-test1.cps"));
+    REQUIRE(!model.empty());
+    REQUIRE(model != "Error loading model");
+
+    REQUIRE(computeCurrentFitSolution());
+
+    auto names = getExperimentNames();
+    REQUIRE(!names.empty());
+
+    REQUIRE(computeFitTrajectory("does-not-exist").empty());
+
+    auto trajectory = computeFitTrajectory(names[0]);
+    CAPTURE(trajectory);
+    REQUIRE(!trajectory.empty());
+
+    auto json = nlohmann::json::parse(trajectory);
+    REQUIRE(json["name"] == names[0]);
+    REQUIRE(json.contains("exp_data"));
+    REQUIRE(json.contains("dependent_cn"));
+    REQUIRE(json["dependent_cn"].size() >= 2);
+    REQUIRE(json.contains("simulated_data"));
+    REQUIRE(json["simulated_data"].size() > 0);
+
+    auto currentFit = getCurrentFit(false);
+    CAPTURE(currentFit);
+    REQUIRE(!currentFit.empty());
+
+    auto fitJson = nlohmann::json::parse(currentFit);
+    REQUIRE(fitJson.is_array());
+    REQUIRE(fitJson.size() == names.size());
+    REQUIRE(fitJson[0].contains("simulated_data"));
+    REQUIRE(fitJson[0]["simulated_data"].size() > 0);
+}
+
 
 TEST_CASE("Test GEPASI", "[copasijs][gepasi]")
 {

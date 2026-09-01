@@ -8,8 +8,7 @@ using namespace emscripten;
 #include <sys/time.h>
 #include <errno.h>
 
-extern "C"
-int getrusage(int who, struct rusage *usage)
+extern "C" int getrusage(int who, struct rusage *usage)
 {
     if (usage == nullptr)
     {
@@ -28,7 +27,7 @@ int getrusage(int who, struct rusage *usage)
 
     const double ms = emscripten_get_now();
 
-    usage->ru_utime.tv_sec  = static_cast<time_t>(ms / 1000.0);
+    usage->ru_utime.tv_sec = static_cast<time_t>(ms / 1000.0);
     usage->ru_utime.tv_usec = static_cast<suseconds_t>(
         static_cast<long long>(ms * 1000.0) % 1000000);
 
@@ -40,10 +39,9 @@ int getrusage(int who, struct rusage *usage)
 #include <emscripten/emscripten.h>
 #include <cstdio>
 
-extern "C" void __real___cxa_throw(void*, void*, void (*)(void*));
+extern "C" void __real___cxa_throw(void *, void *, void (*)(void *));
 
-extern "C"
-void __wrap___cxa_throw(void* ex, void* type, void (*dest)(void*))
+extern "C" void __wrap___cxa_throw(void *ex, void *type, void (*dest)(void *))
 {
     fprintf(stderr, "\n========== C++ exception thrown ==========\n");
 
@@ -1043,7 +1041,6 @@ ordered_json buildModelInfo()
 
         if (compartment.getStatus() != CModelEntity::Status::FIXED)
             mSelectionList.push_back(compartment.getObjectName());
-
     }
     modelInfo["compartments"] = compartments;
 
@@ -1140,7 +1137,7 @@ ordered_json buildModelInfo()
         e["delay"] = expressionToString(event.getDelayExpressionPtr());
         e["priority"] = expressionToString(event.getPriorityExpressionPtr());
         std::stringstream targets;
-        for (auto& assignment :  event.getAssignments())
+        for (auto &assignment : event.getAssignments())
         {
             if (!assignment.getTargetObject())
                 continue;
@@ -1161,8 +1158,6 @@ ordered_json buildModelInfo()
     modelInfo["model"]["length_unit"] = pModel->getLengthUnit();
     modelInfo["model"]["initial_time"] = pModel->getInitialTime();
     modelInfo["model"]["avogadro"] = pModel->getAvogadro();
-
-
 
     modelInfo["status"] = "success";
     modelInfo["messages"] = getMessages(0, "No Output");
@@ -1246,13 +1241,13 @@ std::string loadCombineArchive(const std::string &modelFile)
         CCopasiMessage::clearDeque();
 
         if (!pDataModel->openCombineArchive(modelFile, NULL, true))
-            {
-                CCopasiMessage message(CCopasiMessage::ERROR, "Error loading model");
-                ordered_json modelInfo;
-                modelInfo["status"] = "error";
-                modelInfo["messages"] = getMessages();
-                return modelInfo.dump(2);
-            }
+        {
+            CCopasiMessage message(CCopasiMessage::ERROR, "Error loading model");
+            ordered_json modelInfo;
+            modelInfo["status"] = "error";
+            modelInfo["messages"] = getMessages();
+            return modelInfo.dump(2);
+        }
 
         loadCommon();
     }
@@ -1271,7 +1266,7 @@ std::string loadCombineArchive(const std::string &modelFile)
         return modelInfo.dump(2);
     }
 
-    return buildModelInfo().dump(2);    
+    return buildModelInfo().dump(2);
 }
 
 std::string loadFromFile(const std::string &modelFile)
@@ -1378,7 +1373,7 @@ void resetAll()
     pModel->applyInitialValues();
 }
 
-bool setMethod(const std::string& taskName, const std::string& methodName)
+bool setMethod(const std::string &taskName, const std::string &methodName)
 {
     ensureModel();
 
@@ -1390,7 +1385,7 @@ bool setMethod(const std::string& taskName, const std::string& methodName)
     return task.setMethodType(CTaskEnum::MethodName.toEnum(methodName));
 }
 
-bool runTask(const std::string& taskName, bool useInitialValues)
+bool runTask(const std::string &taskName, bool useInitialValues)
 {
     ensureModel();
 
@@ -1411,7 +1406,7 @@ bool runTask(const std::string& taskName, bool useInitialValues)
     return true;
 }
 
-bool setTaskSettings(const std::string& taskName, const std::string& settingsJson)
+bool setTaskSettings(const std::string &taskName, const std::string &settingsJson)
 {
     ordered_json settings;
     try
@@ -1670,7 +1665,6 @@ std::string getLinkMatrix()
     return convertDataArray(pDataModel->getModel()->getLAnnotation()).dump(2);
 }
 
-
 std::vector<std::vector<double>> getJacobian2D()
 {
     auto *task = getSteadyStateTask();
@@ -1835,7 +1829,7 @@ std::string getSteadyStateStatus()
     if (task == nullptr)
         return "A steady state with given resolution couldn't be found.";
 
-    auto& result = task->getResult();
+    auto &result = task->getResult();
 
     if (result == CSteadyStateMethod::found)
         return "A steady state with given resolution was found.";
@@ -1847,7 +1841,6 @@ std::string getSteadyStateStatus()
         return "An invalid steady state (negative concentrations) was found.";
     else
         return "A steady state with given resolution couldn't be found.";
-
 }
 
 std::string getStabilityAnalysis()
@@ -1870,10 +1863,9 @@ std::string getSteadyStateProtocol()
     auto pMethod = dynamic_cast<CSteadyStateMethod *>(task->getMethod());
     if (!pMethod)
         return "No steady state method available.";
-    
+
     return pMethod->getMethodLog();
 }
-
 
 bool computeMca(bool performSteadyState, bool updateModel)
 {
@@ -1948,9 +1940,9 @@ std::string getLNAResults(bool scaled)
     }
 
     result["status"] = buildLNAStatusMessage(method->getSteadyStateStatus(), method->getEigenValueStatus());
-    result["covariance_matrix"] = convertDataArray( scaled ? method->getScaledCovarianceMatrixAnn() : method->getUnscaledCovarianceMatrixAnn());
-    result["reduced_covariance_matrix"] = convertDataArray( scaled ? method->getScaledCovarianceMatrixReducedAnn() : method->getUnscaledCovarianceMatrixReducedAnn());
-    result["reduced_b_matrix"] = convertDataArray( scaled ? method->getScaledBMatrixReducedAnn() : method->getUnscaledBMatrixReducedAnn());
+    result["covariance_matrix"] = convertDataArray(scaled ? method->getScaledCovarianceMatrixAnn() : method->getUnscaledCovarianceMatrixAnn());
+    result["reduced_covariance_matrix"] = convertDataArray(scaled ? method->getScaledCovarianceMatrixReducedAnn() : method->getUnscaledCovarianceMatrixReducedAnn());
+    result["reduced_b_matrix"] = convertDataArray(scaled ? method->getScaledBMatrixReducedAnn() : method->getUnscaledBMatrixReducedAnn());
 
     return result.dump(2);
 }
@@ -2015,10 +2007,9 @@ void addItemsToArray(ordered_json &result, const std::vector<COptItem *> &items)
         entry["name"] = name;
         entry["object_cn"] = item->getObjectCN();
 
-        auto* fitItem = dynamic_cast<const CFitItem *>(item);
+        auto *fitItem = dynamic_cast<const CFitItem *>(item);
         if (fitItem != NULL)
             entry["affected"] = getAffectedExperimentNames(fitItem);
-
 
         result.push_back(entry);
     }
@@ -2038,7 +2029,6 @@ std::string getOptItems()
 
     return result.dump(2);
 }
-
 
 std::string getOptSolution()
 {
@@ -2325,7 +2315,6 @@ std::string getTimeCourseSettings()
     return yaml.dump(2);
 }
 
-
 std::string getOptSettings()
 {
     auto *task = getTaskPtr<COptTask>("Optimization");
@@ -2334,7 +2323,7 @@ std::string getOptSettings()
         return "";
 
     ordered_json yaml;
-    
+
     yaml["update_model"] = task->isUpdateModel();
     yaml["scheduled"] = task->isScheduled();
 
@@ -2351,20 +2340,18 @@ std::string getOptSettings()
     yaml["subtask"] = CTaskEnum::TaskName[problem->getSubtaskType()];
     yaml["maximize"] = problem->maximize();
 
-    auto& optItems = problem->getOptItemList(false);
+    auto &optItems = problem->getOptItemList(false);
     ordered_json items = ordered_json::array();
     addItemsToArray(items, optItems);
     yaml["items"] = items;
 
-    auto& optConstraints = problem->getConstraintList();
+    auto &optConstraints = problem->getConstraintList();
     ordered_json constraints = ordered_json::array();
     addItemsToArray(constraints, optConstraints);
     yaml["constraints"] = constraints;
-    
 
     return yaml.dump(2);
 }
-
 
 std::string getFitSettings()
 {
@@ -2374,7 +2361,7 @@ std::string getFitSettings()
         return "";
 
     ordered_json yaml;
-    
+
     yaml["update_model"] = task->isUpdateModel();
     yaml["scheduled"] = task->isScheduled();
 
@@ -2387,21 +2374,20 @@ std::string getFitSettings()
         yaml["method"]["name"] = method->getObjectName();
     }
 
-    auto& optItems = problem->getOptItemList(false);
+    auto &optItems = problem->getOptItemList(false);
     ordered_json items = ordered_json::array();
     addItemsToArray(items, optItems);
     yaml["items"] = items;
 
-    auto& optConstraints = problem->getConstraintList();
+    auto &optConstraints = problem->getConstraintList();
     ordered_json constraints = ordered_json::array();
     addItemsToArray(constraints, optConstraints);
     yaml["constraints"] = constraints;
-    
 
     return yaml.dump(2);
 }
 
-nlohmann::ordered_json _getExperimentDefinition(const CExperiment* exp)
+nlohmann::ordered_json _getExperimentDefinition(const CExperiment *exp)
 {
     ordered_json yaml;
     if (!exp)
@@ -2417,10 +2403,9 @@ nlohmann::ordered_json _getExperimentDefinition(const CExperiment* exp)
     yaml["normalize_per_experiment"] = exp->getNormalizeWeightsPerExperiment();
 
     return yaml;
-    
 }
 
-nlohmann::ordered_json _getExperimentDefinition(const std::string& experimentName)
+nlohmann::ordered_json _getExperimentDefinition(const std::string &experimentName)
 {
     ensureModel();
 
@@ -2430,7 +2415,7 @@ nlohmann::ordered_json _getExperimentDefinition(const std::string& experimentNam
     if (!task || !problem)
         return yaml;
 
-    auto& expSet = problem->getExperimentSet();
+    auto &expSet = problem->getExperimentSet();
     auto index = expSet.getIndex(experimentName);
     if (index == C_INVALID_INDEX)
         return yaml;
@@ -2446,8 +2431,8 @@ std::vector<std::string> getExperimentNames()
     auto *problem = task ? dynamic_cast<CFitProblem *>(task->getProblem()) : nullptr;
     if (!task || !problem)
         return names;
-    
-    auto& expSet = problem->getExperimentSet();
+
+    auto &expSet = problem->getExperimentSet();
     for (size_t i = 0; i < expSet.size(); ++i)
     {
         names.push_back(expSet.getExperiment(i)->getObjectName());
@@ -2455,7 +2440,7 @@ std::vector<std::string> getExperimentNames()
     return names;
 }
 
-std::string getExperimentDefinition(const std::string& experimentName)
+std::string getExperimentDefinition(const std::string &experimentName)
 {
     return _getExperimentDefinition(experimentName).dump(2);
 }
@@ -2469,7 +2454,7 @@ std::string getExperimentDefinitions()
     if (!task || !problem)
         return yaml.dump(2);
 
-    auto& expSet = problem->getExperimentSet();
+    auto &expSet = problem->getExperimentSet();
     for (size_t i = 0; i < expSet.size(); ++i)
     {
         yaml.push_back(_getExperimentDefinition(expSet.getExperiment(i)));
@@ -2477,7 +2462,7 @@ std::string getExperimentDefinitions()
     return yaml.dump(2);
 }
 
-std::vector<std::vector<double>> getExperimentData(const std::string& experimentName)
+std::vector<std::vector<double>> getExperimentData(const std::string &experimentName)
 {
     ensureModel();
     std::vector<std::vector<double>> data;
@@ -2485,16 +2470,16 @@ std::vector<std::vector<double>> getExperimentData(const std::string& experiment
     auto *problem = task ? dynamic_cast<CFitProblem *>(task->getProblem()) : nullptr;
     if (!task || !problem)
         return data;
-    
-    auto& expSet = problem->getExperimentSet();
+
+    auto &expSet = problem->getExperimentSet();
     auto index = expSet.getIndex(experimentName);
     if (index == C_INVALID_INDEX)
         return data;
 
-    auto* exp = expSet.getExperiment(index);
+    auto *exp = expSet.getExperiment(index);
     if (!exp)
         return data;
-    
+
     std::string fileName = exp->getFileName();
     if (fileName.empty())
         return data;
@@ -2502,7 +2487,7 @@ std::vector<std::vector<double>> getExperimentData(const std::string& experiment
     std::ifstream file(fileName);
     if (!file.is_open())
         return data;
-    
+
     std::string line;
     while (std::getline(file, line))
     {
@@ -2515,34 +2500,32 @@ std::vector<std::vector<double>> getExperimentData(const std::string& experiment
             {
                 row.push_back(std::stod(cell));
             }
-            catch(const std::exception& e)
+            catch (const std::exception &e)
             {
                 row.push_back(std::numeric_limits<double>::quiet_NaN());
             }
-            
-            
         }
         data.push_back(row);
     }
     return data;
 }
 
-bool setExperimentData(const std::string& experimentName, 
-    const std::string& fileName, 
-    const std::vector<std::vector<double>>& data)
+bool setExperimentData(const std::string &experimentName,
+                       const std::string &fileName,
+                       const std::vector<std::vector<double>> &data)
 {
     ensureModel();
     auto *task = getTaskPtr<CFitTask>("Parameter Estimation");
     auto *problem = task ? dynamic_cast<CFitProblem *>(task->getProblem()) : nullptr;
     if (!task || !problem)
         return false;
-    
-    auto& expSet = problem->getExperimentSet();
+
+    auto &expSet = problem->getExperimentSet();
     auto index = expSet.getIndex(experimentName);
     if (index == C_INVALID_INDEX)
         return false;
-    
-    auto* exp = expSet.getExperiment(index);
+
+    auto *exp = expSet.getExperiment(index);
     if (!exp)
         return false;
 
@@ -2551,8 +2534,8 @@ bool setExperimentData(const std::string& experimentName,
     std::ofstream file(fileName);
     if (!file.is_open())
         return false;
-    
-    for (const auto& row : data)
+
+    for (const auto &row : data)
     {
         for (size_t i = 0; i < row.size(); ++i)
         {
@@ -2563,7 +2546,7 @@ bool setExperimentData(const std::string& experimentName,
         file << std::endl;
     }
     file.close();
-    
+
     exp->setFileName(fileName);
     exp->setFirstRow(1);
     exp->setLastRow(data.size());
@@ -2571,7 +2554,7 @@ bool setExperimentData(const std::string& experimentName,
     return true;
 }
 
-bool setExperimentFilename(const std::string& experimentName, const std::string& fileName)
+bool setExperimentFilename(const std::string &experimentName, const std::string &fileName)
 {
     ensureModel();
 
@@ -2583,13 +2566,13 @@ bool setExperimentFilename(const std::string& experimentName, const std::string&
     auto *problem = task ? dynamic_cast<CFitProblem *>(task->getProblem()) : nullptr;
     if (!task || !problem)
         return false;
-    
-    auto& expSet = problem->getExperimentSet();
+
+    auto &expSet = problem->getExperimentSet();
     auto index = expSet.getIndex(experimentName);
     if (index == C_INVALID_INDEX)
         return false;
-    
-    auto* exp = expSet.getExperiment(index);
+
+    auto *exp = expSet.getExperiment(index);
     if (!exp)
         return false;
 
@@ -2600,7 +2583,7 @@ bool setExperimentFilename(const std::string& experimentName, const std::string&
     return true;
 }
 
-CExperiment::WeightMethod _getExperimentWeightType(const std::string& weightMethodName)
+CExperiment::WeightMethod _getExperimentWeightType(const std::string &weightMethodName)
 {
     int count = 0;
     while (!CExperiment::WeightMethodName[count++].empty())
@@ -2609,7 +2592,7 @@ CExperiment::WeightMethod _getExperimentWeightType(const std::string& weightMeth
     return CExperiment::WeightMethod::MEAN;
 }
 
-bool setExperimentDefinition(const std::string& experimentName, const std::string& definition)
+bool setExperimentDefinition(const std::string &experimentName, const std::string &definition)
 {
     ensureModel();
 
@@ -2617,14 +2600,14 @@ bool setExperimentDefinition(const std::string& experimentName, const std::strin
     auto *problem = task ? dynamic_cast<CFitProblem *>(task->getProblem()) : nullptr;
     if (!task || !problem)
         return false;
-    
-    auto& expSet = problem->getExperimentSet();
+
+    auto &expSet = problem->getExperimentSet();
     auto index = expSet.getIndex(experimentName);
     if (index == C_INVALID_INDEX)
         return false;
-    
-    auto* exp = expSet.getExperiment(index);
-    
+
+    auto *exp = expSet.getExperiment(index);
+
     try
     {
         ordered_json yaml = ordered_json::parse(definition);
@@ -2634,7 +2617,7 @@ bool setExperimentDefinition(const std::string& experimentName, const std::strin
         exp->setFirstRow(yaml["first_row"].get<int>());
         exp->setLastRow(yaml["last_row"].get<int>());
         exp->setNormalizeWeightsPerExperiment(yaml["normalize_per_experiment"].get<bool>());
-        
+
         expSet.compile(&(pDataModel->getModel()->getMathContainer()));
         return true;
     }
@@ -2644,7 +2627,7 @@ bool setExperimentDefinition(const std::string& experimentName, const std::strin
     }
 }
 
-std::string getCurrentFit(bool computeCurrentSolution/*=true*/)
+std::string getCurrentFit(bool computeCurrentSolution /*=true*/)
 {
     ensureModel();
     auto *task = getTaskPtr<CFitTask>("Parameter Estimation");
@@ -2670,23 +2653,22 @@ std::string getCurrentFit(bool computeCurrentSolution/*=true*/)
             return "";
 
         setTaskSettings("Parameter Estimation", peSettings);
-        
     }
 
     auto results = nlohmann::json::array();
     std::string timeCourseSettings = getTaskSettings("Time Course");
     std::string steadyStateSettings = getTaskSettings("Steady State");
-    
-    auto& expSet = problem->getExperimentSet();
+
+    auto &expSet = problem->getExperimentSet();
 
     for (size_t i = 0; i < expSet.size(); ++i)
     {
 
-        auto* exp = expSet.getExperiment(i);
+        auto *exp = expSet.getExperiment(i);
         if (!exp)
             continue;
 
-        // apply all independent values 
+        // apply all independent values
         exp->updateModelWithIndependentData(0);
 
         nlohmann::json expData;
@@ -2696,66 +2678,64 @@ std::string getCurrentFit(bool computeCurrentSolution/*=true*/)
 
         if (exp->getExperimentType() == CTaskEnum::Task::timeCourse)
         {
-        // if time course, get start, end time from experiment
-        // run time course, collecting the data for time and dependent values
-        // automatic? 
-        auto& times = exp->getTimeData();
-
-        CTrajectoryTask* timeCourseTask = getTaskPtr<CTrajectoryTask>("Time Course");
-        CTrajectoryProblem* timeCourseProblem = timeCourseTask ? dynamic_cast<CTrajectoryProblem *>(timeCourseTask->getProblem()) : nullptr;
-        if (timeCourseTask && timeCourseProblem)
-        {
-
-            
-            timeCourseProblem->setOutputStartTime(times[0]);
-            timeCourseProblem->setDuration(times[times.size() - 1]);
-            timeCourseProblem->setStepNumber(times.size());
-
-            timeCourseTask->setUpdateModel(false);
-
-            timeCourseProblem->setStartInSteadyState(exp->getTimeSeriesStartInSteadyState());
-
-            CDataHandler dataHandler;
-
-            std::vector<std::string> duringNames;
-
-            // add time
-            duringNames.push_back(pDataModel->getModel()->getValueReference()->getCN());
-            dataHandler.addDuringName(pDataModel->getModel()->getValueReference()->getCN());
-
-            // and dependent data
-            for (auto& [pObj, index] : exp->getDependentObjectsMap())
-            {
-                duringNames.push_back(pObj->getCN());
-                dataHandler.addDuringName(pObj->getCN());
-            }
-
-            pDataModel->addInterface(&dataHandler);
-
+            // if time course, get start, end time from experiment
+            // run time course, collecting the data for time and dependent values
             // automatic?
-            timeCourseProblem->setAutomaticStepSize(true);
+            auto &times = exp->getTimeData();
 
-            timeCourseTask->initialize(CCopasiTask::OUTPUT_UI, nullptr, nullptr);
-            timeCourseTask->process(false);
-            timeCourseTask->restore(true);
+            CTrajectoryTask *timeCourseTask = getTaskPtr<CTrajectoryTask>("Time Course");
+            CTrajectoryProblem *timeCourseProblem = timeCourseTask ? dynamic_cast<CTrajectoryProblem *>(timeCourseTask->getProblem()) : nullptr;
+            if (timeCourseTask && timeCourseProblem)
+            {
 
-            pDataModel->removeInterface(&dataHandler);
+                timeCourseProblem->setOutputStartTime(times[0]);
+                timeCourseProblem->setDuration(times[times.size() - 1]);
+                timeCourseProblem->setStepNumber(times.size());
 
-            expData["dependent_cn"] = duringNames;
-            expData["simulated_data"] = dataHandler.getDuringData();
+                timeCourseTask->setUpdateModel(false);
 
-            setTaskSettings("Time Course", timeCourseSettings);
+                timeCourseProblem->setStartInSteadyState(exp->getTimeSeriesStartInSteadyState());
 
-            dataHandler.cleanup();
+                CDataHandler dataHandler;
 
+                std::vector<std::string> duringNames;
+
+                // add time
+                duringNames.push_back(pDataModel->getModel()->getValueReference()->getCN());
+                dataHandler.addDuringName(pDataModel->getModel()->getValueReference()->getCN());
+
+                // and dependent data
+                for (auto &[pObj, index] : exp->getDependentObjectsMap())
+                {
+                    duringNames.push_back(pObj->getCN());
+                    dataHandler.addDuringName(pObj->getCN());
+                }
+
+                pDataModel->addInterface(&dataHandler);
+
+                // automatic?
+                timeCourseProblem->setAutomaticStepSize(true);
+
+                timeCourseTask->initialize(CCopasiTask::OUTPUT_UI, nullptr, nullptr);
+                timeCourseTask->process(false);
+                timeCourseTask->restore(true);
+
+                pDataModel->removeInterface(&dataHandler);
+
+                expData["dependent_cn"] = duringNames;
+                expData["simulated_data"] = dataHandler.getDuringData();
+
+                setTaskSettings("Time Course", timeCourseSettings);
+
+                dataHandler.cleanup();
+            }
         }
-    }
         else if (exp->getExperimentType() == CTaskEnum::Task::steadyState)
         {
-            // if steady state, run steady state collect the values for the dependent values 
+            // if steady state, run steady state collect the values for the dependent values
 
-            CSteadyStateTask* steadyStateTask = getTaskPtr<CSteadyStateTask>("Steady State");
-            CSteadyStateProblem* steadyStateProblem = steadyStateTask ? dynamic_cast<CSteadyStateProblem *>(steadyStateTask->getProblem()) : nullptr;
+            CSteadyStateTask *steadyStateTask = getTaskPtr<CSteadyStateTask>("Steady State");
+            CSteadyStateProblem *steadyStateProblem = steadyStateTask ? dynamic_cast<CSteadyStateProblem *>(steadyStateTask->getProblem()) : nullptr;
             if (steadyStateTask && steadyStateProblem)
             {
                 CDataHandler dataHandler;
@@ -2763,7 +2743,7 @@ std::string getCurrentFit(bool computeCurrentSolution/*=true*/)
                 std::vector<std::string> names;
 
                 // and dependent data
-                for (auto& [pObj, index] : exp->getDependentObjectsMap())
+                for (auto &[pObj, index] : exp->getDependentObjectsMap())
                 {
                     names.push_back(pObj->getCN());
                     dataHandler.addAfterName(pObj->getCN());
@@ -2782,13 +2762,10 @@ std::string getCurrentFit(bool computeCurrentSolution/*=true*/)
                 dataHandler.cleanup();
 
                 setTaskSettings("Steady State", steadyStateSettings);
-
             }
-
         }
 
         results.push_back(expData);
-
     }
     return results.dump(2);
 }
@@ -2822,15 +2799,14 @@ std::string getTaskSettings(const std::string &taskName)
     return yaml.dump(2);
 }
 
-
-std::vector<std::string> getAvailableMethods(const std::string& taskName)
+std::vector<std::string> getAvailableMethods(const std::string &taskName)
 {
     ensureModel();
     if (pDataModel->getTaskList()->getIndex(taskName) == C_INVALID_INDEX)
         return {};
 
     auto &task = (*pDataModel->getTaskList())[taskName];
-    auto* pMethods = task.getValidMethods();
+    auto *pMethods = task.getValidMethods();
     std::vector<std::string> methodNames;
     if (pMethods)
     {
@@ -3051,12 +3027,10 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("initCps", &initCps);
     emscripten::function("destroy", &destroyAPI);
     emscripten::function("getVersion", &getVersion);
-    emscripten::function("getMessages", optional_override([]() {
-        return getMessages(0, std::string());
-    }));
-    emscripten::function("getMessages", optional_override([](int start) {
-        return getMessages(start, std::string());
-    }));
+    emscripten::function("getMessages", optional_override([]()
+                                                          { return getMessages(0, std::string()); }));
+    emscripten::function("getMessages", optional_override([](int start)
+                                                          { return getMessages(start, std::string()); }));
     emscripten::function("getMessages", &getMessages);
     emscripten::function("getModelInfo", &getModelInfo);
     emscripten::function("loadFromFile", &loadFromFile);
@@ -3129,7 +3103,6 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("getJacobianReduced2D", &getJacobianReduced2D);
     emscripten::function("getEigenValuesReduced2D", &getEigenValuesReduced2D);
 
-
     emscripten::function("getStoichiometryMatrix", &getStoichiometryMatrix);
     emscripten::function("getLinkMatrix", &getLinkMatrix);
 
@@ -3153,6 +3126,5 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("setExperimentFilename", &setExperimentFilename);
     emscripten::function("setExperimentDefinition", &setExperimentDefinition);
     emscripten::function("getCurrentFit", &getCurrentFit);
-
 }
 #endif

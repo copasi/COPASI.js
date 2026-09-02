@@ -2906,7 +2906,7 @@ std::string getCurrentFit(bool computeCurrentSolution /*=true*/)
       for (i = 0; i < imax; i++)
       {
         if ((Index = expSet.keyToIndex(pItem->getExperiment(i))) == C_INVALID_INDEX)
-          return false;
+          return "";
 
         const CObjectInterface* object = pItem->getItemObject();
 

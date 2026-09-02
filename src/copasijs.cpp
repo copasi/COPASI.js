@@ -2856,6 +2856,15 @@ std::string getCurrentFit(bool computeCurrentSolution /*=true*/)
   auto& expSet = problem->getExperimentSet();
   auto& optItems = problem->getOptItemList(false);
 
+  // write values from current solution into optItems
+  auto sols = problem->getSolutionVariables(false);
+  for (size_t i = 0; i < sols.size() && i < optItems.size(); ++i)
+  {
+    auto* item = dynamic_cast<CFitItem*>(optItems[i]);
+    if (item != NULL)
+      item->setItemValue(sols[i], COptItem::CheckPolicyFlag::None);
+  }
+
   auto& pContainer = pDataModel->getModel()->getMathContainer();
   auto& mCompleteInitialState = pContainer.getCompleteInitialState();
 
@@ -2915,6 +2924,7 @@ std::string getCurrentFit(bool computeCurrentSolution /*=true*/)
         if (object != NULL)
         {
           mExperimentValues(Index, j) = pItem;
+          //std::cout << " setting Index: " << Index << " and i: " << j << " for experiment: " << pItem->getExperiment(i) << std::endl;
           ObjectSet[Index].insert(object);
         }
       };
@@ -2939,6 +2949,12 @@ std::string getCurrentFit(bool computeCurrentSolution /*=true*/)
     CFitItem** ppUpdate = mExperimentValues[i];
     CFitItem** ppUpdateEnd = ppUpdate + optItems.size();
 
+    pContainer.fetchInitialState();
+    pContainer.updateInitialValues(CCore::Framework::ParticleNumbers);
+    pContainer.applyInitialValues();
+    pContainer.updateSimulatedValues(false);
+    pContainer.updateTransientDataValues();
+    
     // set the global and experiment local fit item values.
     for (; ppUpdate != ppUpdateEnd; ppUpdate++)
       if (*ppUpdate)
@@ -2948,6 +2964,11 @@ std::string getCurrentFit(bool computeCurrentSolution /*=true*/)
       }
 
     pContainer.applyUpdateSequence(mExperimentInitialUpdates[i]);
+    exp->updateModelWithIndependentData(0);
+    pContainer.pushAllTransientValues();
+    pContainer.pushInitialState();
+
+    
 
     if (exp->getExperimentType() == CTaskEnum::Task::timeCourse)
       results.push_back(_computeFitTrajectory(exp));

@@ -557,10 +557,24 @@ TEST_CASE("Test access to data files", "[copasijs][parameter_estimation][data]")
   auto data = getExperimentData(names[0]);
 	REQUIRE(data.size() == 100);
 
-  auto currentFit = getCurrentFit();
+  REQUIRE(runParameterEstimation(true));
+
+  auto currentFit = getCurrentFit(false);
   CAPTURE(currentFit);
   REQUIRE(!currentFit.empty());
 
+  // parse the fit
+  auto fitJson = nlohmann::json::parse(currentFit);
+  // get the exp_data for the first experiment
+  auto expData = fitJson[0]["exp_data"].get<std::vector<std::vector<double>>>();;
+  // vs the simulated data
+  auto simData = fitJson[0]["simulated_data"].get<std::vector<std::vector<double>>>();
+  // verify that the sizes match
+  REQUIRE(expData.size() == simData.size());
+
+  auto expData4 = fitJson[3]["exp_data"].get<std::vector<std::vector<double>>>();;
+  auto simData4 = fitJson[3]["simulated_data"].get<std::vector<std::vector<double>>>();
+  REQUIRE(expData4.size() == simData4.size());
 
 }
 

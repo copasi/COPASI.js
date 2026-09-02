@@ -161,9 +161,10 @@ std::vector<std::vector<double>> getSimulationResults2D();
 /// @brief runs the steady state task and returns the 
 /// closeness to steady state as result. 
 /// @param stabilityAnalysis if true the stability analysis will be performed
-/// @param updateModel if true the model will be updated with the steady state values
+/// @param forceUpdateModel if true the model will be updated with the steady state values
+///                         otherwise the task setting will be honored
 /// @return the closeness to steady state
-double steadyState(bool stabilityAnalysis=true, bool updateModel=true);
+double steadyState(bool stabilityAnalysis=true, bool forceUpdateModel=true);
 
 /// @brief returns the steady state status
 /// @return the steady state status as string

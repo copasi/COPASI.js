@@ -386,6 +386,9 @@ TEST_CASE("Steadystate test", "[copasijs][steadystate]")
     eigenValues = getEigenValuesReduced2D();
 
     REQUIRE(jac2d.size() == 2);
+
+    auto settings = getTaskSettings("Steady-State");
+    REQUIRE(!settings.empty());
 }
 
 

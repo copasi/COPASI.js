@@ -1791,13 +1791,14 @@ std::vector<std::vector<double>> getElasticities2D(bool scaled)
     return pMatrix ? convertCArray(pMatrix->getArray()) : std::vector<std::vector<double>>{};
 }
 
-double steadyState(bool stabilityAnalysis, bool updateModel)
+double steadyState(bool stabilityAnalysis, bool forceUpdateModel)
 {
     auto *task = getSteadyStateTask();
     if (task == nullptr)
         return std::numeric_limits<double>::quiet_NaN();
 
-    task->setUpdateModel(updateModel);
+    if (forceUpdateModel)
+      task->setUpdateModel(forceUpdateModel);
 
     auto *problem = dynamic_cast<CSteadyStateProblem *>(task->getProblem());
     if (problem == nullptr)

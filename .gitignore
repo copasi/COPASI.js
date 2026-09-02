@@ -33,7 +33,10 @@
 
 /docs/Doxyfile
 /docs/build/
+/docs/_build/
+/docs/.venv/
 /out/
+/node_modules/
 
 /build/
 /build-copasi/

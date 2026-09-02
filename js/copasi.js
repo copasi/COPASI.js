@@ -202,15 +202,14 @@ class COPASI {
         return this.Module.getVersion();
     }
 
-    /** @property {boolean} autoUpdateModel returns whether simulations automatically update the model */
+    /**
+     * @property {boolean} autoUpdateModel whether simulations automatically update the model
+     * @param {boolean} value the value to set
+     */
     get autoUpdateModel() {
         return this.Module.getAutoUpdateModel();
     }
 
-    /**
-     * @property {boolean} autoUpdateModel sets whether simulations automatically update the model
-     * @param {boolean} value the value to set
-     */
     set autoUpdateModel(value) {
         this.Module.setAutoUpdateModel(value);
     }

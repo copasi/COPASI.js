@@ -7,38 +7,34 @@
 class COPASI {
 
     /**
-     * @enum {string} TC
-     * 
-     * enum for method names
-     * 
-     * @property {string} LSODA Deterministic (LSODA)
-     * @property {string} RADAU5 Deterministic (RADAU5)
-     * @property {string} DIRECT_METHOD Stochastic (Direct method)
-     * @property {string} GIBSON_BRUCK Stochastic (Gibson + Bruck)
-     * @property {string} TAULEAP Stochastic (τ-Leap)
+     * Time course method names.
+     * @enum {string}
      */
     TC = {
+        /** Deterministic (LSODA) */
         LSODA: 'Deterministic (LSODA)',
+        /** Deterministic (RADAU5) */
         RADAU5: 'Deterministic (RADAU5)',
+        /** Stochastic (Direct method) */
         DIRECT_METHOD: 'Stochastic (Direct method)',
+        /** Stochastic (Gibson + Bruck) */
         GIBSON_BRUCK: 'Stochastic (Gibson + Bruck)',
+        /** Stochastic (τ-Leap) */
         TAULEAP: 'Stochastic (τ-Leap)',
     };
 
     /**
-     * @enum {string} TaskNames
-     * 
-     * enum for task names
-     * 
-     * @property {string} TimeCourse Time-Course
-     * @property {string} SteadyState Steady State
-     * @property {string} MetabolicControlAnalysis Metabolic Control Analysis
-     * @property {string} LinearNoiseApproximation Linear Noise Approximation
+     * Task names.
+     * @enum {string}
      */
     TaskNames = {
+        /** Time-Course */
         TimeCourse: 'Time-Course',
+        /** Steady-State */
         SteadyState: 'Steady-State',
+        /** Metabolic Control Analysis */
         MetabolicControlAnalysis: 'Metabolic Control Analysis',
+        /** Linear Noise Approximation */
         LinearNoiseApproximation: 'Linear Noise Approximation',
     };
 
@@ -284,21 +280,22 @@ class COPASI {
 
 
     /**
-     * @property {string} version returns the COPASI version
-     * 
+     * Returns the COPASI version.
+     *
      * @example
      * var copasi = new COPASI(Module);
      * console.log(copasi.version);
      * // prints something like:
      * // 4.32.284
+     * @type {string}
      */
     get version() {
         return this.Module.getVersion();
     }
 
     /**
-     * @property {boolean} autoUpdateModel whether simulations automatically update the model
-     * @param {boolean} value the value to set
+     * Whether simulations automatically update the model.
+     * @type {boolean}
      */
     get autoUpdateModel() {
         return this.Module.getAutoUpdateModel();
@@ -337,136 +334,153 @@ class COPASI {
     }
 
     /**
-     * @property {number[]} floatingSpeciesConcentrations returns floating species concentrations
+     * Returns floating species concentrations.
+     * @type {number[]}
      */
     get floatingSpeciesConcentrations() {
         return this._vectorToArray(this.Module.getFloatingSpeciesConcentrations());
     }
 
     /**
-     * @property {number[]} ratesOfChange returns rates of change of floating species
+     * Returns rates of change of floating species.
+     * @type {number[]}
      */
     get ratesOfChange() {
         return this._vectorToArray(this.Module.getRatesOfChange());
     }
 
     /**
-     * @property {string[]} floatingSpeciesNames returns floating species names
+     * Returns floating species names.
+     * @type {string[]}
      */
     get floatingSpeciesNames() {
         return this._vectorToArray(this.Module.getFloatingSpeciesNames());
     }
 
     /**
-     * @property {string[]} floatingSpeciesIds returns floating species ids
+     * Returns floating species ids.
+     * @type {string[]}
      */
     get floatingSpeciesIds() {
         return this._vectorToArray(this.Module.getFloatingSpeciesIds());
     }
 
     /**
-     * @property {number[]} boundarySpeciesConcentrations returns boundary species concentrations
+     * Returns boundary species concentrations.
+     * @type {number[]}
      */
     get boundarySpeciesConcentrations() {
         return this._vectorToArray(this.Module.getBoundarySpeciesConcentrations());
     }
 
     /**
-     * @property {string[]} boundarySpeciesNames returns boundary species names
+     * Returns boundary species names.
+     * @type {string[]}
      */
     get boundarySpeciesNames() {
         return this._vectorToArray(this.Module.getBoundarySpeciesNames());
     }
 
     /**
-     * @property {string[]} boundarySpeciesIds returns boundary species ids
+     * Returns boundary species ids.
+     * @type {string[]}
      */
     get boundarySpeciesIds() {
         return this._vectorToArray(this.Module.getBoundarySpeciesIds());
     }
 
     /**
-     * @property {string[]} reactionNames returns reaction names
+     * Returns reaction names.
+     * @type {string[]}
      */
     get reactionNames() {
         return this._vectorToArray(this.Module.getReactionNames());
     }
     
     /**
-     * @property {string[]} reactionIds returns reaction ids
+     * Returns reaction ids.
+     * @type {string[]}
      */
     get reactionIds() {
         return this._vectorToArray(this.Module.getReactionIds());
     }
     /**
-     * @property {number[]} reactionRates returns reaction rates
+     * Returns reaction rates.
+     * @type {number[]}
      */
     get reactionRates() {
         return this._vectorToArray(this.Module.getReactionRates());
     }
 
     /**
-     * @property {string[]} compartmentNames returns compartment names
+     * Returns compartment names.
+     * @type {string[]}
      */
     get compartmentNames() {
         return this._vectorToArray(this.Module.getCompartmentNames());
     }
 
     /**
-     * @property {string[]} compartmentIds returns compartment ids
+     * Returns compartment ids.
+     * @type {string[]}
      */
     get compartmentIds() {
         return this._vectorToArray(this.Module.getCompartmentIds());
     }
     /**
-     * @property {number[]} compartmentSizes returns compartment sizes
+     * Returns compartment sizes.
+     * @type {number[]}
      */
     get compartmentSizes() {
         return this._vectorToArray(this.Module.getCompartmentSizes());
     }
 
     /**
-     * @property {string[]} globalParameterNames returns global parameter names
+     * Returns global parameter names.
+     * @type {string[]}
      */
     get globalParameterNames() {
         return this._vectorToArray(this.Module.getGlobalParameterNames());
     }
 
     /**
-     * @property {string[]} globalParameterIds returns global parameter ids
+     * Returns global parameter ids.
+     * @type {string[]}
      */
     get globalParameterIds() {
         return this._vectorToArray(this.Module.getGlobalParameterIds());
     }
     /**
-     * @property {number[]} globalParameterValues returns global parameter values
+     * Returns global parameter values.
+     * @type {number[]}
      */
     get globalParameterValues() {
         return this._vectorToArray(this.Module.getGlobalParameterValues());
     }
 
     /**
-     * @property {string[]} localParameterNames returns local parameter names
-     * 
+     * Returns local parameter names.
+     *
      * Local parameter names, consist of the reaction name in brackets, followed by a dot 
      * and the parameter name. So for example: `(reaction1).k1` for the 
      * local parameter `k1` of the reaction `reaction1`.
+     * @type {string[]}
      */
     get localParameterNames() {
         return this._vectorToArray(this.Module.getLocalParameterNames());
     }
 
     /**
-     * @property {number[]} localParameterValues returns local parameter values
+     * Returns local parameter values.
+     * @type {number[]}
      */
     get localParameterValues() {
         return this._vectorToArray(this.Module.getLocalParameterValues());
     }
 
     /**
-     * @property {object} timeCourseSettings returns the time course settings as json object
-     * 
-     * @param {object|string} arg the time course settings to set
+     * The time course settings as JSON object.
+     * @type {object}
      */
     get timeCourseSettings() {
         return JSON.parse(this.Module.getTimeCourseSettings());
@@ -481,17 +495,19 @@ class COPASI {
     }
 
     /**
-     * @property {object} modelInfo model information as object
+     * Model information as object.
+     * @type {object}
      */
     get modelInfo() {
         return JSON.parse(this.Module.getModelInfo());
     }
 
     /**
-     * @property {string[]} selectionList returns the selection list
-     * 
+     * Returns the selection list.
+     *
      * The selection list controls what will be in the output of the 
      * simulation calls. 
+     * @type {string[]}
      */
     get selectionList() {
         return this._vectorToArray(this.Module.getSelectionList());
@@ -505,49 +521,56 @@ class COPASI {
     }
 
     /**
-     * @property {number[]} selectedValues returns the selected values
+     * Returns the selected values.
+     * @type {number[]}
      */
     get selectedValues() {
         return this._vectorToArray(this.Module.getSelectedValues());
     }
 
     /**
-     * @property {object} jacobian the jacobian as object
+     * The jacobian as object.
+     * @type {object}
      */
     get jacobian() {
         return JSON.parse(this.Module.getJacobian());
     }
 
     /**
-     * @property {number[][]} jacobian2D returns the jacobian as 2D array
+     * Returns the jacobian as 2D array.
+     * @type {number[][]}
      */
     get jacobian2D() {
         return this._vector2dToArray(this.Module.getJacobian2D());
     }
 
     /**
-     * @property { number[][]} eigenValues2D returns the eigenvalues as 2D array
+     * Returns the eigenvalues as 2D array.
+     * @type {number[][]}
      */
     get eigenValues2D() {
         return this._vector2dToArray(this.Module.getEigenValues2D());
     }
 
     /**
-     * @property {object} reducedJacobian the reduced jacobian as object
+     * The reduced jacobian as object.
+     * @type {object}
      */
     get reducedJacobian() {
         return JSON.parse(this.Module.getJacobianReduced());
     }
 
     /**
-     * @property {number[][]} reducedJacobian2D returns the reduced jacobian as 2D array
+     * Returns the reduced jacobian as 2D array.
+     * @type {number[][]}
      */
     get reducedJacobian2D() {
         return this._vector2dToArray(this.Module.getJacobianReduced2D());
     }
 
     /**
-     * @property { number[][]} eigenValuesReduced2D returns the eigenvalues of the reduced Jacobian as 2D array
+     * Returns the eigenvalues of the reduced Jacobian as 2D array.
+     * @type {number[][]}
      */
     get eigenValuesReduced2D() {
         return this._vector2dToArray(this.Module.getEigenValuesReduced2D());
@@ -619,9 +642,10 @@ class COPASI {
     }
 
     /**
-     * @property {object} simulationResults returns the simulation results as object
-     * 
+     * Returns the simulation results as object.
+     *
      * Note that the time course tasks should have run first.
+     * @type {object}
      */
     get simulationResults() {
         return JSON.parse(this.Module.getSimulationResults());
@@ -777,14 +801,16 @@ class COPASI {
     }
 
     /**
-     * @property {object} stoichiometryMatrix the stoichiometry matrix as object
+     * The stoichiometry matrix as object.
+     * @type {object}
      */
     get stoichiometryMatrix() {
         return JSON.parse(this.Module.getStoichiometryMatrix(false));
     }
 
     /**
-     * @property {object} reduced stoichiometryMatrix the stoichiometry matrix as object
+     * The reduced stoichiometry matrix as object.
+     * @type {object}
      */
     get reducedStoichiometryMatrix() {
         return JSON.parse(this.Module.getStoichiometryMatrix(true));
@@ -792,7 +818,8 @@ class COPASI {
 
 
     /**
-     * @property {object} linkMatrix the link matrix as object
+     * The link matrix as object.
+     * @type {object}
      */
     get linkMatrix() {
         return JSON.parse(this.Module.getLinkMatrix());
@@ -808,15 +835,16 @@ class COPASI {
     }
 
 
-    /** 
-     * @property {object} optItems returns the optimization items as object
+    /**
+     * Returns the optimization items as object.
+     * @type {object}
      */
     get optItems() {
         return JSON.parse(this.Module.getOptItems());
     }
 
     /**
-     * @property {object} optSolution the optimization solution
+     * The optimization solution.
      *
      * ```json
      * [
@@ -828,13 +856,14 @@ class COPASI {
      *   }
      * ]
      * ```
+     * @type {object}
      */
     get optSolution() {
         return JSON.parse(this.Module.getOptSolution());
     }
 
     /**
-     * @property {object} optStatistic information about the last optimization run
+     * Information about the last optimization run.
      *
      * ```json
      * {
@@ -848,6 +877,7 @@ class COPASI {
      *   "evals_per_sec": 4200.0
      * }
      * ```
+     * @type {object}
      */
     get optStatistic() {
         return JSON.parse(this.Module.getOptStatistic());
@@ -864,7 +894,7 @@ class COPASI {
 
     
     /**
-     * @property {object} fitSolution the solution found for the fit parameters
+     * The solution found for the fit parameters.
      *
      * ```json
      * [
@@ -877,20 +907,22 @@ class COPASI {
      *   }
      * ]
      * ```
+     * @type {object}
      */
     get fitSolution() {
         return JSON.parse(this.Module.getFitSolution());
     }
 
     /**
-     * @property {object} fitItems returns the fit items as object
+     * Returns the fit items as object.
+     * @type {object}
      */
     get fitItems() {
         return JSON.parse(this.Module.getFitItems());
     }
 
     /**
-     * @property {object} fitStatistic information about the last parameter estimation run
+     * Information about the last parameter estimation run.
      *
      * ```json
      * {
@@ -908,27 +940,30 @@ class COPASI {
      *   "valid_data_points": 100
      * }
      * ```
+     * @type {object}
      */
     get fitStatistic() {
         return JSON.parse(this.Module.getFitStatistic());
     }
 
     /**
-     * @property {object} fitSettings settings for the parameter estimation task
+     * Settings for the parameter estimation task.
      *
      * In addition to the fields returned by {@link COPASI#getTaskSettings},
      * this includes the fit items, constraints and data filenames.
+     * @type {object}
      */
     get fitSettings() {
         return JSON.parse(this.Module.getFitSettings());
     }
 
     /**
-     * @property {object} optSettings settings for the optimization task
+     * Settings for the optimization task.
      *
      * In addition to the fields returned by {@link COPASI#getTaskSettings},
      * this includes the objective function, subtask, optimization items
      * and constraints.
+     * @type {object}
      */
     get optSettings() {
         return JSON.parse(this.Module.getOptSettings());
@@ -947,10 +982,10 @@ class COPASI {
     }
 
     /**
-     * @property {object[]} experimentDefinitions definitions of all parameter
-     * estimation experiments
+     * Definitions of all parameter estimation experiments.
      *
      * Each entry has the same format as {@link COPASI#getExperimentDefinition}.
+     * @type {object[]}
      */
     get experimentDefinitions() {
         return JSON.parse(this.Module.getExperimentDefinitions());
@@ -1004,7 +1039,8 @@ class COPASI {
     }
 
     /**
-     * @property {string[]} experimentNames names of all parameter estimation experiments
+     * Names of all parameter estimation experiments.
+     * @type {string[]}
      */
     get experimentNames() {
         return this._vectorToArray(this.Module.getExperimentNames());

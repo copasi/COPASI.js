@@ -2738,19 +2738,23 @@ static nlohmann::json _computeFitTrajectory(CExperiment *exp)
     if (times.size() == 0)
         return expData;
 
+    std::stringstream timeVals; 
+    for (auto& val : times)
+      timeVals << val << " ";
+    
+
     CTrajectoryTask *timeCourseTask = getTaskPtr<CTrajectoryTask>("Time-Course");
     CTrajectoryProblem *timeCourseProblem = timeCourseTask ? dynamic_cast<CTrajectoryProblem *>(timeCourseTask->getProblem()) : nullptr;
     if (!timeCourseTask || !timeCourseProblem)
         return expData;
 
     std::string timeCourseSettings = getTaskSettings("Time-Course");
+    timeCourseProblem->setValues(timeVals.str());
+    timeCourseProblem->setUseValues(true);
 
+    timeCourseProblem->setTimeSeriesRequested(false);
     timeCourseProblem->setOutputStartTime(times[0]);
-    timeCourseProblem->setDuration(times[times.size() - 1]);
-    timeCourseProblem->setStepNumber(times.size());
-    timeCourseTask->setUpdateModel(false);
     timeCourseProblem->setStartInSteadyState(exp->getTimeSeriesStartInSteadyState());
-    timeCourseProblem->setAutomaticStepSize(true);
 
     CDataHandler dataHandler;
     std::vector<std::string> duringNames;
@@ -2767,7 +2771,7 @@ static nlohmann::json _computeFitTrajectory(CExperiment *exp)
     {
         DataHandlerInterfaceGuard guard(pDataModel, &dataHandler);
         timeCourseTask->initialize(CCopasiTask::OUTPUT_UI, pDataModel, nullptr);
-        timeCourseTask->process(false);
+        timeCourseTask->process(true);
         timeCourseTask->restore(true);
     }
 
@@ -2838,29 +2842,119 @@ std::string computeFitSteadyState(const std::string &experimentName)
 
 std::string getCurrentFit(bool computeCurrentSolution /*=true*/)
 {
-    ensureModel();
-    auto *problem = getFitProblem();
-    if (!problem)
-        return "";
+  ensureModel();
+  auto* problem = getFitProblem();
+  if (!problem)
+    return "";
 
-    if (computeCurrentSolution && !computeCurrentFitSolution())
-        return "";
+  if (computeCurrentSolution && !computeCurrentFitSolution())
+    return "";
 
-    auto results = nlohmann::json::array();
-    auto &expSet = problem->getExperimentSet();
+  auto results = nlohmann::json::array();
+  auto& expSet = problem->getExperimentSet();
+  auto& optItems = problem->getOptItemList(false);
 
-    for (size_t i = 0; i < expSet.size(); ++i)
+  auto& pContainer = pDataModel->getModel()->getMathContainer();
+  auto& mCompleteInitialState = pContainer.getCompleteInitialState();
+
+  std::vector< CObjectInterface::ObjectSet > ObjectSet;
+  ObjectSet.resize(expSet.getExperimentCount());
+  size_t i, Index, imax = expSet.getExperimentCount();
+
+  // Build a matrix of experiment and experiment local items.
+  CMatrix<CFitItem*> mExperimentValues;
+  mExperimentValues.resize(expSet.getExperimentCount(), optItems.size());
+  mExperimentValues = NULL;
+
+  CVector<CCore::CUpdateSequence> mExperimentInitialUpdates;
+  mExperimentInitialUpdates.resize(expSet.getExperimentCount());
+
+  auto it = optItems.begin();
+  auto end = optItems.end();
+
+  for (int j = 0; it != end; ++it, ++j)
+  {
+    auto* pItem = dynamic_cast<CFitItem*>(*it);
+
+    if (pItem == NULL)
+      continue;
+
+    std::string Annotation = pItem->getObjectDisplayName();
+
+    // We cannot directly change the container values as multiple parameters
+    // may point to the same value.
+
+    imax = pItem->getExperimentCount();
+
+    if (imax == 0)
     {
-        auto *exp = expSet.getExperiment(i);
-        if (!exp)
-            continue;
+      for (i = 0, imax = expSet.getExperimentCount(); i < imax; i++)
+      {
+        const CObjectInterface* object = pItem->getItemObject();
 
-        if (exp->getExperimentType() == CTaskEnum::Task::timeCourse)
-            results.push_back(_computeFitTrajectory(exp));
-        else
-            results.push_back(_computeFitSteadyState(exp));
+        if (object != NULL)
+        {
+          mExperimentValues(i, j) = pItem;
+          ObjectSet[i].insert(object);
+        }
+      }
     }
-    return results.dump(2);
+    else
+    {
+      Annotation += "; {" + pItem->getExperiments() + "}";
+
+      for (i = 0; i < imax; i++)
+      {
+        if ((Index = expSet.keyToIndex(pItem->getExperiment(i))) == C_INVALID_INDEX)
+          return false;
+
+        const CObjectInterface* object = pItem->getItemObject();
+
+        if (object != NULL)
+        {
+          mExperimentValues(Index, j) = pItem;
+          ObjectSet[Index].insert(object);
+        }
+      };
+    }
+
+
+    // Create a joined sequence of update methods for parameters and independent values.
+    for (i = 0, imax = expSet.getExperimentCount(); i < imax; i++)
+    {
+      pContainer.getInitialDependencies().getUpdateSequence(mExperimentInitialUpdates[i], CCore::SimulationContext::UpdateMoieties, ObjectSet[i], pContainer.getInitialStateObjects());
+    }
+
+
+  }
+
+  for (size_t i = 0; i < expSet.size(); ++i)
+  {
+    auto* exp = expSet.getExperiment(i);
+    if (!exp)
+      continue;
+
+    CFitItem** ppUpdate = mExperimentValues[i];
+    CFitItem** ppUpdateEnd = ppUpdate + optItems.size();
+
+    // set the global and experiment local fit item values.
+    for (; ppUpdate != ppUpdateEnd; ppUpdate++)
+      if (*ppUpdate)
+      {
+        C_FLOAT64 Value = (*ppUpdate)->getItemValue();
+        (*ppUpdate)->COptItem::setItemValue(Value, COptItem::CheckPolicyFlag::None);
+      }
+
+    pContainer.applyUpdateSequence(mExperimentInitialUpdates[i]);
+
+    if (exp->getExperimentType() == CTaskEnum::Task::timeCourse)
+      results.push_back(_computeFitTrajectory(exp));
+    else
+      results.push_back(_computeFitSteadyState(exp));
+
+    //pContainer.setCompleteInitialState(CompleteExperimentInitialState);
+  }
+  return results.dump(2);
 }
 
 std::string getTaskSettings(const std::string &taskName)

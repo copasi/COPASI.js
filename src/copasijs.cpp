@@ -2949,24 +2949,25 @@ std::string getCurrentFit(bool computeCurrentSolution /*=true*/)
     CFitItem** ppUpdate = mExperimentValues[i];
     CFitItem** ppUpdateEnd = ppUpdate + optItems.size();
 
-    pContainer.fetchInitialState();
+    /*pContainer.fetchInitialState();
     pContainer.updateInitialValues(CCore::Framework::ParticleNumbers);
     pContainer.applyInitialValues();
     pContainer.updateSimulatedValues(false);
-    pContainer.updateTransientDataValues();
+    pContainer.updateTransientDataValues();*/
     
     // set the global and experiment local fit item values.
     for (; ppUpdate != ppUpdateEnd; ppUpdate++)
       if (*ppUpdate)
       {
         C_FLOAT64 Value = (*ppUpdate)->getItemValue();
-        (*ppUpdate)->COptItem::setItemValue(Value, COptItem::CheckPolicyFlag::None);
+        //(*ppUpdate)->COptItem::setItemValue(Value, COptItem::CheckPolicyFlag::None);
+        setValueByName((*ppUpdate)->getObjectCN(), Value);
       }
 
-    pContainer.applyUpdateSequence(mExperimentInitialUpdates[i]);
+    /*pContainer.applyUpdateSequence(mExperimentInitialUpdates[i]);
     exp->updateModelWithIndependentData(0);
     pContainer.pushAllTransientValues();
-    pContainer.pushInitialState();
+    pContainer.pushInitialState();*/
 
     
 

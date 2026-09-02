@@ -572,9 +572,14 @@ TEST_CASE("Test access to data files", "[copasijs][parameter_estimation][data]")
   // verify that the sizes match
   REQUIRE(expData.size() == simData.size());
 
+  auto lastExp = expData[expData.size() - 1];
+  auto lastSim = simData[simData.size() - 1];
+
   auto expData4 = fitJson[3]["exp_data"].get<std::vector<std::vector<double>>>();;
   auto simData4 = fitJson[3]["simulated_data"].get<std::vector<std::vector<double>>>();
   REQUIRE(expData4.size() == simData4.size());
+  auto lastExp4 = expData4[expData4.size() - 1];
+  auto lastSim4 = simData4[simData4.size() - 1];
 
 }
 

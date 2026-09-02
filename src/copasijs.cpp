@@ -112,6 +112,7 @@ static std::vector<std::string> mGlobalParameterOrder = {};
 static std::vector<std::string> mSelectionList = {};
 static std::vector<const double *> mSelectedValues = {};
 static CDataHandler *mpDataHandler = nullptr;
+static bool mAutoUpdateModel = true;
 
 static bool jsonHas(const ordered_json &j, const std::string &key)
 {
@@ -491,6 +492,11 @@ double getValue(const std::string &nameOrId)
     if (pDataModel)
     {
         auto *obj = const_cast<CDataObject *>(pDataModel->findObjectByDisplayName(nameOrId));
+        if (!obj)
+        {
+            obj = const_cast<CDataObject *>(dynamic_cast<const CDataObject *>(pDataModel->getObjectFromCN(CCommonName(nameOrId))));
+				}
+
         if (obj)
         {
             if (obj->getObjectType() == "Reference")
@@ -615,7 +621,14 @@ void setValueByName(const std::string &key, double dValue)
 
     auto *obj = const_cast<CDataObject *>(pDataModel->findObjectByDisplayName(key));
     if (obj == NULL)
+    {
+			obj = const_cast<CDataObject*>(
+        dynamic_cast<const CDataObject*>(pDataModel->getObjectFromCN(CCommonName(key))));
+
+			if (obj == NULL)
         return;
+    }
+        
 
     bool isReference = obj->getObjectType() == "Reference";
     CMetab *pMetab = isReference ? dynamic_cast<CMetab *>(obj->getObjectParent())
@@ -2258,7 +2271,9 @@ std::string simulateJSON(ordered_json &yaml)
         if (task == nullptr)
             return jsonError("Time-Course task not available.");
 
-        task->setUpdateModel(true);
+        if (mAutoUpdateModel)
+          task->setUpdateModel(true);
+
         auto *problem = dynamic_cast<CTrajectoryProblem *>(task->getProblem());
 
         applyYaml(yaml);
@@ -3092,6 +3107,16 @@ void clearMessages()
     CCopasiMessage::clearDeque();
 }
 
+bool getAutoUpdateModel()
+{
+  return mAutoUpdateModel;
+}
+
+void setAutoUpdateModel(bool autoUpdate)
+{
+  mAutoUpdateModel = autoUpdate;
+}
+
 #ifdef __EMSCRIPTEN__
 EMSCRIPTEN_BINDINGS(copasi_binding)
 {
@@ -3207,5 +3232,9 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     emscripten::function("computeFitTrajectory", &computeFitTrajectory);
     emscripten::function("computeFitSteadyState", &computeFitSteadyState);
     emscripten::function("getCurrentFit", &getCurrentFit);
+
+    // auto update model
+	emscripten::function("getAutoUpdateModel", &getAutoUpdateModel);
+	emscripten::function("setAutoUpdateModel", &setAutoUpdateModel);
 }
 #endif

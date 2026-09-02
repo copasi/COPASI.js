@@ -202,6 +202,27 @@ class COPASI {
         return this.Module.getVersion();
     }
 
+    /** @property {boolean} autoUpdateModel returns whether simulations automatically update the model */
+    get autoUpdateModel() {
+        return this.Module.getAutoUpdateModel();
+    }
+
+    /**
+     * @property {boolean} autoUpdateModel sets whether simulations automatically update the model
+     * @param {boolean} value the value to set
+     */
+    set autoUpdateModel(value) {
+        this.Module.setAutoUpdateModel(value);
+    }
+
+    /**
+     * @property {boolean} autoUpdateModel returns whether simulations automatically update the model
+     * @param {boolean} value the value to set
+     */
+    set autoUpdateModel(value) {
+        this.Module.setAutoUpdateModel(value);
+    }
+
     _vectorToArray(v) {
         var result = [];
         for (var i = 0; i < v.size(); i++) {

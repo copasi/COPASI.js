@@ -90,6 +90,8 @@ export default class COPASI {
     reset(): void;
     resetAll(): void;
     readonly version: string;
+    readonly autoUpdateModel: boolean;
+    autoUpdateModel: boolean;
     _vectorToArray(v: any): any[];
     loadExample(path: string) : ModelInfo;
     loadModel(modelCode: string): ModelInfo;

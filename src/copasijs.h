@@ -630,6 +630,15 @@ std::string getLastMessages();
 /// @brief clears the last recorded messages from the COPASI library
 void clearMessages();
 
+/// @brief returns the auto update model setting
+/// @return true if the model is update flag is forced to true, false if the tasks setting is honored.
+bool getAutoUpdateModel();
+
+/// @brief sets the auto update model setting
+/// @param autoUpdate if true the model is update flag is forced to true, if false the tasks setting is honored.
+/// 
+void setAutoUpdateModel(bool autoUpdate);
+
 /// @brief returns the settings for the optimization task as json string
 /// 
 /// Additionally to the settings returned by getTaskSettings, this

@@ -2399,8 +2399,48 @@ nlohmann::ordered_json _getExperimentDefinition(const CExperiment *exp)
     yaml["separator"] = exp->getSeparator();
     yaml["first_row"] = exp->getFirstRow();
     yaml["last_row"] = exp->getLastRow();
+    yaml["num_rows"] = exp->getNumDataRows();
+    yaml["num_cols"] = exp->getNumColumns();
     yaml["weight_method"] = CExperiment::WeightMethodName[exp->getWeightMethod()];
     yaml["normalize_per_experiment"] = exp->getNormalizeWeightsPerExperiment();
+
+    // add mapping
+		auto& objMap = exp->getObjectMap();
+    std::vector<std::string> dependentCns;
+    std::vector<std::string> independentCns;
+    std::string timeCn;
+    for (int i = 0; i < objMap.size(); ++i)
+    {
+        ordered_json mapping;
+				mapping["object_cn"] = objMap.getObjectCN(i);
+				mapping["role"] = CExperiment::TypeName[objMap.getRole(i)];
+        if (objMap.getRole(i) == CExperiment::Type::dependent)
+          dependentCns.push_back(objMap.getObjectCN(i));
+        else if (objMap.getRole(i) == CExperiment::Type::independent)
+          independentCns.push_back(objMap.getObjectCN(i));
+        else if (objMap.getRole(i) == CExperiment::Type::time)
+        {
+          timeCn = pDataModel->getModel()->getValueReference()->getCN();
+          mapping["object_cn"] = timeCn;
+        }
+        mapping["name"] = objMap.getName(i);
+        mapping["scale"] = objMap.getScale(i);
+        mapping["default_scale"] = objMap.getDefaultScale(i);
+        yaml["mapping"].push_back(mapping);
+		}
+
+    // columns
+    std::vector<std::string> columns;
+    if (!timeCn.empty())
+			columns.push_back(timeCn);
+
+    for (const auto &cn : dependentCns)
+			columns.push_back(cn);
+
+		for (const auto& cn : independentCns)
+			columns.push_back(cn);
+
+		yaml["columns"] = columns;
 
     return yaml;
 }
@@ -2479,34 +2519,26 @@ std::vector<std::vector<double>> getExperimentData(const std::string &experiment
     auto *exp = expSet.getExperiment(index);
     if (!exp)
         return data;
+    
+    auto& timeData = exp->getTimeData();
+    auto& dependentData = exp->getDependentData();
+    auto& independentData = exp->getIndependentData();
 
-    std::string fileName = exp->getFileName();
-    if (fileName.empty())
-        return data;
-
-    std::ifstream file(fileName);
-    if (!file.is_open())
-        return data;
-
-    std::string line;
-    while (std::getline(file, line))
+    for (int i = 0; i < dependentData.numRows(); ++i)
     {
-        std::vector<double> row;
-        std::stringstream ss(line);
-        std::string cell;
-        while (std::getline(ss, cell, exp->getSeparator()[0]))
-        {
-            try
-            {
-                row.push_back(std::stod(cell));
-            }
-            catch (const std::exception &e)
-            {
-                row.push_back(std::numeric_limits<double>::quiet_NaN());
-            }
-        }
-        data.push_back(row);
+      std::vector<double> row;
+			row.push_back(timeData[i]);
+      for (int j = 0; j < dependentData.numCols(); ++j)
+      {
+        row.push_back(dependentData(i, j));
+      }
+      for (int j = 0; j < independentData.numCols(); ++j)
+      {
+        row.push_back(independentData(i, j));
+      }
+			data.push_back(row);
     }
+
     return data;
 }
 

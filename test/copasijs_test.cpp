@@ -539,6 +539,24 @@ TEST_CASE("Test PE omex", "[copasijs][parameter_estimation][omex]")
     REQUIRE(!currentFit.empty());
 }
 
+TEST_CASE("Test access to data files", "[copasijs][parameter_estimation][data]")
+{
+  Instance instance;
+  std::string model = loadFromFile(getTestFile("../example_files/LM-test1.cps"));
+  REQUIRE(!model.empty());
+  REQUIRE(model != "Error loading model");
+
+	auto names = getExperimentNames();
+  REQUIRE(!names.empty());
+  auto expInfo = getExperimentDefinition(names[0]);
+	REQUIRE(!names.empty());
+
+  auto data = getExperimentData(names[0]);
+	REQUIRE(!names.empty());
+
+
+}
+
 TEST_CASE("Test current fit helpers", "[copasijs][parameter_estimation][current_fit]")
 {
     Instance instance;

@@ -689,6 +689,10 @@ std::string getExperimentDefinitions();
 
 /// @brief returns the data of an experiment
 /// @param experimentName the name of the experiment to get the data for
+/// 
+/// The array will contain all rows of the experimental data, each row containing
+/// time (if defined), the dependent columns and then the independent columns
+/// 
 /// @return the data of the experiment as a 2D double vector
 std::vector<std::vector<double>> getExperimentData(const std::string& experimentName);
 

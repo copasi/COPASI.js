@@ -2517,7 +2517,7 @@ std::string getExperimentDefinitions()
     return yaml.dump(2);
 }
 
-std::vector<std::vector<double>> getExperimentData(const std::string &experimentName)
+std::vector<std::vector<double>> getExperimentData(const std::string &experimentName, bool includeIndependent/* = true*/)
 {
     ensureModel();
     std::vector<std::vector<double>> data;
@@ -2547,6 +2547,7 @@ std::vector<std::vector<double>> getExperimentData(const std::string &experiment
       {
         row.push_back(dependentData(i, j));
       }
+      if (includeIndependent)
       for (int j = 0; j < independentData.numCols(); ++j)
       {
         row.push_back(independentData(i, j));
@@ -2696,7 +2697,7 @@ static nlohmann::json experimentFitBase(CExperiment *exp)
 
     expData["name"] = exp->getObjectName();
     expData["type"] = CTaskEnum::TaskName[exp->getExperimentType()];
-    expData["exp_data"] = getExperimentData(exp->getObjectName());
+    expData["exp_data"] = getExperimentData(exp->getObjectName(), false);
     return expData;
 }
 

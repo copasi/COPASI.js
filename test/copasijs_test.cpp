@@ -549,10 +549,14 @@ TEST_CASE("Test access to data files", "[copasijs][parameter_estimation][data]")
 	auto names = getExperimentNames();
   REQUIRE(!names.empty());
   auto expInfo = getExperimentDefinition(names[0]);
-	REQUIRE(!names.empty());
+	REQUIRE(!expInfo.empty());
 
   auto data = getExperimentData(names[0]);
-	REQUIRE(!names.empty());
+	REQUIRE(data.size() == 100);
+
+  auto currentFit = getCurrentFit();
+  CAPTURE(currentFit);
+  REQUIRE(!currentFit.empty());
 
 
 }

@@ -698,12 +698,13 @@ std::string getExperimentDefinitions();
 
 /// @brief returns the data of an experiment
 /// @param experimentName the name of the experiment to get the data for
+/// @param includeIndependent if true the independent columns are included in the data, otherwise only the dependent columns are returned
 /// 
 /// The array will contain all rows of the experimental data, each row containing
 /// time (if defined), the dependent columns and then the independent columns
 /// 
 /// @return the data of the experiment as a 2D double vector
-std::vector<std::vector<double>> getExperimentData(const std::string& experimentName);
+std::vector<std::vector<double>> getExperimentData(const std::string& experimentName, bool includeIndependent=true);
 
 /// @brief sets the data of an experiment
 /// @param experimentName the name of the experiment to set the data for

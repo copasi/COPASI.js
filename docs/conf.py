@@ -48,7 +48,7 @@ if read_the_docs_build:
 # -- Project information -----------------------------------------------------
 
 project = 'COPASI.js API'
-copyright = '2024, COPASI Team'
+copyright = '2026, COPASI Team'
 author = 'Frank T. Bergmann'
 
 

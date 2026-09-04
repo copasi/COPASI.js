@@ -366,17 +366,25 @@ std::string getMessages(int start, const std::string &filter)
         return "";
 
     int numMessages = CCopasiMessage::size();
-    std::stringstream str;
-    for (size_t i = start; i < numMessages; ++i)
+    std::vector<std::string> messsages;
+    for (int i = numMessages; i > start; --i)
     {
-        auto msg = CCopasiMessage::getFirstMessage();
+        auto msg = CCopasiMessage::getLastMessage();
+        if (msg.getNumber() == 6401) // no more messages available
+          break;
         auto text = msg.getText();
         if (!filter.empty() && text.find(filter) != std::string::npos)
             continue;
         if (text.empty())
-            continue;
-        str << text << std::endl;
+          continue;
+        messsages.push_back(text);
     }
+
+    std::stringstream str;
+    for (auto it = messsages.rbegin(); it != messsages.rend(); ++it)
+      str << *it << std::endl;
+
+
     return str.str();
 }
 

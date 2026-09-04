@@ -620,6 +620,30 @@ TEST_CASE("Test current fit helpers", "[copasijs][parameter_estimation][current_
     REQUIRE(fitJson[0]["simulated_data"].size() > 0);
 }
 
+TEST_CASE("Test Messages", "[copasijs][messages]")
+{
+    Instance instance;
+    std::string model = loadFromFile("none-existing");
+    REQUIRE(!model.empty());
+    auto messages = getMessages();
+    REQUIRE(messages.empty());
+    CCopasiMessage(CCopasiMessage::WARNING, "random message to ignore 1");
+    CCopasiMessage(CCopasiMessage::WARNING, "random message to ignore 2");
+
+    int numMessages = CCopasiMessage::size();
+    CCopasiMessage(CCopasiMessage::WARNING, "warning 1");
+    CCopasiMessage(CCopasiMessage::WARNING, "warning 2");
+    CCopasiMessage(CCopasiMessage::WARNING, "warning 3");
+    CCopasiMessage(CCopasiMessage::WARNING, "warning 4");
+    CCopasiMessage(CCopasiMessage::WARNING, "warning 5");
+    messages = getMessages(numMessages + 3);
+    REQUIRE(!messages.empty());
+    messages = getMessages(numMessages, "warning 2");
+    REQUIRE(!messages.empty());
+    messages = getMessages();
+    REQUIRE(!messages.empty());
+}
+
 
 TEST_CASE("Test GEPASI", "[copasijs][gepasi]")
 {

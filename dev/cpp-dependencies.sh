@@ -4,23 +4,7 @@
 pushd "$(dirname "$0")"
 
 export BUILD_TYPE="${BUILD_TYPE:-Debug}"
-export COPASI_BRANCH="${COPASI_BRANCH:-release/Version-4.45}"
-
-# build uuid lib if it doesn't exist
-# if [ ! -f cpp-dependencies/lib/libuuid.a ]; then
-
-#     # download if not already downloaded
-#     if [ ! -f libuuid-1.0.3.tar.gz ]; then
-#         curl -L -O http://downloads.sourceforge.net/libuuid/libuuid-1.0.3.tar.gz 
-#         tar -zxf libuuid-1.0.3.tar.gz
-#     fi
-#     cd libuuid-1.0.3
-#     ./configure --prefix=$PWD/../cpp-dependencies --disable-dependency-tracking --with-pic --enable-static=yes --enable-shared=no CFLAGS='-fPIC'
-#     make
-#     make install
-#     cd ..
-#     rm cpp-dependencies/lib/libuuid.la
-# fi
+export COPASI_BRANCH="${COPASI_BRANCH:-release/Version-4.48}"
 
 # checkout and build copasi-dependencies if they dont exist
 if [ ! -f cpp-dependencies/lib/libCombine-static.a ]; then

@@ -4,22 +4,6 @@
 pushd "$(dirname "$0")"
 
 
-# build uuid lib if it doesn't exist
-if [ ! -f em-dependencies/lib/libuuid.a ]; then
-
-    # download if not already downloaded
-    if [ ! -f libuuid-1.0.3.tar.gz ]; then
-        curl -L -O http://downloads.sourceforge.net/libuuid/libuuid-1.0.3.tar.gz 
-        tar -zxf libuuid-1.0.3.tar.gz
-    fi
-    cd libuuid-1.0.3
-    emconfigure ./configure --prefix=$PWD/../em-dependencies --disable-dependency-tracking --with-pic --enable-static=yes --enable-shared=no CFLAGS='-fPIC'
-    emmake make
-    emmake make install
-    cd ..
-    rm em-dependencies/lib/libuuid.la
-fi
-
 # checkout and build copasi-dependencies if they dont exist
 if [ ! -f em-dependencies/lib/libCombine-static.a ]; then
     if [ ! -d copasi-dependencies ]; then
@@ -43,7 +27,7 @@ if [ ! -f em-dependencies/lib/libcopasise-static.a ]; then
     if [ ! -d COPASI ]; then
         git clone https://github.com/copasi/COPASI
         cd COPASI && gitTools/UpdateCopasiVersion --force && cd ..
-        cd COPASI && git checkout release/Version-4.43 && cd ..
+        cd COPASI && git checkout release/Version-4.48 && cd ..
     fi
 
     cp COPASI/copasi/lapack/f2c.h em-dependencies/include 

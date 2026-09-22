@@ -1070,6 +1070,14 @@ class COPASI {
     }
 
 
+    /**
+     * Converts the model to an irreversible form.
+     * @returns {object} the irreversible model see loadModel, or an object with the error message
+     */
+    convertToIrreversible() {
+        return JSON.parse(this.Module.convertToIrreversible());
+    }
+
 }
 
 // if module is defined, export the COPASI class

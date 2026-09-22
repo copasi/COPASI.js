@@ -179,7 +179,7 @@ export default class COPASI {
     getExperimentDefinition(experimentName: string): object;
     setExperimentFilename(experimentName: string, experimentFilename: string): boolean;
     
-
+    convertToIrreversible(): object;
 }
 
 export {COPASI};

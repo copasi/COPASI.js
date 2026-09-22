@@ -487,6 +487,20 @@ TEST_CASE("Test Optimization", "[copasijs][optimization]")
     REQUIRE(!optSettings.empty());
 }
 
+TEST_CASE("Test Parameter Estimation with error", "[copasijs][parameter_estimation]")
+{
+  Instance instance;
+  std::string model = loadFromFile(getTestFile("../example_files/brusselator.cps"));
+  REQUIRE(!model.empty());
+  REQUIRE(model != "Error loading model");
+
+  REQUIRE(runParameterEstimation(true) == false);
+
+  std::string messages = getMessages(0);
+  CAPTURE(messages);
+  REQUIRE(!messages.empty());
+}
+
 
 TEST_CASE("Test Parameter Estimation", "[copasijs][parameter_estimation]")
 {

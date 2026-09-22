@@ -2185,8 +2185,6 @@ bool runParameterEstimation(bool useInitialValues)
 
   auto* task = getTaskPtr<CFitTask>("Parameter Estimation");
   auto* problem = task ? dynamic_cast<CFitProblem*>(task->getProblem()) : nullptr;
-  if (problem == nullptr || problem->getOptItemSize() == 0)
-    return false;
 
   if (!task->initialize(CCopasiTask::OUTPUT_UI, pDataModel, nullptr))
     return false;

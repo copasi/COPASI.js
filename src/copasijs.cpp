@@ -1440,7 +1440,12 @@ std::string convertToIrreversible()
   ensureModel();
   auto* pModel = pDataModel->getModel();
   if (!pModel)
-    return false;
+  {
+    ordered_json modelInfo;
+    modelInfo["status"] = "error";
+    modelInfo["messages"] = "no model loaded";
+    return modelInfo.dump(2);
+  }
 
   CCopasiMessage::clearDeque();
   bool result = pModel->convert2NonReversible();

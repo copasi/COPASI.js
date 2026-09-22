@@ -782,6 +782,10 @@ bool setMethod(const std::string& taskName, const std::string& methodName);
 /// @return true if the task was run successfully
 bool runTask(const std::string& taskName, bool useInitialValues=true);
 
+/// @brief converts all reactions in the model to irreversible reactions
+/// @return the new model structure if successful, otherwise the error messages encountered
+std::string convertToIrreversible();
+
 #pragma region  // internal calls Internal
 
 /// @brief frees a pointer allocated by the COPASI library
@@ -795,7 +799,10 @@ void cpsFree(char *ptr);
 int initCps();
 
 /// @brief destroys the API, datamodel and root container
+/// calls @see clearLists to clear the lists of objects
 void destroyAPI();
+
+void clearLists();
 
 /// @brief ensures that a data model exists
 /// This will call @see initCps if necessary

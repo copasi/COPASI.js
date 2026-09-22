@@ -660,6 +660,35 @@ TEST_CASE("Test GEPASI", "[copasijs][gepasi]")
 
 }
 
+TEST_CASE("Test LNA error", "[copasijs][lna]")
+{
+  Instance instance;
+  std::string model = loadFromFile(getTestFile("../example_files/LM-test1.cps"));
+  REQUIRE(!model.empty());
+  REQUIRE(model != "Error loading model");
+
+  REQUIRE(runLNA(true) == false);
+
+  std::string messages = getMessages(0);
+
+  std::string results = getLNAResults();
+  CAPTURE(results);
+  REQUIRE(!results.empty());
+
+  // now convert and try again
+
+  results = convertToIrreversible();
+  CAPTURE(results);
+  REQUIRE(!results.empty());
+
+  REQUIRE(runLNA(true));
+  results = getLNAResults();
+  CAPTURE(results);
+  REQUIRE(!results.empty());
+
+
+}
+
 
 int main(int argc, char *argv[])
 {

@@ -513,7 +513,23 @@ class COPASI {
         }
         return this.Module.setMcaSettings(arg);
     }
-    
+
+
+    /**
+     * The LNA settings as JSON object.
+     * @type {object}
+     */
+    get lnaSettings() {
+        return JSON.parse(this.Module.getLNASettings());
+    }
+
+    set lnaSettings(arg) {
+        if (typeof arg !== 'string') {
+            arg = JSON.stringify(arg);
+        }
+        return this.Module.setLNASettings(arg);
+    }
+
     /**
      * Model information as object.
      * @type {object}

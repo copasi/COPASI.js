@@ -718,6 +718,12 @@ TEST_CASE("Test LNA error", "[copasijs][lna]")
   CAPTURE(results);
   REQUIRE(!results.empty());
 
+  std::string settings = getLNASettings();
+  CAPTURE(settings);
+  REQUIRE(!settings.empty());
+
+  REQUIRE(setLNASettings(settings));
+
 
 }
 

@@ -204,6 +204,16 @@ std::string getMcaSettings();
 /// @return boolean indicating success
 bool setMcaSettings(const std::string& settings);
 
+
+/// @brief returns the LNA settings as string
+/// @return the LNA settings as string
+std::string getLNASettings();
+
+/// @brief sets the LNA settings from a string
+/// @param settings the LNA settings as string
+/// @return boolean indicating success
+bool setLNASettings(const std::string& settings);
+
 /// @brief runs the Linear Noise Approximation task
 /// @param useInitialValues if true the initial values are used, otherwise the current state is used
 /// @return boolean indicating success

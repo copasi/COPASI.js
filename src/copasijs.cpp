@@ -2085,6 +2085,96 @@ bool setMcaSettings(const std::string& settingsJson)
   return true;
 }
 
+std::string getLNASettings()
+{
+  auto* task = getTaskPtr<CLNATask>("Linear Noise Approximation");
+  if (!task)
+    return std::string();
+
+  auto* pProblem = dynamic_cast<CLNAProblem*>(task->getProblem());
+  if (!pProblem)
+    return std::string();
+
+  ordered_json yaml;
+
+  yaml["update_model"] = task->isUpdateModel();
+  yaml["scheduled"] = task->isScheduled();
+  yaml["steady_state_requested"] = pProblem->isSteadyStateRequested();
+
+  yaml["problem"] = convertGroupToJson(pProblem);
+
+  auto* method = task->getMethod();
+  if (method != nullptr)
+  {
+    yaml["method"] = convertGroupToJson(method);
+    yaml["method"]["name"] = method->getObjectName();
+  }
+
+  if (pProblem->isSteadyStateRequested())
+  {
+    auto* pSteadyState = getTaskPtr<CSteadyStateTask>("Steady-State");
+    auto methodObj = convertGroupToJson(pSteadyState->getMethod());
+
+    // add properties from methodObj to yaml["method"] if they are not already present
+    for (auto& [key, value] : methodObj.items())
+    {
+      if (!yaml["method"].contains(key))
+      {
+        yaml["method"][key] = value;
+      }
+    }
+  }
+
+  return yaml.dump(mIndent);
+}
+
+bool setLNASettings(const std::string& settingsJson)
+{
+  auto* task = getTaskPtr<CLNATask>("Linear Noise Approximation");
+  if (!task)
+    return false;
+
+  auto* pProblem = dynamic_cast<CLNAProblem*>(task->getProblem());
+  if (!pProblem)
+    return false;
+
+  ordered_json settings;
+  try
+  {
+    settings = ordered_json::parse(settingsJson);
+  }
+  catch (const std::exception& e)
+  {
+    return false;
+  }
+
+  if (jsonHas(settings, "update_model"))
+    task->setUpdateModel(settings["update_model"].get<bool>());
+
+  if (jsonHas(settings, "scheduled"))
+    task->setScheduled(settings["scheduled"].get<bool>());
+
+  if (jsonHas(settings, "steady_state_requested"))
+    pProblem->setSteadyStateRequested(settings["steady_state_requested"].get<bool>());
+
+  ordered_json problemSettings = settings;
+  if (jsonHas(settings, "problem"))
+    problemSettings = settings["problem"];
+  setGroupFromJson(pProblem, problemSettings);
+
+  if (pProblem->isSteadyStateRequested())
+  {
+    auto* pSteadyState = getTaskPtr<CSteadyStateTask>("Steady-State");
+    auto* method = pSteadyState->getMethod();
+    if (method != nullptr && jsonHas(settings, "method"))
+    {
+      auto& m = settings["method"];
+      setGroupFromJson(method, m);
+    }
+  }
+  return true;
+}
+
 static std::string buildLNAStatusMessage(CSteadyStateMethod::ReturnCode status, CLNAMethod::EVStatus eStatus)
 {
   if (status == CSteadyStateMethod::found && eStatus == CLNAMethod::allNeg)
@@ -3521,6 +3611,8 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
   emscripten::function("setMcaSettings", &setMcaSettings);
   emscripten::function("runLNA", &runLNA);
   emscripten::function("getLNAResults", &getLNAResults);
+  emscripten::function("getLNASettings", &getLNASettings);
+  emscripten::function("setLNASettings", &setLNASettings);
   emscripten::function("runOptimization", &runOptimization);
   emscripten::function("getOptItems", &getOptItems);
   emscripten::function("getOptSolution", &getOptSolution);

@@ -186,6 +186,8 @@ export default class COPASI {
 
     mcaSettings: object;
     mcaProtocol: string;
+
+    lnaSettings: object;
 }
 
 export {COPASI};

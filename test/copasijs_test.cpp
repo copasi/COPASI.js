@@ -467,7 +467,7 @@ TEST_CASE("Test Optimization", "[copasijs][optimization]")
     std::string model = loadFromFile(getTestFile("../example_files/HimmelblauFunction.cps"));
     REQUIRE(!model.empty());
     REQUIRE(model != "Error loading model");
-
+    
     REQUIRE(runOptimization(true));
 
     auto optItems = getOptItems();

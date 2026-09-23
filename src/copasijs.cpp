@@ -2101,6 +2101,8 @@ std::string getOptSolution()
     return result.dump(2);
 
   const auto& solution = problem->getSolutionVariables(false);
+  const auto& grad = problem->getVariableGradients();
+
   const auto& items = problem->getOptItemList(false);
 
   if (solution.size() != items.size())
@@ -2124,8 +2126,9 @@ std::string getOptSolution()
     entry["name"] = name;
     entry["lower"] = optBoundToDouble(item->getLowerBound());
     entry["upper"] = optBoundToDouble(item->getUpperBound());
-    entry["start"] = item->getStartValue();
+    entry["start"] = item->getLastStartValue();
     entry["sol"] = solution[i];
+    entry["gradient"] = grad.size() > i ? grad[i] : std::numeric_limits<double>::quiet_NaN();
     result.push_back(entry);
   }
 
@@ -2208,6 +2211,8 @@ std::string getFitSolution()
     return result.dump(2);
 
   const auto& solution = problem->getSolutionVariables(false);
+  const auto& gradients = problem->getVariableGradients();
+  const auto& stddev = problem->getVariableStdDeviations();
   const auto& items = problem->getOptItemList(false);
 
   if (solution.size() != items.size())
@@ -2232,8 +2237,10 @@ std::string getFitSolution()
     entry["lower"] = optBoundToDouble(item->getLowerBound());
     entry["upper"] = optBoundToDouble(item->getUpperBound());
     entry["sol"] = solution[i];
-    entry["start"] = item->getStartValue();
+    entry["start"] = item->getLastStartValue();
     entry["affected"] = getAffectedExperimentNames(dynamic_cast<CFitItem*>(item));
+    entry["gradient"] = gradients.size() > i ? gradients[i] : std::numeric_limits < double>::quiet_NaN();
+    entry["stddev"] = stddev.size() > i ? stddev[i] : std::numeric_limits < double>::quiet_NaN();
     result.push_back(entry);
   }
 

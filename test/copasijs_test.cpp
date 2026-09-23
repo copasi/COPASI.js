@@ -692,6 +692,22 @@ TEST_CASE("Test GEPASI", "[copasijs][gepasi]")
 
 }
 
+TEST_CASE("Test LNA failure", "[copasijs][lna]")
+{
+  Instance instance;
+  std::string model = loadCombineArchive(getTestFile("../example_files/Elowitz.omex"));
+  REQUIRE(!model.empty());
+  REQUIRE(model != "Error loading model");
+
+  REQUIRE(runLNA(true) == false);
+
+  std::string messages = getMessages(0);
+  CAPTURE(messages);
+  REQUIRE(!messages.empty());
+
+}
+
+
 TEST_CASE("Test LNA error", "[copasijs][lna]")
 {
   Instance instance;

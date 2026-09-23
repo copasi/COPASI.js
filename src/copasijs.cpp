@@ -2007,7 +2007,6 @@ std::string getMcaSettings()
 
   ordered_json yaml;
 
-
   yaml["update_model"] = task->isUpdateModel();
   yaml["scheduled"] = task->isScheduled();
   yaml["steady_state_requested"] = pProblem->isSteadyStateRequested();
@@ -2024,7 +2023,7 @@ std::string getMcaSettings()
   if (pProblem->isSteadyStateRequested())
   {
     auto *pSteadyState = getTaskPtr<CSteadyStateTask>("Steady-State");
-    auto& methodObj = convertGroupToJson(pSteadyState->getMethod());
+    auto methodObj = convertGroupToJson(pSteadyState->getMethod());
 
     // add properties from methodObj to yaml["method"] if they are not already present
     for (auto& [key, value] : methodObj.items())

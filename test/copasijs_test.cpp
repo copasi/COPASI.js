@@ -547,6 +547,14 @@ TEST_CASE("Test PE omex", "[copasijs][parameter_estimation][omex]")
     CAPTURE(fitStatistic);
     REQUIRE(!fitStatistic.empty());
 
+    auto fim = getFim();
+    CAPTURE(fim);
+    REQUIRE(!fim.empty());
+
+    auto correlationMatrix = getCorrelationMatrix();
+    CAPTURE(correlationMatrix);
+    REQUIRE(!correlationMatrix.empty());
+
     auto fitSettings = getFitSettings();
     CAPTURE(fitSettings);
     REQUIRE(!fitSettings.empty());

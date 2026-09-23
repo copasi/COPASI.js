@@ -163,6 +163,9 @@ export default class COPASI {
     readonly optStatistic: object;
 
     runParameterEstimation(useInitialValues?: boolean): boolean;
+    readonly correlationMatrix: object;
+    readonly fischerInformationMatrix: object;
+    readonly indent: number;
     readonly fitSolution: object;
     readonly fitItems: object;
     readonly fitStatistic: object;

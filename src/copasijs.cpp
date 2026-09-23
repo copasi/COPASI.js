@@ -114,6 +114,7 @@ static std::vector<const double*> mSelectedValues = {};
 static CDataHandler* mpDataHandler = nullptr;
 static CDataHandler* mpLastDataHandler = nullptr;
 static bool mAutoUpdateModel = true;
+static int mIndent = 2;
 
 static bool jsonHas(const ordered_json& j, const std::string& key)
 {
@@ -132,7 +133,7 @@ static std::string jsonError(const std::string& messages)
   ordered_json modelInfo;
   modelInfo["status"] = "error";
   modelInfo["messages"] = messages;
-  return modelInfo.dump(2);
+  return modelInfo.dump(mIndent);
 }
 
 static CModelElement* findElement(std::map<std::string, CModelElement>& map,
@@ -220,6 +221,16 @@ struct DataHandlerInterfaceGuard
       dm->removeInterface(handler);
   }
 };
+
+void setIndent(int indent)
+{
+  mIndent = indent;
+}
+
+int getIndent()
+{
+  return mIndent;
+}
 
 ordered_json convertGroupToJson(CCopasiParameterGroup* pGroup, bool basicOnly /* = true*/)
 {
@@ -1205,7 +1216,7 @@ std::string getModelInfo()
   auto info = buildModelInfo();
   if (!savedSelection.empty())
     setSelectionList(savedSelection);
-  return info.dump(2);
+  return info.dump(mIndent);
 }
 
 void _removeFixedElementsFromSet(CModelParameterGroup* group)
@@ -1275,7 +1286,7 @@ std::string loadCombineArchive(const std::string& modelFile)
       ordered_json modelInfo;
       modelInfo["status"] = "error";
       modelInfo["messages"] = getMessages();
-      return modelInfo.dump(2);
+      return modelInfo.dump(mIndent);
     }
 
     loadCommon();
@@ -1285,17 +1296,17 @@ std::string loadCombineArchive(const std::string& modelFile)
     ordered_json modelInfo;
     modelInfo["status"] = "error";
     modelInfo["messages"] = getMessages();
-    return modelInfo.dump(2);
+    return modelInfo.dump(mIndent);
   }
   catch (std::exception& e)
   {
     ordered_json modelInfo;
     modelInfo["status"] = "error";
     modelInfo["messages"] = e.what();
-    return modelInfo.dump(2);
+    return modelInfo.dump(mIndent);
   }
 
-  return buildModelInfo().dump(2);
+  return buildModelInfo().dump(mIndent);
 }
 
 std::string loadFromFile(const std::string& modelFile)
@@ -1314,7 +1325,7 @@ std::string loadFromFile(const std::string& modelFile)
         ordered_json modelInfo;
         modelInfo["status"] = "error";
         modelInfo["messages"] = getMessages();
-        return modelInfo.dump(2);
+        return modelInfo.dump(mIndent);
       }
 
     loadCommon();
@@ -1324,17 +1335,17 @@ std::string loadFromFile(const std::string& modelFile)
     ordered_json modelInfo;
     modelInfo["status"] = "error";
     modelInfo["messages"] = getMessages();
-    return modelInfo.dump(2);
+    return modelInfo.dump(mIndent);
   }
   catch (std::exception& e)
   {
     ordered_json modelInfo;
     modelInfo["status"] = "error";
     modelInfo["messages"] = e.what();
-    return modelInfo.dump(2);
+    return modelInfo.dump(mIndent);
   }
 
-  return buildModelInfo().dump(2);
+  return buildModelInfo().dump(mIndent);
 }
 
 std::string loadModel(const std::string& cpsCode)
@@ -1353,7 +1364,7 @@ std::string loadModel(const std::string& cpsCode)
         ordered_json modelInfo;
         modelInfo["status"] = "error";
         modelInfo["messages"] = getMessages();
-        return modelInfo.dump(2);
+        return modelInfo.dump(mIndent);
       }
 
     loadCommon();
@@ -1363,17 +1374,17 @@ std::string loadModel(const std::string& cpsCode)
     ordered_json modelInfo;
     modelInfo["status"] = "error";
     modelInfo["messages"] = getMessages();
-    return modelInfo.dump(2);
+    return modelInfo.dump(mIndent);
   }
   catch (std::exception& e)
   {
     ordered_json modelInfo;
     modelInfo["status"] = "error";
     modelInfo["messages"] = e.what();
-    return modelInfo.dump(2);
+    return modelInfo.dump(mIndent);
   }
 
-  return buildModelInfo().dump(2);
+  return buildModelInfo().dump(mIndent);
 }
 
 void reset()
@@ -1444,7 +1455,7 @@ std::string convertToIrreversible()
     ordered_json modelInfo;
     modelInfo["status"] = "error";
     modelInfo["messages"] = "no model loaded";
-    return modelInfo.dump(2);
+    return modelInfo.dump(mIndent);
   }
 
   CCopasiMessage::clearDeque();
@@ -1460,10 +1471,10 @@ std::string convertToIrreversible()
     ordered_json modelInfo;
     modelInfo["status"] = "error";
     modelInfo["messages"] = getMessages();
-    return modelInfo.dump(2);
+    return modelInfo.dump(mIndent);
   }
 
-  return buildModelInfo().dump(2);
+  return buildModelInfo().dump(mIndent);
 }
 
 bool setTaskSettings(const std::string& taskName, const std::string& settingsJson)
@@ -1659,16 +1670,36 @@ ordered_json convertDataArray(const CDataArray* pArray)
 {
   ordered_json result;
 
-  if (pArray == NULL || pArray->dimensionality() != 2)
+  if (pArray == NULL)
     return result;
 
-  std::vector<std::string> columns = pArray->getAnnotationsString(1);
-  std::vector<std::string> rows = pArray->getAnnotationsString(0);
-  std::vector<std::vector<double>> values = convertCArray(const_cast<CArrayInterface*>(pArray->getArray()));
+  switch (pArray->dimensionality())
+  {
+  case 1:
+  {
+    std::vector<std::string> rows = pArray->getAnnotationsString(0);
+    std::vector<std::vector<double>> values = convertCArray(const_cast<CArrayInterface*>(pArray->getArray()));
 
-  result["columns"] = columns;
-  result["rows"] = rows;
-  result["values"] = values;
+    result["rows"] = rows;
+    result["values"] = values;
+    break;
+
+  }
+  case 2:
+  {
+    std::vector<std::string> columns = pArray->getAnnotationsString(1);
+    std::vector<std::string> rows = pArray->getAnnotationsString(0);
+    std::vector<std::vector<double>> values = convertCArray(const_cast<CArrayInterface*>(pArray->getArray()));
+
+    result["columns"] = columns;
+    result["rows"] = rows;
+    result["values"] = values;
+    break;
+  }
+  default:
+    CCopasiMessage(CCopasiMessage::WARNING, "Data array has unsupported dimensionality: %d", pArray->dimensionality());
+    break;
+  }
 
   return result;
 }
@@ -1700,29 +1731,29 @@ std::string getJacobian()
 {
   auto* task = getSteadyStateTask();
   if (task == nullptr)
-    return convertDataArray(nullptr).dump(2);
+    return convertDataArray(nullptr).dump(mIndent);
 
-  return convertDataArray(task->getJacobianAnnotated()).dump(2);
+  return convertDataArray(task->getJacobianAnnotated()).dump(mIndent);
 }
 
 std::string getStoichiometryMatrix(bool reduced /*= false*/)
 {
   ensureModel();
   if (pDataModel == nullptr || pDataModel->getModel() == nullptr)
-    return convertDataArray(nullptr).dump(2);
+    return convertDataArray(nullptr).dump(mIndent);
 
   auto* pMatrix = reduced ? pDataModel->getModel()->getRedStoiAnnotation() : pDataModel->getModel()->getStoiAnnotation();
 
-  return convertDataArray(pMatrix).dump(2);
+  return convertDataArray(pMatrix).dump(mIndent);
 }
 
 std::string getLinkMatrix()
 {
   ensureModel();
   if (pDataModel == nullptr || pDataModel->getModel() == nullptr)
-    return convertDataArray(nullptr).dump(2);
+    return convertDataArray(nullptr).dump(mIndent);
 
-  return convertDataArray(pDataModel->getModel()->getLAnnotation()).dump(2);
+  return convertDataArray(pDataModel->getModel()->getLAnnotation()).dump(mIndent);
 }
 
 std::vector<std::vector<double>> getJacobian2D()
@@ -1751,9 +1782,9 @@ std::string getJacobianReduced()
 {
   auto* task = getSteadyStateTask();
   if (task == nullptr)
-    return convertDataArray(nullptr).dump(2);
+    return convertDataArray(nullptr).dump(mIndent);
 
-  return convertDataArray(task->getJacobianXAnnotated()).dump(2);
+  return convertDataArray(task->getJacobianXAnnotated()).dump(mIndent);
 }
 
 std::vector<std::vector<double>> getJacobianReduced2D()
@@ -1782,10 +1813,10 @@ std::string getFluxControlCoefficients(bool scaled)
 {
   auto* method = getMcaMethod();
   if (method == nullptr)
-    return convertDataArray(nullptr).dump(2);
+    return convertDataArray(nullptr).dump(mIndent);
 
   auto* pMatrix = scaled ? method->getScaledFluxCCAnn() : method->getUnscaledFluxCCAnn();
-  return convertDataArray(pMatrix).dump(2);
+  return convertDataArray(pMatrix).dump(mIndent);
 }
 
 std::vector<std::vector<double>> getFluxControlCoefficients2D(bool scaled)
@@ -1802,10 +1833,10 @@ std::string getConcentrationControlCoefficients(bool scaled)
 {
   auto* method = getMcaMethod();
   if (method == nullptr)
-    return convertDataArray(nullptr).dump(2);
+    return convertDataArray(nullptr).dump(mIndent);
 
   auto* pMatrix = scaled ? method->getScaledConcentrationCCAnn() : method->getUnscaledConcentrationCCAnn();
-  return convertDataArray(pMatrix).dump(2);
+  return convertDataArray(pMatrix).dump(mIndent);
 }
 
 std::vector<std::vector<double>> getConcentrationControlCoefficients2D(bool scaled)
@@ -1822,10 +1853,10 @@ std::string getElasticities(bool scaled)
 {
   auto* method = getMcaMethod();
   if (method == nullptr)
-    return convertDataArray(nullptr).dump(2);
+    return convertDataArray(nullptr).dump(mIndent);
 
   auto* pMatrix = scaled ? method->getScaledElasticitiesAnn() : method->getUnscaledElasticitiesAnn();
-  return convertDataArray(pMatrix).dump(2);
+  return convertDataArray(pMatrix).dump(mIndent);
 }
 
 std::vector<std::vector<double>> getElasticities2D(bool scaled)
@@ -1997,7 +2028,7 @@ std::string getLNAResults(bool scaled)
   if (method == nullptr)
   {
     result["status"] = "LNA method not available.";
-    return result.dump(2);
+    return result.dump(mIndent);
   }
 
   result["status"] = buildLNAStatusMessage(method->getSteadyStateStatus(), method->getEigenValueStatus());
@@ -2005,7 +2036,7 @@ std::string getLNAResults(bool scaled)
   result["reduced_covariance_matrix"] = convertDataArray(scaled ? method->getScaledCovarianceMatrixReducedAnn() : method->getUnscaledCovarianceMatrixReducedAnn());
   result["reduced_b_matrix"] = convertDataArray(scaled ? method->getScaledBMatrixReducedAnn() : method->getUnscaledBMatrixReducedAnn());
 
-  return result.dump(2);
+  return result.dump(mIndent);
 }
 
 static double optBoundToDouble(const CRegisteredCommonName& bound)
@@ -2083,12 +2114,12 @@ std::string getOptItems()
   ordered_json result = ordered_json::array();
 
   if (problem == nullptr)
-    return result.dump(2);
+    return result.dump(mIndent);
 
   const auto& items = problem->getOptItemList(false);
   addItemsToArray(result, items);
 
-  return result.dump(2);
+  return result.dump(mIndent);
 }
 
 std::string getOptSolution()
@@ -2098,7 +2129,7 @@ std::string getOptSolution()
   ordered_json result = ordered_json::array();
 
   if (problem == nullptr)
-    return result.dump(2);
+    return result.dump(mIndent);
 
   const auto& solution = problem->getSolutionVariables(false);
   const auto& grad = problem->getVariableGradients();
@@ -2106,7 +2137,7 @@ std::string getOptSolution()
   const auto& items = problem->getOptItemList(false);
 
   if (solution.size() != items.size())
-    return result.dump(2);
+    return result.dump(mIndent);
 
   for (size_t i = 0; i < solution.size(); ++i)
   {
@@ -2132,7 +2163,7 @@ std::string getOptSolution()
     result.push_back(entry);
   }
 
-  return result.dump(2);
+  return result.dump(mIndent);
 }
 
 std::string getOptStatistic()
@@ -2142,7 +2173,7 @@ std::string getOptStatistic()
   ordered_json result;
 
   if (problem == nullptr)
-    return result.dump(2);
+    return result.dump(mIndent);
 
   result["obj"] = problem->getSolutionValue();
   unsigned C_INT32 f_evals = problem->getFunctionEvaluations();
@@ -2159,7 +2190,7 @@ std::string getOptStatistic()
   else
     result["evals_per_sec"] = f_evals / cpu_time;
 
-  return result.dump(2);
+  return result.dump(mIndent);
 }
 
 static ordered_json getAffectedExperimentNames(const CFitItem* fitItem)
@@ -2208,7 +2239,7 @@ std::string getFitSolution()
   ordered_json result = ordered_json::array();
 
   if (problem == nullptr)
-    return result.dump(2);
+    return result.dump(mIndent);
 
   const auto& solution = problem->getSolutionVariables(false);
   const auto& gradients = problem->getVariableGradients();
@@ -2216,7 +2247,7 @@ std::string getFitSolution()
   const auto& items = problem->getOptItemList(false);
 
   if (solution.size() != items.size())
-    return result.dump(2);
+    return result.dump(mIndent);
 
   for (size_t i = 0; i < solution.size(); ++i)
   {
@@ -2244,7 +2275,27 @@ std::string getFitSolution()
     result.push_back(entry);
   }
 
-  return result.dump(2);
+  return result.dump(mIndent);
+}
+
+std::string getFim()
+{
+  auto* problem = getFitProblem();
+
+  ordered_json result;
+
+  if (problem == nullptr)
+    return result.dump(mIndent);
+
+  result["fim"] = convertDataArray(&problem->getFisherInformation()); 
+  result["fim_eigenvalues"] = convertDataArray(&problem->getFisherInformationEigenvalues());
+  result["fim_eigenvectors"] = convertDataArray(&problem->getFisherInformationEigenvectors());
+
+  result["scaled_fim"] = convertDataArray(&problem->getScaledFisherInformation());
+  result["scaled_fim_eigenvalues"] = convertDataArray(&problem->getScaledFisherInformationEigenvalues());
+  result["scaled_fim_eigenvectors"] = convertDataArray(&problem->getScaledFisherInformationEigenvectors());
+
+  return result.dump(mIndent);
 }
 
 std::string getFitItems()
@@ -2254,12 +2305,12 @@ std::string getFitItems()
   ordered_json result = ordered_json::array();
 
   if (problem == nullptr)
-    return result.dump(2);
+    return result.dump(mIndent);
 
   const auto& items = problem->getOptItemList(false);
   addItemsToArray(result, items);
 
-  return result.dump(2);
+  return result.dump(mIndent);
 }
 
 std::string getFitStatistic()
@@ -2269,7 +2320,7 @@ std::string getFitStatistic()
   ordered_json result;
 
   if (problem == nullptr)
-    return result.dump(2);
+    return result.dump(mIndent);
 
   auto& experiments = problem->getExperimentSet();
   unsigned C_INT32 f_evals = problem->getFunctionEvaluations();
@@ -2292,7 +2343,19 @@ std::string getFitStatistic()
   else
     result["evals_per_sec"] = f_evals / cpu_time;
 
-  return result.dump(2);
+  return result.dump(mIndent);
+}
+
+std::string getCorrelationMatrix()
+{
+  auto* problem = getFitProblem();
+
+  ordered_json result;
+
+  if (problem == nullptr)
+    return result.dump(mIndent);
+
+  return convertDataArray(&problem->getCorrelations()).dump(mIndent);
 }
 
 std::string getSimulationResults()
@@ -2306,10 +2369,10 @@ std::string getSimulationResults()
     j["recorded_steps"] = 0;
     j["titles"] = std::vector<std::string>{};
     j["columns"] = std::vector<std::vector<double>>{};
-    return j.dump(2);
+    return j.dump(mIndent);
   }
 
-  return convertTimeSeriesToJSON(task->getTimeSeries()).dump(2);
+  return convertTimeSeriesToJSON(task->getTimeSeries()).dump(mIndent);
 }
 
 std::string simulateJSON(ordered_json& yaml)
@@ -2349,9 +2412,9 @@ std::string simulateJSON(ordered_json& yaml)
       return jsonError(getMessages(pos, "No Output"));
 
     if (mpDataHandler)
-      return convertDataHandlerToJSON(*mpDataHandler).dump(2);
+      return convertDataHandlerToJSON(*mpDataHandler).dump(mIndent);
 
-    return convertTimeSeriesToJSON(task->getTimeSeries()).dump(2);
+    return convertTimeSeriesToJSON(task->getTimeSeries()).dump(mIndent);
   }
   catch (CCopasiException& e)
   {
@@ -2368,7 +2431,7 @@ std::string getTimeCourseSettings()
   ordered_json yaml;
   auto* task = getTaskPtr<CTrajectoryTask>("Time-Course");
   if (task == nullptr)
-    return yaml.dump(2);
+    return yaml.dump(mIndent);
 
   auto* problem = dynamic_cast<CTrajectoryProblem*>(task->getProblem());
   if (problem != nullptr)
@@ -2380,7 +2443,7 @@ std::string getTimeCourseSettings()
     yaml["method"] = convertGroupToJson(method);
     yaml["method"]["name"] = method->getObjectName();
   }
-  return yaml.dump(2);
+  return yaml.dump(mIndent);
 }
 
 std::string getOptSettings()
@@ -2418,7 +2481,7 @@ std::string getOptSettings()
   addItemsToArray(constraints, optConstraints);
   yaml["constraints"] = constraints;
 
-  return yaml.dump(2);
+  return yaml.dump(mIndent);
 }
 
 std::string getFitSettings()
@@ -2452,7 +2515,7 @@ std::string getFitSettings()
   addItemsToArray(constraints, optConstraints);
   yaml["constraints"] = constraints;
 
-  return yaml.dump(2);
+  return yaml.dump(mIndent);
 }
 
 nlohmann::ordered_json _getExperimentDefinition(const CExperiment* exp)
@@ -2550,7 +2613,7 @@ std::vector<std::string> getExperimentNames()
 
 std::string getExperimentDefinition(const std::string& experimentName)
 {
-  return _getExperimentDefinition(experimentName).dump(2);
+  return _getExperimentDefinition(experimentName).dump(mIndent);
 }
 
 std::string getExperimentDefinitions()
@@ -2560,14 +2623,14 @@ std::string getExperimentDefinitions()
   auto* task = getTaskPtr<CFitTask>("Parameter Estimation");
   auto* problem = task ? dynamic_cast<CFitProblem*>(task->getProblem()) : nullptr;
   if (!task || !problem)
-    return yaml.dump(2);
+    return yaml.dump(mIndent);
 
   auto& expSet = problem->getExperimentSet();
   for (size_t i = 0; i < expSet.size(); ++i)
   {
     yaml.push_back(_getExperimentDefinition(expSet.getExperiment(i)));
   }
-  return yaml.dump(2);
+  return yaml.dump(mIndent);
 }
 
 std::vector<std::vector<double>> getExperimentData(const std::string& experimentName, bool includeIndependent/* = true*/)
@@ -2843,7 +2906,7 @@ std::string computeFitTrajectory(const std::string& experimentName)
   auto* exp = getExperimentByName(experimentName);
   if (!exp)
     return "";
-  return _computeFitTrajectory(exp).dump(2);
+  return _computeFitTrajectory(exp).dump(mIndent);
 }
 
 static nlohmann::json _computeFitSteadyState(CExperiment* exp)
@@ -2891,7 +2954,7 @@ std::string computeFitSteadyState(const std::string& experimentName)
   auto* exp = getExperimentByName(experimentName);
   if (!exp)
     return "";
-  return _computeFitSteadyState(exp).dump(2);
+  return _computeFitSteadyState(exp).dump(mIndent);
 }
 
 std::string getCurrentFit(bool computeCurrentSolution /*=true*/)
@@ -3030,7 +3093,7 @@ std::string getCurrentFit(bool computeCurrentSolution /*=true*/)
 
     //pContainer.setCompleteInitialState(CompleteExperimentInitialState);
   }
-  return results.dump(2);
+  return results.dump(mIndent);
 }
 
 std::string getTaskSettings(const std::string& taskName)
@@ -3038,9 +3101,9 @@ std::string getTaskSettings(const std::string& taskName)
   ensureModel();
   ordered_json yaml;
   if (pDataModel == nullptr || pDataModel->getTaskList() == nullptr)
-    return yaml.dump(2);
+    return yaml.dump(mIndent);
   if (pDataModel->getTaskList()->getIndex(taskName) == C_INVALID_INDEX)
-    return yaml.dump(2);
+    return yaml.dump(mIndent);
 
   auto& task = (*pDataModel->getTaskList())[taskName];
 
@@ -3049,7 +3112,7 @@ std::string getTaskSettings(const std::string& taskName)
 
   auto* problem = task.getProblem();
   if (problem == nullptr)
-    return yaml.dump(2);
+    return yaml.dump(mIndent);
 
   yaml["problem"] = convertGroupToJson(problem);
 
@@ -3059,7 +3122,7 @@ std::string getTaskSettings(const std::string& taskName)
     yaml["method"] = convertGroupToJson(method);
     yaml["method"]["name"] = method->getObjectName();
   }
-  return yaml.dump(2);
+  return yaml.dump(mIndent);
 }
 
 std::vector<std::string> getAvailableMethods(const std::string& taskName)
@@ -3402,11 +3465,17 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
   emscripten::function("computeFitTrajectory", &computeFitTrajectory);
   emscripten::function("computeFitSteadyState", &computeFitSteadyState);
   emscripten::function("getCurrentFit", &getCurrentFit);
+  emscripten::function("getFim", &getFim);
+  emscripten::function("getCorrelationMatrix", &getCorrelationMatrix);
 
   // auto update model
   emscripten::function("getAutoUpdateModel", &getAutoUpdateModel);
   emscripten::function("setAutoUpdateModel", &setAutoUpdateModel);
 
   emscripten::function("convertToIrreversible", &convertToIrreversible);
+
+  emscripten::function("getIndent", &getIndent);
+  emscripten::function("setIndent", &setIndent);
+
 }
 #endif

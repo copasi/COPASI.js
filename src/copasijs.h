@@ -301,6 +301,18 @@ std::string getFitSolution();
 std::string getFitStatistic();
 
 
+/// @brief returns the correlation matrix of the last parameter estimation run as JSON string
+/// @return JSON object with the correlation matrix
+std::string getCorrelationMatrix();
+
+/// @brief returns the FIM of the last parameter estimation run as JSON string
+/// 
+/// This also includes the FIM eigenvalues and eigenvectors
+/// 
+/// @return JSON object with the FIM, eigenvalues, and eigenvectors both scaled and unscaled
+std::string getFim();
+
+
 /// @brief returns the names of the fit items as JSON string
 /// @return JSON array with the names of the fit items
 std::string getFitItems();
@@ -807,6 +819,21 @@ void clearLists();
 /// @brief ensures that a data model exists
 /// This will call @see initCps if necessary
 void ensureModel();
+
+
+/// @brief sets the indentation level for the json output
+/// @param indent the indentation level to set
+/// 
+/// Indentation is expensive, so while the default (2) is 
+/// good for human readability, it is not necessary for 
+/// machine readability. Set a value of -1 to disable 
+/// indentation and save time.
+/// 
+void setIndent(int indent);
+
+/// @brief returns the current indentation level for the json output
+/// @return the current indentation level for the json output
+int getIndent();
 
 
 /// @brief this function converts a parameter group to a json object

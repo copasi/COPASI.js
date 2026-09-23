@@ -914,6 +914,166 @@ class COPASI {
     }
 
     /**
+     * The correlation matrix as object.
+     * ```json
+     * {
+     *   "columns": [
+     *     "'(v1).k'",
+     *     "'(v2).k1'"
+     *   ],
+     *   "rows": [
+     *     "'(v1).k'",
+     *     "'(v2).k1'"
+     *   ],
+     *   "values": [
+     *     [
+     *       0.9999999999999999,
+     *       0.9807337357504254
+     *     ],
+     *     [
+     *       0.9807337357504254,
+     *       0.9999999999999999
+     *     ]
+     *   ]
+     * }```
+     * @type {object}
+     */
+    get correlationMatrix() {
+        return JSON.parse(this.Module.getCorrelationMatrix());
+    }
+
+
+    /**
+     * The Fischer information matrix as object.
+     * 
+     * This includes, the fisher information matrix, the eigenvalues and the eigenvectors. 
+     * both scaled and unscaled as data arrays.
+     * 
+     * ```json
+     * {
+     *    "fim": {
+     *      "columns": [
+     *        "'(v1).k'",
+     *        "'(v2).k1'"
+     *      ],
+     *      "rows": [
+     *        "'(v1).k'",
+     *        "'(v2).k1'"
+     *      ],
+     *      "values": [
+     *        [
+     *          0.24181093286002556,
+     *          -0.3990170323770476
+     *        ],
+     *        [
+     *          -0.3990170323770476,
+     *          0.6845492624601023
+     *        ]
+     *      ]
+     *    },
+     *    "fim_eigenvalues": {
+     *      "columns": [
+     *        "1"
+     *      ],
+     *      "rows": [
+     *        "1",
+     *        "2"
+     *      ],
+     *      "values": [
+     *        [
+     *          0.00687000654739478
+     *        ],
+     *        [
+     *          0.9194901887727329
+     *        ]
+     *      ]
+     *    },
+     *    "fim_eigenvectors": {
+     *      "columns": [
+     *        "'(v1).k'",
+     *        "'(v2).k1'"
+     *      ],
+     *      "rows": [
+     *        "1",
+     *        "2"
+     *      ],
+     *      "values": [
+     *        [
+     *          -0.8617217634867894,
+     *          -0.5073811213803857
+     *        ],
+     *        [
+     *          -0.5073811213803857,
+     *          0.8617217634867894
+     *        ]
+     *      ]
+     *    },
+     *    "scaled_fim": {
+     *      "columns": [
+     *        "'(v1).k'",
+     *        "'(v2).k1'"
+     *      ],
+     *      "rows": [
+     *        "'(v1).k'",
+     *        "'(v2).k1'"
+     *      ],
+     *      "values": [
+     *        [
+     *          1.2437725097746164,
+     *          -1.28974037014191
+     *        ],
+     *        [
+     *          -1.28974037014191,
+     *          1.3904693009022884
+     *        ]
+     *      ]
+     *    },
+     *    "scaled_fim_eigenvalues": {
+     *      "columns": [
+     *        "1"
+     *      ],
+     *      "rows": [
+     *        "1",
+     *        "2"
+     *      ],
+     *      "values": [
+     *        [
+     *          0.02529653279178934
+     *        ],
+     *        [
+     *          2.608945277885115
+     *        ]
+     *      ]
+     *    },
+     *    "scaled_fim_eigenvectors": {
+     *      "columns": [
+     *        "'(v1).k'",
+     *        "'(v2).k1'"
+     *      ],
+     *      "rows": [
+     *        "1",
+     *        "2"
+     *      ],
+     *      "values": [
+     *        [
+     *          -0.7269040246878076,
+     *          -0.6867390617204377
+     *        ],
+     *        [
+     *          -0.6867390617204377,
+     *          0.7269040246878076
+     *        ]
+     *      ]
+     *    }
+     *  }"
+     * ```
+     * @type {object}
+     */
+    get fischerInformationMatrix() {
+        return JSON.parse(this.Module.getFim());
+    }
+
+    /**
      * Returns the fit items as object.
      * @type {object}
      */
@@ -1076,6 +1236,17 @@ class COPASI {
      */
     convertToIrreversible() {
         return JSON.parse(this.Module.convertToIrreversible());
+    }
+
+    /**
+     * The indent level for the JSON output.
+     * @type {number}
+     */
+    get indent() {
+        return this.Module.getIndent();
+    }
+    set indent(value) {
+        this.Module.setIndent(value);
     }
 
 }

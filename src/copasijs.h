@@ -191,6 +191,19 @@ std::string getSteadyStateProtocol();
 /// @return boolean indicating success
 bool computeMca(bool performSteadyState=true, bool updateModel=true);
 
+/// @brief returns the MCA protocol as string
+/// @return the MCA protocol as string
+std::string getMcaProtocol();
+
+/// @brief returns the MCA settings as string
+/// @return the MCA settings as string
+std::string getMcaSettings();
+
+/// @brief sets the MCA settings from a string
+/// @param settings the MCA settings as string
+/// @return boolean indicating success
+bool setMcaSettings(const std::string& settings);
+
 /// @brief runs the Linear Noise Approximation task
 /// @param useInitialValues if true the initial values are used, otherwise the current state is used
 /// @return boolean indicating success

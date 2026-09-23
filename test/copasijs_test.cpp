@@ -447,6 +447,16 @@ TEST_CASE("Test MCA", "[copasijs][mca]")
   REQUIRE(dValue != dValue);
   dValue = getValue("uCCC(A,R1)");
 	REQUIRE(dValue != dValue);
+
+  std::string mcaResult = getMcaProtocol();
+  REQUIRE(!mcaResult.empty());
+
+  std::string settings = getMcaSettings();
+  CAPTURE(settings);
+  REQUIRE(!settings.empty());
+
+  REQUIRE(setMcaSettings(settings));
+
 }
 
 

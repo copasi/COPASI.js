@@ -36,6 +36,10 @@ class COPASI {
         MetabolicControlAnalysis: 'Metabolic Control Analysis',
         /** Linear Noise Approximation */
         LinearNoiseApproximation: 'Linear Noise Approximation',
+        /** Parameter Estimation */
+        ParameterEstimation: 'Parameter Estimation',
+        /** Optimization */
+        Optimization: 'Optimization',
     };
 
     /**
@@ -494,6 +498,22 @@ class COPASI {
         return this.Module.setTimeCourseSettings(arg);
     }
 
+
+    /**
+     * The MCA settings as JSON object.
+     * @type {object}
+     */
+    get mcaSettings() {
+        return JSON.parse(this.Module.getMcaSettings());
+    }
+
+    set mcaSettings(arg) {
+        if (typeof arg !== 'string') {
+            arg = JSON.stringify(arg);
+        }
+        return this.Module.setMcaSettings(arg);
+    }
+    
     /**
      * Model information as object.
      * @type {object}
@@ -686,6 +706,14 @@ class COPASI {
     computeMca(performSteadyState = true, updateModel = true)
     {
         return this.Module.computeMca(performSteadyState, updateModel);
+    }
+
+    /**
+     * The MCA protocol as String.
+     * @type {string}
+     */
+    get mcaProtocol() {
+        return this.Module.getMcaProtocol();
     }
 
     /**

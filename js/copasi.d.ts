@@ -183,6 +183,9 @@ export default class COPASI {
     setExperimentFilename(experimentName: string, experimentFilename: string): boolean;
     
     convertToIrreversible(): object;
+
+    mcaSettings: object;
+    mcaProtocol: string;
 }
 
 export {COPASI};

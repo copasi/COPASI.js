@@ -1198,7 +1198,9 @@ ordered_json buildModelInfo()
   modelInfo["model"]["length_unit"] = pModel->getLengthUnit();
   modelInfo["model"]["initial_time"] = pModel->getInitialTime();
   modelInfo["model"]["avogadro"] = pModel->getAvogadro();
-
+  modelInfo["model"]["model_type"] = pModel->getModelType() == CModel::ModelType::deterministic ? "deterministic" : "stochastic";
+  modelInfo["model"]["time"] = pModel->getTime();
+ 
   modelInfo["status"] = "success";
   modelInfo["messages"] = getMessages(0, "No Output");
 

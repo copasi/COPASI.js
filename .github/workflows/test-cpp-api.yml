@@ -55,7 +55,7 @@ jobs:
         cmake --build ${{github.workspace}}/build-dependencies --config=${{env.BUILD_TYPE}}
 
         git clone https://github.com/copasi/COPASI
-        cd COPASI && git checkout release/Version-4.47 && cd ..
+        cd COPASI && git checkout release/Version-4.48 && cd ..
         cd COPASI && gitTools/UpdateCopasiVersion --force && cd ..
 
         cp COPASI/copasi/lapack/f2c.h dependencies/include 

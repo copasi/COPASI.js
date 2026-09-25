@@ -701,7 +701,7 @@ TEST_CASE("Test LNA failure", "[copasijs][lna]")
 
   REQUIRE(runLNA(true) == false);
 
-  std::string messages = getMessages(0);
+  std::string messages = getLNAResults(false);
   CAPTURE(messages);
   REQUIRE(!messages.empty());
 

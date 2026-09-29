@@ -26,7 +26,7 @@ project(copasijs LANGUAGES CXX VERSION ${COPASIJS_DOTTED_VERSION})
 
 enable_testing()
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 
 # Specify directory with dependencies
 set(COPASIJS_DEPENDENCY_DIR "dependencies" CACHE PATH "Directory with dependencies")

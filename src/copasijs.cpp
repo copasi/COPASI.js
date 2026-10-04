@@ -1360,6 +1360,14 @@ static auto findModelObject(Vec& vec, const ordered_json& item) -> decltype(&vec
 }
 
 template <typename Vec>
+static auto findPatchedObject(Vec& vec, const ordered_json& item)
+{
+  if (auto* byNewName = findByObjectName(vec, jsonGetString(item, "new_name")))
+    return byNewName;
+  return findModelObject(vec, item);
+}
+
+template <typename Vec>
 static bool objectExists(Vec& vec, const ordered_json& item)
 {
   return findModelObject(vec, item) != nullptr;
@@ -1445,6 +1453,33 @@ static std::string requireCreateName(const ordered_json& item, const std::string
   return {};
 }
 
+static void renameInSelectionList(const std::string& oldName, const std::string& newName)
+{
+  if (oldName.empty() || newName.empty() || oldName == newName)
+    return;
+
+  const auto replaceAll = [](std::string& haystack, const std::string& from, const std::string& to)
+    {
+      size_t pos = 0;
+      while ((pos = haystack.find(from, pos)) != std::string::npos)
+      {
+        haystack.replace(pos, from.size(), to);
+        pos += to.size();
+      }
+    };
+
+  for (auto& selected : mSelectionList)
+  {
+    if (selected == oldName)
+    {
+      selected = newName;
+      continue;
+    }
+    replaceAll(selected, "[" + oldName + "]", "[" + newName + "]");
+    replaceAll(selected, "(" + oldName + ").", "(" + newName + ").");
+  }
+}
+
 template <typename Vec, typename T>
 static std::string renameIfRequested(Vec& vec, T* obj, const ordered_json& item)
 {
@@ -1456,8 +1491,10 @@ static std::string renameIfRequested(Vec& vec, T* obj, const ordered_json& item)
     if (&el != obj && el.getObjectName() == newName)
       return "Name already exists: " + newName;
   }
+  const auto oldName = obj->getObjectName();
   if (!obj->setObjectName(newName))
     return "Failed to rename to '" + newName + "'";
+  renameInSelectionList(oldName, newName);
   return {};
 }
 
@@ -1820,6 +1857,30 @@ static std::string applyEventAttributes(CModel* pModel, CEvent* event, const ord
   return applyEventAssignments(pModel, event, item);
 }
 
+static void removeFromSelectionList(const std::string& name)
+{
+  if (name.empty())
+    return;
+  mSelectionList.erase(std::remove(mSelectionList.begin(), mSelectionList.end(), name), mSelectionList.end());
+}
+
+template <typename T>
+static void removeObjectFromSelectionList(T* obj)
+{
+  if (obj == nullptr)
+    return;
+  removeFromSelectionList(obj->getObjectName());
+  removeFromSelectionList(obj->getSBMLId());
+}
+
+static void addToSelectionList(const std::string& name)
+{
+  if (name.empty())
+    return;
+  if (std::find(mSelectionList.begin(), mSelectionList.end(), name) == mSelectionList.end())
+    mSelectionList.push_back(name);
+}
+
 static std::string validateCreateNames(const ModelChangeLists& lists, const std::string& section)
 {
   std::set<std::string> names;
@@ -2007,30 +2068,56 @@ std::string applyModelChanges(const std::string& json)
     for (const auto& item : events.deletes)
     {
       auto* event = findModelObject(pModel->getEvents(), item);
+      removeObjectFromSelectionList(event);
       if (event == nullptr || !pModel->removeEvent(event, true))
         return jsonError("Failed to delete event");
     }
     for (const auto& item : reactions.deletes)
     {
       auto* reaction = findModelObject(pModel->getReactions(), item);
+      removeObjectFromSelectionList(reaction);
+      if (reaction != nullptr)
+      {
+        auto& fun_params = reaction->getFunctionParameters();
+        for (size_t i = 0; i < fun_params.size(); ++i)
+        {
+          auto* fun_parameter = fun_params[i];
+          if (fun_parameter == nullptr || reaction->isLocalParameter(fun_parameter->getObjectName()) == false)
+            continue;
+          auto& obj = reaction->getParameterObjects(fun_parameter->getObjectName());
+          if (!obj.empty() && obj[0] != nullptr)
+            removeFromSelectionList(obj[0]->getObjectDisplayName());
+        }
+      }
       if (reaction == nullptr || !pModel->removeReaction(reaction, true))
         return jsonError("Failed to delete reaction");
     }
     for (const auto& item : species.deletes)
     {
       auto* metab = findModelObject(pModel->getMetabolites(), item);
+      removeObjectFromSelectionList(metab);
       if (metab == nullptr || !pModel->removeMetabolite(metab, true))
         return jsonError("Failed to delete species");
     }
     for (const auto& item : parameters.deletes)
     {
       auto* param = findModelObject(pModel->getModelValues(), item);
+      removeObjectFromSelectionList(param);
       if (param == nullptr || !pModel->removeModelValue(param, true))
         return jsonError("Failed to delete global parameter");
     }
     for (const auto& item : compartments.deletes)
     {
       auto* compartment = findModelObject(pModel->getCompartments(), item);
+      removeObjectFromSelectionList(compartment);
+      if (compartment != nullptr)
+      {
+        for (auto& metab : pModel->getMetabolites())
+        {
+          if (metab.getCompartment() == compartment)
+            removeObjectFromSelectionList(&metab);
+        }
+      }
       if (compartment == nullptr || !pModel->removeCompartment(compartment, true))
         return jsonError("Failed to delete compartment");
     }
@@ -2149,7 +2236,7 @@ std::string applyModelChanges(const std::string& json)
     }
     for (const auto& item : compartments.updates)
     {
-      auto* compartment = findModelObject(pModel->getCompartments(), item);
+      auto* compartment = findPatchedObject(pModel->getCompartments(), item);
       if (compartment != nullptr)
         applyCompartmentAttributes(pModel, compartment, item);
     }
@@ -2163,40 +2250,47 @@ std::string applyModelChanges(const std::string& json)
     }
     for (const auto& item : parameters.updates)
     {
-      auto* param = findModelObject(pModel->getModelValues(), item);
+      auto* param = findPatchedObject(pModel->getModelValues(), item);
       if (param != nullptr)
         applyParameterAttributes(pModel, param, item);
     }
     for (const auto& item : species.creates)
     {
-      auto* metab = findByObjectName(pModel->getMetabolites(), jsonGetString(item, "name"));
-      if (metab == nullptr)
-        metab = findModelObject(pModel->getMetabolites(), item);
+      auto* metab = findPatchedObject(pModel->getMetabolites(), item);
       if (metab != nullptr)
         applySpeciesAttributes(pModel, metab, item);
     }
     for (const auto& item : species.updates)
     {
-      auto* metab = findModelObject(pModel->getMetabolites(), item);
+      auto* metab = findPatchedObject(pModel->getMetabolites(), item);
       if (metab != nullptr)
         applySpeciesAttributes(pModel, metab, item);
     }
     for (const auto& item : reactions.creates)
     {
-      auto* reaction = findByObjectName(pModel->getReactions(), jsonGetString(item, "name"));
-      if (reaction == nullptr)
-        reaction = findModelObject(pModel->getReactions(), item);
+      auto* reaction = findPatchedObject(pModel->getReactions(), item);
       if (reaction != nullptr)
         applyLocalParameters(reaction, item);
     }
     for (const auto& item : reactions.updates)
     {
-      auto* reaction = findModelObject(pModel->getReactions(), item);
+      auto* reaction = findPatchedObject(pModel->getReactions(), item);
       if (reaction != nullptr)
         applyLocalParameters(reaction, item);
     }
 
     pModel->applyInitialValues();
+
+    for (const auto& item : species.creates)
+    {
+      auto* metab = findPatchedObject(pModel->getMetabolites(), item);
+      if (metab == nullptr)
+        continue;
+      if (metab->getStatus() != CModelEntity::Status::FIXED)
+        addToSelectionList(metab->getObjectName());
+      else
+        removeFromSelectionList(metab->getObjectName());
+    }
   }
   catch (CCopasiException&)
   {

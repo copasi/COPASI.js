@@ -234,6 +234,7 @@ test('applies sparse model changes', async () => {
     assert.equal(created.status, 'success');
     assert.ok(created.species.some((s) => s.name === 'Z'));
     assert.ok(created.reactions.some((r) => r.name === 'R_XZ'));
+    assert.ok(instance.selectionList.includes('Z'));
 
     const sim = instance.simulateEx(0, 1, 3);
     assert.equal(sim.status, 'success');
@@ -249,6 +250,17 @@ test('applies sparse model changes', async () => {
     assert.equal(renamed.status, 'success');
     assert.ok(renamed.species.some((s) => s.name === 'Xrenamed'));
     assert.ok(!renamed.species.some((s) => s.name === 'X'));
+    assert.ok(instance.selectionList.includes('Xrenamed'));
+    assert.ok(!instance.selectionList.includes('X'));
+
+    assert.ok(instance.selectionList.includes('Y'));
+    const deleted = instance.applyModelChanges({
+        species: [{ op: 'delete', name: 'Y' }]
+    });
+    assert.equal(deleted.status, 'success');
+    assert.ok(!deleted.species.some((s) => s.name === 'Y'));
+    assert.ok(!instance.selectionList.includes('Y'));
+    assert.ok(instance.selectionList.includes('Xrenamed'));
 
     instance.destroy();
 });

@@ -7,6 +7,7 @@
 #include "copasijs.h"
 
 #include <cstdlib>
+#include <algorithm>
 
 
 class Instance {
@@ -720,6 +721,9 @@ TEST_CASE("applyModelChanges", "[copasijs][modelchanges]")
 
     SECTION("rename via new_name")
     {
+        auto before = getSelectionList();
+        REQUIRE(std::find(before.begin(), before.end(), "X") != before.end());
+
         auto result = ordered_json::parse(applyModelChanges(R"({
           "species": [{ "name": "X", "new_name": "Xrenamed" }]
         })"));
@@ -735,6 +739,25 @@ TEST_CASE("applyModelChanges", "[copasijs][modelchanges]")
         }
         REQUIRE(renamed);
         REQUIRE(!oldName);
+
+        auto selection = getSelectionList();
+        REQUIRE(std::find(selection.begin(), selection.end(), "Xrenamed") != selection.end());
+        REQUIRE(std::find(selection.begin(), selection.end(), "X") == selection.end());
+        REQUIRE(std::find(selection.begin(), selection.end(), "Y") != selection.end());
+    }
+
+    SECTION("rename updates display-name selection entries")
+    {
+        setSelectionList({ "Time", "[X]", "Y" });
+        auto result = ordered_json::parse(applyModelChanges(R"({
+          "species": [{ "name": "X", "new_name": "Xrenamed" }]
+        })"));
+        REQUIRE(result["status"] == "success");
+
+        auto selection = getSelectionList();
+        REQUIRE(std::find(selection.begin(), selection.end(), "[Xrenamed]") != selection.end());
+        REQUIRE(std::find(selection.begin(), selection.end(), "[X]") == selection.end());
+        REQUIRE(std::find(selection.begin(), selection.end(), "Y") != selection.end());
     }
 
     SECTION("create species and reaction then simulate")
@@ -767,6 +790,9 @@ TEST_CASE("applyModelChanges", "[copasijs][modelchanges]")
         REQUIRE(foundZ);
         REQUIRE(foundR);
 
+        auto selection = getSelectionList();
+        REQUIRE(std::find(selection.begin(), selection.end(), "Z") != selection.end());
+
         auto sim = ordered_json::parse(simulateEx(0, 1, 3));
         REQUIRE(sim["status"] == "success");
     }
@@ -782,6 +808,40 @@ TEST_CASE("applyModelChanges", "[copasijs][modelchanges]")
         REQUIRE(result["status"] == "success");
         for (auto& reaction : result["reactions"])
             REQUIRE(reaction["name"] != reactionName);
+    }
+
+    SECTION("deleted species is removed from the selection list")
+    {
+        auto before = getSelectionList();
+        REQUIRE(std::find(before.begin(), before.end(), "Y") != before.end());
+
+        auto result = ordered_json::parse(applyModelChanges(R"({
+          "species": [{ "op": "delete", "name": "Y" }]
+        })"));
+        REQUIRE(result["status"] == "success");
+        for (auto& species : result["species"])
+            REQUIRE(species["name"] != "Y");
+
+        auto selection = getSelectionList();
+        REQUIRE(std::find(selection.begin(), selection.end(), "Y") == selection.end());
+        REQUIRE(std::find(selection.begin(), selection.end(), "X") != selection.end());
+    }
+
+    SECTION("created fixed species is not added to the selection list")
+    {
+        ordered_json spec;
+        spec["op"] = "create";
+        spec["name"] = "FixedZ";
+        spec["compartment"] = compartment;
+        spec["initial_concentration"] = 1.0;
+        spec["type"] = "fixed";
+        ordered_json patch;
+        patch["species"] = ordered_json::array({spec});
+        auto result = ordered_json::parse(applyModelChanges(patch.dump()));
+        REQUIRE(result["status"] == "success");
+
+        auto selection = getSelectionList();
+        REQUIRE(std::find(selection.begin(), selection.end(), "FixedZ") == selection.end());
     }
 }
 

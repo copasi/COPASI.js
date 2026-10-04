@@ -36,6 +36,29 @@ createApi().then((Module) => {
 });
 ```
 
+## Simulation results as a float matrix
+
+By default, `simulate`, `simulateEx`, and `simulateYaml` return every recorded value inside the JSON object, under `columns`. For long time courses that conversion is the expensive part.
+
+Pass `includeData` as `false` to skip those numbers. The JSON result still has `status`, `num_variables`, `recorded_steps`, and `titles`. Read the values from `simulationMatrix` instead:
+
+```javascript
+var result = instance.simulateEx(0, 10, 11, false);
+var matrix = instance.simulationMatrix;
+
+// matrix.rows  == result.recorded_steps
+// matrix.cols  == result.num_variables
+// matrix.data  is a Float64Array, row-major:
+//   value at time step s, variable v  ->  matrix.data[s * matrix.cols + v]
+// variable names are result.titles[v]
+
+console.log(result.titles[1], matrix.data[1]);
+```
+
+`matrix.data` is a view of the WASM memory, filled once from the recorded time course. It stays valid until the next `simulate`, `simulateEx`, `simulateYaml`, or `oneStep`, and until any call that grows the WASM heap. Copy it with `matrix.data.slice()` when the numbers need to outlive that.
+
+The same flag works on `simulate(includeData)` and `simulateYaml(options, includeData)`. Leaving it out, or passing `true`, keeps the original JSON `columns`.
+
 ## Download Release
 You could just take one of the release archives directly from the [releases page](https://github.com/copasi/COPASI.js/releases). There are three different kind of archives: 
 

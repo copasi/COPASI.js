@@ -119,6 +119,20 @@ static CDataHandler* mpDataHandler = nullptr;
 static CDataHandler* mpLastDataHandler = nullptr;
 static bool mAutoUpdateModel = true;
 static int mIndent = 2;
+static std::vector<double> mSimulationMatrix;
+static size_t mSimulationMatrixRows = 0;
+static size_t mSimulationMatrixCols = 0;
+static bool mSimulationMatrixValid = false;
+static bool mSimulationRecorded = false;
+
+static void invalidateSimulationMatrix()
+{
+  mSimulationMatrix.clear();
+  mSimulationMatrixRows = 0;
+  mSimulationMatrixCols = 0;
+  mSimulationMatrixValid = false;
+  mSimulationRecorded = false;
+}
 
 static bool jsonHas(const ordered_json& j, const std::string& key)
 {
@@ -374,6 +388,8 @@ void clearLists()
     delete mpDataHandler;
     mpDataHandler = nullptr;
   }
+
+  invalidateSimulationMatrix();
 }
 
 std::string getVersion()
@@ -412,7 +428,7 @@ std::string getMessages(int start, const std::string& filter)
   return str.str();
 }
 
-ordered_json convertDataHandlerToJSON(const CDataHandler& dh)
+ordered_json convertDataHandlerToJSON(const CDataHandler& dh, bool includeData)
 {
   auto& data = dh.getDuringData();
 
@@ -421,6 +437,9 @@ ordered_json convertDataHandlerToJSON(const CDataHandler& dh)
   j["num_variables"] = mSelectionList.size();
   j["recorded_steps"] = data.size();
   j["titles"] = mSelectionList;
+
+  if (!includeData)
+    return j;
 
   std::vector<std::vector<double>> columns;
   columns.reserve(mSelectionList.size());
@@ -442,26 +461,31 @@ ordered_json convertDataHandlerToJSON(const CDataHandler& dh)
   return j;
 }
 
-ordered_json convertTimeSeriesToJSON(const CTimeSeries& ts)
+ordered_json convertTimeSeriesToJSON(const CTimeSeries& ts, bool includeData)
 {
   ordered_json j;
   j["status"] = "success";
   j["num_variables"] = ts.getNumVariables();
   j["recorded_steps"] = ts.getRecordedSteps();
   std::vector<std::string> titles;
-  std::vector<std::vector<double>> data;
-  for (int i = 0; i < ts.getNumVariables(); ++i)
-  {
+  titles.reserve(ts.getNumVariables());
+  for (size_t i = 0; i < ts.getNumVariables(); ++i)
     titles.push_back(ts.getTitle(i));
-
-    std::vector<double> column;
-    for (int j = 0; j < ts.getRecordedSteps(); ++j)
-    {
-      column.push_back(ts.getConcentrationData(j, i));
-    }
-    data.push_back(column);
-  }
   j["titles"] = titles;
+
+  if (!includeData)
+    return j;
+
+  std::vector<std::vector<double>> data;
+  data.reserve(ts.getNumVariables());
+  for (size_t i = 0; i < ts.getNumVariables(); ++i)
+  {
+    std::vector<double> column;
+    column.reserve(ts.getRecordedSteps());
+    for (size_t step = 0; step < ts.getRecordedSteps(); ++step)
+      column.push_back(ts.getConcentrationData(step, i));
+    data.push_back(std::move(column));
+  }
   j["columns"] = data;
 
   return j;
@@ -2807,6 +2831,70 @@ std::vector<std::vector<double>> getSimulationResults2D()
   return results;
 }
 
+static void ensureSimulationMatrix()
+{
+  if (mSimulationMatrixValid)
+    return;
+
+  mSimulationMatrix.clear();
+  mSimulationMatrixRows = 0;
+  mSimulationMatrixCols = 0;
+
+  if (mSimulationRecorded && mpDataHandler != nullptr)
+  {
+    const auto& data = mpDataHandler->getDuringData();
+    mSimulationMatrixRows = data.size();
+    mSimulationMatrixCols = mSelectionList.size();
+    mSimulationMatrix.assign(mSimulationMatrixRows * mSimulationMatrixCols,
+      std::numeric_limits<double>::quiet_NaN());
+    for (size_t row = 0; row < mSimulationMatrixRows; ++row)
+    {
+      const auto& values = data[row];
+      const size_t count = std::min(mSimulationMatrixCols, values.size());
+      if (count == 0)
+        continue;
+      std::memcpy(mSimulationMatrix.data() + row * mSimulationMatrixCols,
+        values.data(), count * sizeof(double));
+    }
+  }
+  else if (mSimulationRecorded)
+  {
+    auto* task = getTaskPtr<CTrajectoryTask>("Time-Course");
+    if (task != nullptr)
+    {
+      const auto& ts = task->getTimeSeries();
+      mSimulationMatrixRows = ts.getRecordedSteps();
+      mSimulationMatrixCols = ts.getNumVariables();
+      mSimulationMatrix.resize(mSimulationMatrixRows * mSimulationMatrixCols);
+      for (size_t row = 0; row < mSimulationMatrixRows; ++row)
+      {
+        for (size_t col = 0; col < mSimulationMatrixCols; ++col)
+          mSimulationMatrix[row * mSimulationMatrixCols + col] = ts.getConcentrationData(row, col);
+      }
+    }
+  }
+
+  mSimulationMatrixValid = true;
+}
+
+size_t getSimulationMatrixRows()
+{
+  ensureSimulationMatrix();
+  return mSimulationMatrixRows;
+}
+
+size_t getSimulationMatrixCols()
+{
+  ensureSimulationMatrix();
+  return mSimulationMatrixCols;
+}
+
+const std::vector<double>& getSimulationMatrixData()
+{
+  ensureSimulationMatrix();
+  return mSimulationMatrix;
+}
+
 std::vector<std::vector<double>> convertCEigen(const CEigen& eValues)
 {
   std::vector<std::vector<double>> values;
@@ -3737,10 +3825,11 @@ std::string getSimulationResults()
   return convertTimeSeriesToJSON(task->getTimeSeries()).dump(mIndent);
 }
 
-std::string simulateJSON(ordered_json& yaml)
+std::string simulateJSON(ordered_json& yaml, bool includeData)
 {
   try
   {
+    invalidateSimulationMatrix();
     ensureModel();
 
     CCopasiMessage::clearDeque();
@@ -3773,10 +3862,12 @@ std::string simulateJSON(ordered_json& yaml)
     if (!task->restore())
       return jsonError(getMessages(pos, "No Output"));
 
-    if (mpDataHandler)
-      return convertDataHandlerToJSON(*mpDataHandler).dump(mIndent);
+    mSimulationRecorded = true;
 
-    return convertTimeSeriesToJSON(task->getTimeSeries()).dump(mIndent);
+    if (mpDataHandler)
+      return convertDataHandlerToJSON(*mpDataHandler, includeData).dump(mIndent);
+
+    return convertTimeSeriesToJSON(task->getTimeSeries(), includeData).dump(mIndent);
   }
   catch (CCopasiException& e)
   {
@@ -4529,12 +4620,12 @@ void setTimeCourseSettings(const std::string& settings)
   }
 }
 
-std::string simulateYaml(const std::string& processingYaml)
+std::string simulateYaml(const std::string& processingYaml, bool includeData)
 {
   try
   {
     auto yaml = nlohmann::ordered_json::parse(processingYaml);
-    return simulateJSON(yaml);
+    return simulateJSON(yaml, includeData);
   }
   catch (const std::exception& e)
   {
@@ -4542,13 +4633,13 @@ std::string simulateYaml(const std::string& processingYaml)
   }
 }
 
-std::string simulate()
+std::string simulate(bool includeData)
 {
   ordered_json yaml;
-  return simulateJSON(yaml);
+  return simulateJSON(yaml, includeData);
 }
 
-std::string simulateEx(double timeStart, double timeEnd, int numPoints)
+std::string simulateEx(double timeStart, double timeEnd, int numPoints, bool includeData)
 {
   ordered_json yaml;
   numPoints = numPoints > 1 ? numPoints - 1 : numPoints;
@@ -4561,7 +4652,7 @@ std::string simulateEx(double timeStart, double timeEnd, int numPoints)
   double stepSize = (timeEnd - timeStart) / numPoints;
   yaml["problem"]["StepSize"] = stepSize;
   yaml["problem"]["AutomaticStepSize"] = false;
-  return simulateJSON(yaml);
+  return simulateJSON(yaml, includeData);
 }
 
 std::vector<std::string> getReactionNames()
@@ -4670,7 +4761,7 @@ double oneStep(double startTime, double stepSize)
   yaml["problem"]["StepSize"] = stepSize;
   yaml["problem"]["OutputStartTime"] = startTime;
   yaml["problem"]["Duration"] = startTime + stepSize;
-  auto result = simulateJSON(yaml);
+  auto result = simulateJSON(yaml, false);
   try
   {
     auto j = ordered_json::parse(result);
@@ -4746,9 +4837,30 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
   emscripten::function("newModel", &newModel);
   emscripten::function("reset", &reset);
   emscripten::function("resetAll", &resetAll);
-  emscripten::function("simulate", &simulate);
-  emscripten::function("simulateYaml", &simulateYaml);
-  emscripten::function("simulateEx", &simulateEx);
+  emscripten::function("simulate", optional_override([]()
+    { return simulate(true); }));
+  emscripten::function("simulate", optional_override([](bool includeData)
+    { return simulate(includeData); }));
+  emscripten::function("simulateYaml", optional_override([](const std::string& processingYaml)
+    { return simulateYaml(processingYaml, true); }));
+  emscripten::function("simulateYaml", optional_override([](const std::string& processingYaml, bool includeData)
+    { return simulateYaml(processingYaml, includeData); }));
+  emscripten::function("simulateEx", optional_override([](double timeStart, double timeEnd, int numPoints)
+    { return simulateEx(timeStart, timeEnd, numPoints, true); }));
+  emscripten::function("simulateEx", optional_override([](double timeStart, double timeEnd, int numPoints, bool includeData)
+    { return simulateEx(timeStart, timeEnd, numPoints, includeData); }));
+  emscripten::function("getSimulationMatrix", optional_override([]()
+    {
+      const auto& data = getSimulationMatrixData();
+      emscripten::val result = emscripten::val::object();
+      result.set("rows", getSimulationMatrixRows());
+      result.set("cols", getSimulationMatrixCols());
+      if (data.empty())
+        result.set("data", emscripten::val::global("Float64Array").new_(0));
+      else
+        result.set("data", emscripten::val(emscripten::typed_memory_view(data.size(), data.data())));
+      return result;
+    }));
   emscripten::function("getSimulationResults", &getSimulationResults);
   emscripten::function("getTimeCourseSettings", &getTimeCourseSettings);
   emscripten::function("setTimeCourseSettings", &setTimeCourseSettings);

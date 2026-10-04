@@ -4,7 +4,14 @@ export interface SimResult {
     num_variables: number;
     recorded_steps: number;
     titles: string[];
-    columns: string[];
+    columns?: number[][];
+    status?: string;
+}
+
+export interface SimulationMatrix {
+    rows: number;
+    cols: number;
+    data: Float64Array;
 }
 
 export interface SpeciesInfo {
@@ -182,12 +189,13 @@ export default class COPASI {
     loadCombineArchive(modelFile: string): ModelInfo;
     applyModelChanges(changes: ModelChanges | string): ModelInfo;
     readonly modelInfo: ModelInfo;
-    simulate() : object;
+    simulate(includeData?: boolean) : object;
     simulate2D() : number[][];
-    simulateEx(startTime : number, endTime : number, numPoints : number) : SimResult;
+    simulateEx(startTime : number, endTime : number, numPoints : number, includeData?: boolean) : SimResult;
     simulateEx2D(startTime : number, endTime : number, numPoints : number) : number[][];
-    simulateYaml(yamlProcessingOptions : string|object) : SimResult;
+    simulateYaml(yamlProcessingOptions : string|object, includeData?: boolean) : SimResult;
     simulateYaml2D(yamlProcessingOptions : string|object) : SimResult;
+    readonly simulationMatrix: SimulationMatrix;
     getValue(nameOrId: string): number;
     setValue(nameOrId: string, value: number): void;
     readonly floatingSpeciesConcentrations : number[];

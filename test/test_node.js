@@ -305,3 +305,51 @@ test('deletes compartment then creates reaction j0 A -> B', async () => {
 
     instance.destroy();
 });
+
+test('returns a shared simulation matrix without JSON columns', async () => {
+    const Module = await getModule();
+    const instance = createInstance(Module);
+    const data = fs.readFileSync(path.resolve(__dirname, '../example_files/brusselator.cps'), 'utf8');
+    const loaded = instance.loadModel(data);
+    assert.equal(loaded.status, 'success');
+
+    const full = instance.simulateEx(0, 10, 11, true);
+    assert.equal(full.status, 'success');
+    assert.ok(Array.isArray(full.columns));
+
+    const matrix = instance.simulationMatrix;
+    assert.equal(matrix.rows, full.recorded_steps);
+    assert.equal(matrix.cols, full.num_variables);
+    assert.ok(matrix.data instanceof Float64Array);
+    assert.equal(matrix.data.length, matrix.rows * matrix.cols);
+
+    for (let step = 0; step < matrix.rows; step++) {
+        for (let variable = 0; variable < matrix.cols; variable++) {
+            assert.equal(matrix.data[step * matrix.cols + variable], full.columns[variable][step]);
+        }
+    }
+
+    const again = instance.simulationMatrix;
+    assert.equal(again.data.buffer, matrix.data.buffer);
+    assert.equal(again.data.byteOffset, matrix.data.byteOffset);
+    assert.equal(again.data.length, matrix.data.length);
+
+    const first = matrix.data.slice();
+
+    instance.reset();
+    const meta = instance.simulateEx(0, 10, 11, false);
+    assert.equal(meta.status, 'success');
+    assert.ok(Array.isArray(meta.titles));
+    assert.equal(meta.columns, undefined);
+    assert.equal(meta.recorded_steps, full.recorded_steps);
+    assert.equal(meta.num_variables, full.num_variables);
+
+    const fast = instance.simulationMatrix;
+    assert.ok(fast.data instanceof Float64Array);
+    assert.equal(fast.data.length, first.length);
+    for (let i = 0; i < first.length; i++) {
+        assert.equal(fast.data[i], first[i]);
+    }
+
+    instance.destroy();
+});

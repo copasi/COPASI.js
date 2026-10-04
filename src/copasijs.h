@@ -191,6 +191,18 @@ void applyYaml(nlohmann::ordered_json& yaml);
 /// time series object as 2D double vector
 std::vector<std::vector<double>> getSimulationResults2D();
 
+/// @brief number of rows in the last simulation matrix (recorded steps)
+size_t getSimulationMatrixRows();
+
+/// @brief number of columns in the last simulation matrix (variables)
+size_t getSimulationMatrixCols();
+
+/// @brief last simulation as a row-major flat buffer
+///
+/// Index is `step * cols + variable`. The vector is filled once from the
+/// data handler or time series and reused until the next simulation.
+const std::vector<double>& getSimulationMatrixData();
+
 /// @brief runs the steady state task and returns the 
 /// closeness to steady state as result. 
 /// @param stabilityAnalysis if true the stability analysis will be performed
@@ -397,7 +409,8 @@ std::string getFitItems();
 /// }
 /// ```
 ///
-std::string simulateYaml(const std::string& processingYaml);
+/// @param includeData when false, `columns` is omitted from the JSON
+std::string simulateYaml(const std::string& processingYaml, bool includeData = true);
 
 /// @brief runs a simulation and returns the result as json string
 ///
@@ -425,7 +438,8 @@ std::string simulateYaml(const std::string& processingYaml);
 /// }
 /// ```
 ///
-std::string simulate();
+/// @param includeData when false, `columns` is omitted from the JSON
+std::string simulate(bool includeData = true);
 
 /// @brief runs a simulation and returns the result as json string
 /// @param timeStart the start time of the simulation
@@ -452,7 +466,8 @@ std::string simulate();
 /// }
 /// ```
 ///
-std::string simulateEx(double timeStart, double timeEnd, int numPoints);
+/// @param includeData when false, `columns` is omitted from the JSON
+std::string simulateEx(double timeStart, double timeEnd, int numPoints, bool includeData = true);
 
 /// @brief returns the last simulation result from the time course task
 // time series object as json string
@@ -904,10 +919,12 @@ nlohmann::ordered_json convertGroupToJson(CCopasiParameterGroup* pGroup, bool ba
 void setGroupFromJson(CCopasiParameterGroup* pGroup, nlohmann::ordered_json& settings);
 
 /// @brief converts a data handler to a json object
-nlohmann::ordered_json convertDataHandlerToJSON(const CDataHandler& dh);
+/// @param includeData when false, numeric columns are omitted
+nlohmann::ordered_json convertDataHandlerToJSON(const CDataHandler& dh, bool includeData = true);
 
 /// @brief converts a time series to a json object
-nlohmann::ordered_json convertTimeSeriesToJSON(const CTimeSeries& ts);
+/// @param includeData when false, numeric columns are omitted
+nlohmann::ordered_json convertTimeSeriesToJSON(const CTimeSeries& ts, bool includeData = true);
 
 /// @brief fills a stream with the data from a time series
 /// This generates Data in the form of a table (might not be needded anymore)
@@ -942,7 +959,8 @@ void loadCommon();
 /// }
 /// ```
 ///
-std::string simulateJSON(nlohmann::ordered_json& yaml);
+/// @param includeData when false, `columns` is omitted from the JSON
+std::string simulateJSON(nlohmann::ordered_json& yaml, bool includeData = true);
 
 CDataObject* resolveMcaObject(const std::string& item);
 

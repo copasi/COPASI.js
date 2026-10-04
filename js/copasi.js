@@ -185,10 +185,11 @@ class COPASI {
      * simulates the currently loaded model with its current 
      * time course settings.
      * 
+     * @param {boolean} [includeData=true] when false, numeric columns are omitted
      * @returns {object} simulation results as object
      */
-    simulate() {
-        return JSON.parse(this.Module.simulate());
+    simulate(includeData = true) {
+        return JSON.parse(this.Module.simulate(includeData));
     }
 
     /**
@@ -209,11 +210,12 @@ class COPASI {
      * @param {number} startTime
      * @param {number} endTime
      * @param {number} numPoints
+     * @param {boolean} [includeData=true] when false, numeric columns are omitted
      * 
      * @returns {object} simulation results as object
      */
-    simulateEx(startTime, endTime, numPoints) {
-        return JSON.parse(this.Module.simulateEx(startTime, endTime, numPoints));
+    simulateEx(startTime, endTime, numPoints, includeData = true) {
+        return JSON.parse(this.Module.simulateEx(startTime, endTime, numPoints, includeData));
     }
 
     /**
@@ -255,13 +257,14 @@ class COPASI {
      * global parameter, or `(r1).k` for the local parameter `k` of reaction `r1`.
      * 
      * @param {object|string} yamlProcessingOptions
+     * @param {boolean} [includeData=true] when false, numeric columns are omitted
      * @returns {object} simulation results as object
      */
-    simulateYaml(yamlProcessingOptions) {
+    simulateYaml(yamlProcessingOptions, includeData = true) {
         if (typeof yamlProcessingOptions !== 'string') {
             yamlProcessingOptions = JSON.stringify(yamlProcessingOptions);
         }
-        return JSON.parse(this.Module.simulateYaml(yamlProcessingOptions));
+        return JSON.parse(this.Module.simulateYaml(yamlProcessingOptions, includeData));
     }
 
     /**
@@ -726,6 +729,20 @@ class COPASI {
      */
     get simulationResults() {
         return JSON.parse(this.Module.getSimulationResults());
+    }
+
+    /**
+     * Last simulation as a shared Float64Array.
+     *
+     * Layout is row-major: `data[step * cols + variable]`.
+     * The array aliases WASM memory. It stays valid until the next
+     * simulation, or any call that grows the WASM heap. Copy with
+     * `data.slice()` to keep the numbers.
+     *
+     * @type {{rows: number, cols: number, data: Float64Array}}
+     */
+    get simulationMatrix() {
+        return this.Module.getSimulationMatrix();
     }
 
     /**

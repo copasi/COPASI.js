@@ -124,6 +124,53 @@ TEST_CASE("Load Model", "[copasijs][brusselator]")
     REQUIRE(json["columns"][0].size() == json["recorded_steps"].get<int>());
 }
 
+TEST_CASE("Simulation matrix skips JSON columns", "[copasijs][matrix]")
+{
+    Instance instance;
+    std::string model = loadFromFile(getTestFile("../example_files/brusselator.cps"));
+    REQUIRE(!model.empty());
+
+    auto full = nlohmann::json::parse(simulateEx(0, 10, 11, true));
+    REQUIRE(full["status"] == "success");
+    REQUIRE(full["titles"][0] == "Time");
+    REQUIRE(full.contains("columns"));
+
+    const int steps = full["recorded_steps"].get<int>();
+    const int vars = full["num_variables"].get<int>();
+    REQUIRE(steps == 11);
+    REQUIRE(vars == 3);
+    REQUIRE(getSimulationMatrixRows() == static_cast<size_t>(steps));
+    REQUIRE(getSimulationMatrixCols() == static_cast<size_t>(vars));
+
+    const auto& matrix = getSimulationMatrixData();
+    REQUIRE(matrix.size() == static_cast<size_t>(steps * vars));
+    const double* ptr = matrix.data();
+    REQUIRE(getSimulationMatrixData().data() == ptr);
+
+    std::vector<double> expected;
+    expected.reserve(matrix.size());
+    for (int step = 0; step < steps; ++step)
+    {
+        for (int var = 0; var < vars; ++var)
+            expected.push_back(full["columns"][var][step].get<double>());
+    }
+    REQUIRE_THAT(matrix, Catch::Matchers::Approx(expected));
+
+    std::vector<double> first(matrix.begin(), matrix.end());
+
+    reset();
+    auto meta = nlohmann::json::parse(simulateEx(0, 10, 11, false));
+    REQUIRE(meta["status"] == "success");
+    REQUIRE(meta["titles"][0] == "Time");
+    REQUIRE_FALSE(meta.contains("columns"));
+    REQUIRE(meta["recorded_steps"].get<int>() == steps);
+    REQUIRE(meta["num_variables"].get<int>() == vars);
+
+    const auto& fast = getSimulationMatrixData();
+    REQUIRE(fast.size() == first.size());
+    REQUIRE_THAT(fast, Catch::Matchers::Approx(first));
+}
+
 TEST_CASE("Simulate SBML multiple times", "[copasijs][multiple]")
 {
     Instance instance;

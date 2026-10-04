@@ -843,6 +843,48 @@ TEST_CASE("applyModelChanges", "[copasijs][modelchanges]")
         auto selection = getSelectionList();
         REQUIRE(std::find(selection.begin(), selection.end(), "FixedZ") == selection.end());
     }
+
+    SECTION("scheme-created species are added to the selection list")
+    {
+        ordered_json patch;
+        ordered_json del;
+        del["op"] = "delete";
+        del["name"] = compartment;
+        patch["compartments"] = ordered_json::array({del});
+        ordered_json rxn;
+        rxn["op"] = "create";
+        rxn["name"] = "j0";
+        rxn["scheme"] = "A -> B";
+        patch["reactions"] = ordered_json::array({rxn});
+
+        auto result = ordered_json::parse(applyModelChanges(patch.dump()));
+        CAPTURE(result.dump());
+        REQUIRE(result["status"] == "success");
+        REQUIRE(!result["compartments"].empty());
+        bool foundA = false;
+        bool foundB = false;
+        bool foundJ0 = false;
+        for (auto& species : result["species"])
+        {
+            if (species["name"] == "A")
+                foundA = true;
+            if (species["name"] == "B")
+                foundB = true;
+        }
+        for (auto& reaction : result["reactions"])
+        {
+            if (reaction["name"] == "j0")
+                foundJ0 = true;
+        }
+        REQUIRE(foundA);
+        REQUIRE(foundB);
+        REQUIRE(foundJ0);
+
+        auto selection = getSelectionList();
+        CAPTURE(selection);
+        REQUIRE(std::find(selection.begin(), selection.end(), "A") != selection.end());
+        REQUIRE(std::find(selection.begin(), selection.end(), "B") != selection.end());
+    }
 }
 
 TEST_CASE("Test GEPASI", "[copasijs][gepasi]")

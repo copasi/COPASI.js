@@ -264,3 +264,26 @@ test('applies sparse model changes', async () => {
 
     instance.destroy();
 });
+
+test('deletes compartment then creates reaction j0 A -> B', async () => {
+    const Module = await getModule();
+    const instance = createInstance(Module);
+    const data = fs.readFileSync(path.resolve(__dirname, '../example_files/brusselator.cps'), 'utf8');
+    const loaded = instance.loadModel(data);
+    assert.equal(loaded.status, 'success');
+
+    const compartment = loaded.compartments[0].name;
+    const result = instance.applyModelChanges({
+        compartments: [{ op: 'delete', name: compartment }],
+        reactions: [{ op: 'create', name: 'j0', scheme: 'A -> B' }]
+    });
+    assert.equal(result.status, 'success');
+    assert.ok(result.reactions.some((r) => r.name === 'j0'));
+    assert.ok(result.species.some((s) => s.name === 'A'));
+    assert.ok(result.species.some((s) => s.name === 'B'));
+    assert.ok(result.compartments.length >= 1);
+    assert.ok(instance.selectionList.includes('A'));
+    assert.ok(instance.selectionList.includes('B'));
+
+    instance.destroy();
+});

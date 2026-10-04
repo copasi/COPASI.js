@@ -1712,7 +1712,36 @@ static std::string applyLocalParameters(CReaction* reaction, const ordered_json&
   return {};
 }
 
-static std::string applyReactionScheme(CReaction* reaction, const ordered_json& item)
+static void addToSelectionList(const std::string& name);
+
+template <typename Vec>
+static std::set<std::string> collectObjectNames(Vec& vec)
+{
+  std::set<std::string> names;
+  for (auto& el : vec)
+    names.insert(el.getObjectName());
+  return names;
+}
+
+static void addNewlyCreatedModelElementsToSelectionList(CModel* pModel,
+  const std::set<std::string>& oldSpecies,
+  const std::set<std::string>& oldCompartments)
+{
+  if (pModel == nullptr)
+    return;
+  for (auto& metab : pModel->getMetabolites())
+  {
+    if (oldSpecies.count(metab.getObjectName()) == 0 && metab.getStatus() != CModelEntity::Status::FIXED)
+      addToSelectionList(metab.getObjectName());
+  }
+  for (auto& compartment : pModel->getCompartments())
+  {
+    if (oldCompartments.count(compartment.getObjectName()) == 0 && compartment.getStatus() != CModelEntity::Status::FIXED)
+      addToSelectionList(compartment.getObjectName());
+  }
+}
+
+static std::string applyReactionScheme(CModel* pModel, CReaction* reaction, const ordered_json& item)
 {
   const bool hasScheme = jsonContainsKey(item, "scheme");
   const bool hasReversible = jsonContainsKey(item, "reversible");
@@ -1724,6 +1753,9 @@ static std::string applyReactionScheme(CReaction* reaction, const ordered_json& 
   if (hasReversible && !item.at("reversible").is_boolean())
     return "'reversible' must be a boolean";
 
+  auto oldSpecies = collectObjectNames(pModel->getMetabolites());
+  auto oldCompartments = collectObjectNames(pModel->getCompartments());
+
   CReactionInterface ri;
   ri.init(*reaction);
   if (hasScheme)
@@ -1734,6 +1766,8 @@ static std::string applyReactionScheme(CReaction* reaction, const ordered_json& 
   ri.createOtherObjects();
   if (!ri.writeBackToReaction(reaction, false))
     return "Failed to apply reaction scheme";
+
+  addNewlyCreatedModelElementsToSelectionList(pModel, oldSpecies, oldCompartments);
   return {};
 }
 
@@ -1743,7 +1777,7 @@ static std::string applyReactionAttributes(CModel* pModel, CReaction* reaction, 
   if (!error.empty())
     return error;
   applyNewId(reaction, item);
-  error = applyReactionScheme(reaction, item);
+  error = applyReactionScheme(pModel, reaction, item);
   if (!error.empty())
     return error;
   return applyLocalParameters(reaction, item);

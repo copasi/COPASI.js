@@ -113,6 +113,7 @@ static std::map<std::string, CModelElement> mGlobalParameters = {};
 static std::map<std::string, std::string> mGlobalParametersIdMap = {};
 static std::vector<std::string> mGlobalParameterOrder = {};
 static std::vector<std::string> mSelectionList = {};
+static bool mHasCustomSelection = false;
 static std::vector<const double*> mSelectedValues = {};
 static CDataHandler* mpDataHandler = nullptr;
 static CDataHandler* mpLastDataHandler = nullptr;
@@ -365,6 +366,7 @@ void clearLists()
   mGlobalParametersIdMap.clear();
   mGlobalParameterOrder.clear();
   mSelectionList.clear();
+  mHasCustomSelection = false;
   mSelectedValues.clear();
 
   if (mpDataHandler != nullptr)
@@ -637,6 +639,19 @@ void setValue(const std::string& nameOrId, double value)
   if (setModelElement(mGlobalParameters, mGlobalParametersIdMap, nameOrId, value, model))
     return;
 
+  if (auto* el = findElement(mLocalParameters, nullptr, nameOrId))
+  {
+    auto* pParam = dynamic_cast<CCopasiParameter*>(el->pObj);
+    auto* pReaction = el->pObj != nullptr
+      ? dynamic_cast<CReaction*>(el->pObj->getObjectAncestor("Reaction"))
+      : nullptr;
+    if (pReaction != nullptr && pParam != nullptr)
+    {
+      pReaction->setParameterValue(pParam->getObjectName(), value);
+      return;
+    }
+  }
+
   setInitialConcentrationByDisplayName(nameOrId, value, model);
 }
 
@@ -829,6 +844,7 @@ void setSelectionList(const std::vector<std::string>& selectionList)
 {
   ensureModel();
 
+  mHasCustomSelection = true;
   mSelectionList = selectionList;
 
   if (mpDataHandler != nullptr)
@@ -1212,16 +1228,23 @@ ordered_json buildModelInfo()
   return modelInfo;
 }
 
+static ordered_json buildModelInfoKeepingSelection()
+{
+  auto savedSelection = mSelectionList;
+  bool custom = mHasCustomSelection;
+  auto info = buildModelInfo();
+  mHasCustomSelection = custom;
+  if (custom)
+    setSelectionList(savedSelection);
+  return info;
+}
+
 std::string getModelInfo()
 {
   if (pDataModel == nullptr)
     initCps();
 
-  auto savedSelection = mSelectionList;
-  auto info = buildModelInfo();
-  if (!savedSelection.empty())
-    setSelectionList(savedSelection);
-  return info.dump(mIndent);
+  return buildModelInfoKeepingSelection().dump(mIndent);
 }
 
 enum class ModelChangeOp
@@ -2035,10 +2058,22 @@ std::string applyModelChanges(const std::string& json)
 
   auto* pModel = pDataModel->getModel();
 
+  auto fail = [&](const std::string& messages) -> std::string
+  {
+    try
+    {
+      buildModelInfoKeepingSelection();
+    }
+    catch (...)
+    {
+    }
+    return jsonError(messages);
+  };
+
   try
   {
     if (patch.contains("model") && !patch.at("model").is_object())
-      return jsonError("'model' must be an object");
+      return fail("'model' must be an object");
 
     ModelChangeLists compartments;
     ModelChangeLists parameters;
@@ -2056,7 +2091,7 @@ std::string applyModelChanges(const std::string& json)
     if (error.empty())
       error = collectModelChanges(patch, "events", events);
     if (!error.empty())
-      return jsonError(error);
+      return fail(error);
 
     error = validateExisting(pModel->getEvents(), events.deletes, "events");
     if (error.empty())
@@ -2090,13 +2125,13 @@ std::string applyModelChanges(const std::string& json)
     if (error.empty())
       error = validateCreates(pModel->getEvents(), events, "events");
     if (!error.empty())
-      return jsonError(error);
+      return fail(error);
 
     if (patch.contains("model"))
     {
       error = applyModelAttributes(pModel, patch.at("model"));
       if (!error.empty())
-        return jsonError(error);
+        return fail(error);
     }
 
     for (const auto& item : events.deletes)
@@ -2104,7 +2139,7 @@ std::string applyModelChanges(const std::string& json)
       auto* event = findModelObject(pModel->getEvents(), item);
       removeObjectFromSelectionList(event);
       if (event == nullptr || !pModel->removeEvent(event, true))
-        return jsonError("Failed to delete event");
+        return fail("Failed to delete event");
     }
     for (const auto& item : reactions.deletes)
     {
@@ -2124,21 +2159,21 @@ std::string applyModelChanges(const std::string& json)
         }
       }
       if (reaction == nullptr || !pModel->removeReaction(reaction, true))
-        return jsonError("Failed to delete reaction");
+        return fail("Failed to delete reaction");
     }
     for (const auto& item : species.deletes)
     {
       auto* metab = findModelObject(pModel->getMetabolites(), item);
       removeObjectFromSelectionList(metab);
       if (metab == nullptr || !pModel->removeMetabolite(metab, true))
-        return jsonError("Failed to delete species");
+        return fail("Failed to delete species");
     }
     for (const auto& item : parameters.deletes)
     {
       auto* param = findModelObject(pModel->getModelValues(), item);
       removeObjectFromSelectionList(param);
       if (param == nullptr || !pModel->removeModelValue(param, true))
-        return jsonError("Failed to delete global parameter");
+        return fail("Failed to delete global parameter");
     }
     for (const auto& item : compartments.deletes)
     {
@@ -2153,7 +2188,7 @@ std::string applyModelChanges(const std::string& json)
         }
       }
       if (compartment == nullptr || !pModel->removeCompartment(compartment, true))
-        return jsonError("Failed to delete compartment");
+        return fail("Failed to delete compartment");
     }
 
     for (const auto& item : compartments.creates)
@@ -2162,10 +2197,10 @@ std::string applyModelChanges(const std::string& json)
       jsonGetNumber(item, "size", size);
       auto* compartment = pModel->createCompartment(jsonGetString(item, "name"), size);
       if (compartment == nullptr)
-        return jsonError("Failed to create compartment '" + jsonGetString(item, "name") + "'");
+        return fail("Failed to create compartment '" + jsonGetString(item, "name") + "'");
       error = applyCompartmentAttributes(pModel, compartment, item);
       if (!error.empty())
-        return jsonError(error);
+        return fail(error);
     }
     for (const auto& item : parameters.creates)
     {
@@ -2174,10 +2209,10 @@ std::string applyModelChanges(const std::string& json)
         jsonGetNumber(item, "value", value);
       auto* param = pModel->createModelValue(jsonGetString(item, "name"), value);
       if (param == nullptr)
-        return jsonError("Failed to create global parameter '" + jsonGetString(item, "name") + "'");
+        return fail("Failed to create global parameter '" + jsonGetString(item, "name") + "'");
       error = applyParameterAttributes(pModel, param, item);
       if (!error.empty())
-        return jsonError(error);
+        return fail(error);
     }
     for (const auto& item : species.creates)
     {
@@ -2188,35 +2223,35 @@ std::string applyModelChanges(const std::string& json)
       {
         std::string statusError;
         if (!parseEntityStatus(item.at("type").get<std::string>(), status, statusError))
-          return jsonError(statusError);
+          return fail(statusError);
       }
       auto compartment = jsonGetString(item, "compartment");
       if (auto* found = findCompartmentByNameOrId(pModel, compartment))
         compartment = found->getObjectName();
       auto* metab = pModel->createMetabolite(jsonGetString(item, "name"), compartment, concentration, status);
       if (metab == nullptr)
-        return jsonError("Failed to create species '" + jsonGetString(item, "name") + "'");
+        return fail("Failed to create species '" + jsonGetString(item, "name") + "'");
       error = applySpeciesAttributes(pModel, metab, item);
       if (!error.empty())
-        return jsonError(error);
+        return fail(error);
     }
     for (const auto& item : reactions.creates)
     {
       auto* reaction = pModel->createReaction(jsonGetString(item, "name"));
       if (reaction == nullptr)
-        return jsonError("Failed to create reaction '" + jsonGetString(item, "name") + "'");
+        return fail("Failed to create reaction '" + jsonGetString(item, "name") + "'");
       error = applyReactionAttributes(pModel, reaction, item);
       if (!error.empty())
-        return jsonError(error);
+        return fail(error);
     }
     for (const auto& item : events.creates)
     {
       auto* event = pModel->createEvent(jsonGetString(item, "name"));
       if (event == nullptr)
-        return jsonError("Failed to create event '" + jsonGetString(item, "name") + "'");
+        return fail("Failed to create event '" + jsonGetString(item, "name") + "'");
       error = applyEventAttributes(pModel, event, item);
       if (!error.empty())
-        return jsonError(error);
+        return fail(error);
     }
 
     for (const auto& item : compartments.updates)
@@ -2224,47 +2259,45 @@ std::string applyModelChanges(const std::string& json)
       auto* compartment = findModelObject(pModel->getCompartments(), item);
       error = applyCompartmentAttributes(pModel, compartment, item);
       if (!error.empty())
-        return jsonError(error);
+        return fail(error);
     }
     for (const auto& item : parameters.updates)
     {
       auto* param = findModelObject(pModel->getModelValues(), item);
       error = applyParameterAttributes(pModel, param, item);
       if (!error.empty())
-        return jsonError(error);
+        return fail(error);
     }
     for (const auto& item : species.updates)
     {
       auto* metab = findModelObject(pModel->getMetabolites(), item);
       error = applySpeciesAttributes(pModel, metab, item);
       if (!error.empty())
-        return jsonError(error);
+        return fail(error);
     }
     for (const auto& item : reactions.updates)
     {
       auto* reaction = findModelObject(pModel->getReactions(), item);
       error = applyReactionAttributes(pModel, reaction, item);
       if (!error.empty())
-        return jsonError(error);
+        return fail(error);
     }
     for (const auto& item : events.updates)
     {
       auto* event = findModelObject(pModel->getEvents(), item);
       error = applyEventAttributes(pModel, event, item);
       if (!error.empty())
-        return jsonError(error);
+        return fail(error);
     }
 
     if (!pModel->forceCompile(nullptr))
-      return jsonError(std::string("Failed to compile model: ") + getMessages());
+      return fail(std::string("Failed to compile model: ") + getMessages());
 
     // Numeric initials must be applied after compile; compile refreshes the
     // math container and can otherwise restore previous initial values.
     for (const auto& item : compartments.creates)
     {
-      auto* compartment = findByObjectName(pModel->getCompartments(), jsonGetString(item, "name"));
-      if (compartment == nullptr)
-        compartment = findModelObject(pModel->getCompartments(), item);
+      auto* compartment = findPatchedObject(pModel->getCompartments(), item);
       if (compartment != nullptr)
         applyCompartmentAttributes(pModel, compartment, item);
     }
@@ -2276,9 +2309,7 @@ std::string applyModelChanges(const std::string& json)
     }
     for (const auto& item : parameters.creates)
     {
-      auto* param = findByObjectName(pModel->getModelValues(), jsonGetString(item, "name"));
-      if (param == nullptr)
-        param = findModelObject(pModel->getModelValues(), item);
+      auto* param = findPatchedObject(pModel->getModelValues(), item);
       if (param != nullptr)
         applyParameterAttributes(pModel, param, item);
     }
@@ -2328,11 +2359,11 @@ std::string applyModelChanges(const std::string& json)
   }
   catch (CCopasiException&)
   {
-    return jsonError(getMessages());
+    return fail(getMessages());
   }
   catch (const std::exception& e)
   {
-    return jsonError(e.what());
+    return fail(e.what());
   }
 
   return getModelInfo();
@@ -3145,6 +3176,40 @@ std::string getMcaProtocol()
   return str.str();
 }
 
+static void mergeSteadyStateMethodSettings(ordered_json& yaml)
+{
+  auto* pSteadyState = getTaskPtr<CSteadyStateTask>("Steady-State");
+  if (pSteadyState == nullptr || pSteadyState->getMethod() == nullptr)
+    return;
+
+  if (!yaml.contains("method") || !yaml["method"].is_object())
+    yaml["method"] = ordered_json::object();
+
+  auto methodObj = convertGroupToJson(pSteadyState->getMethod());
+  for (auto& [key, value] : methodObj.items())
+  {
+    if (!yaml["method"].contains(key))
+      yaml["method"][key] = value;
+  }
+}
+
+static void applyTaskAndSteadyStateMethodSettings(CCopasiTask* task, const ordered_json& settings, bool applySteadyState)
+{
+  if (!jsonHas(settings, "method"))
+    return;
+
+  ordered_json methodSettings = settings["method"];
+  if (task != nullptr && task->getMethod() != nullptr)
+    setGroupFromJson(task->getMethod(), methodSettings);
+
+  if (!applySteadyState)
+    return;
+
+  auto* pSteadyState = getTaskPtr<CSteadyStateTask>("Steady-State");
+  if (pSteadyState != nullptr && pSteadyState->getMethod() != nullptr)
+    setGroupFromJson(pSteadyState->getMethod(), methodSettings);
+}
+
 std::string getMcaSettings()
 {
   auto* task = getTaskPtr<CMCATask>("Metabolic Control Analysis");
@@ -3171,19 +3236,7 @@ std::string getMcaSettings()
   }
 
   if (pProblem->isSteadyStateRequested())
-  {
-    auto *pSteadyState = getTaskPtr<CSteadyStateTask>("Steady-State");
-    auto methodObj = convertGroupToJson(pSteadyState->getMethod());
-
-    // add properties from methodObj to yaml["method"] if they are not already present
-    for (auto& [key, value] : methodObj.items())
-    {
-      if (!yaml["method"].contains(key))
-      {
-        yaml["method"][key] = value;
-      }
-    }
-  }
+    mergeSteadyStateMethodSettings(yaml);
 
   return yaml.dump(mIndent);
 }
@@ -3221,17 +3274,7 @@ bool setMcaSettings(const std::string& settingsJson)
   if (jsonHas(settings, "problem"))
     problemSettings = settings["problem"];
   setGroupFromJson(pProblem, problemSettings);
-
-  if (pProblem->isSteadyStateRequested())
-  {
-    auto *pSteadyState = getTaskPtr<CSteadyStateTask>("Steady-State");
-    auto* method = pSteadyState->getMethod();
-    if (method != nullptr && jsonHas(settings, "method"))
-    {
-      auto& m = settings["method"];
-      setGroupFromJson(method, m);
-    }
-  }
+  applyTaskAndSteadyStateMethodSettings(task, settings, pProblem->isSteadyStateRequested());
   return true;
 }
 
@@ -3261,19 +3304,7 @@ std::string getLNASettings()
   }
 
   if (pProblem->isSteadyStateRequested())
-  {
-    auto* pSteadyState = getTaskPtr<CSteadyStateTask>("Steady-State");
-    auto methodObj = convertGroupToJson(pSteadyState->getMethod());
-
-    // add properties from methodObj to yaml["method"] if they are not already present
-    for (auto& [key, value] : methodObj.items())
-    {
-      if (!yaml["method"].contains(key))
-      {
-        yaml["method"][key] = value;
-      }
-    }
-  }
+    mergeSteadyStateMethodSettings(yaml);
 
   return yaml.dump(mIndent);
 }
@@ -3311,17 +3342,7 @@ bool setLNASettings(const std::string& settingsJson)
   if (jsonHas(settings, "problem"))
     problemSettings = settings["problem"];
   setGroupFromJson(pProblem, problemSettings);
-
-  if (pProblem->isSteadyStateRequested())
-  {
-    auto* pSteadyState = getTaskPtr<CSteadyStateTask>("Steady-State");
-    auto* method = pSteadyState->getMethod();
-    if (method != nullptr && jsonHas(settings, "method"))
-    {
-      auto& m = settings["method"];
-      setGroupFromJson(method, m);
-    }
-  }
+  applyTaskAndSteadyStateMethodSettings(task, settings, pProblem->isSteadyStateRequested());
   return true;
 }
 
@@ -4088,13 +4109,17 @@ bool setExperimentFilename(const std::string& experimentName, const std::string&
   return true;
 }
 
-CExperiment::WeightMethod _getExperimentWeightType(const std::string& weightMethodName)
+static bool tryGetExperimentWeightType(const std::string& weightMethodName, CExperiment::WeightMethod& method)
 {
-  int count = 0;
-  while (!CExperiment::WeightMethodName[count++].empty())
+  for (int count = 0; !CExperiment::WeightMethodName[count].empty(); ++count)
+  {
     if (CExperiment::WeightMethodName[count] == weightMethodName)
-      return (CExperiment::WeightMethod)count;
-  return CExperiment::WeightMethod::MEAN;
+    {
+      method = static_cast<CExperiment::WeightMethod>(count);
+      return true;
+    }
+  }
+  return false;
 }
 
 bool setExperimentDefinition(const std::string& experimentName, const std::string& definition)
@@ -4116,9 +4141,13 @@ bool setExperimentDefinition(const std::string& experimentName, const std::strin
   try
   {
     ordered_json yaml = ordered_json::parse(definition);
+    CExperiment::WeightMethod weightMethod;
+    if (!yaml.contains("weight_method") || !yaml["weight_method"].is_string()
+      || !tryGetExperimentWeightType(yaml["weight_method"].get<std::string>(), weightMethod))
+      return false;
     exp->setFileName(yaml["filename"].get<std::string>());
     exp->setSeparator(yaml["separator"].get<std::string>());
-    exp->setWeightMethod(_getExperimentWeightType(yaml["weight_method"].get<std::string>()));
+    exp->setWeightMethod(weightMethod);
     exp->setFirstRow(yaml["first_row"].get<int>());
     exp->setLastRow(yaml["last_row"].get<int>());
     exp->setNormalizeWeightsPerExperiment(yaml["normalize_per_experiment"].get<bool>());

@@ -976,6 +976,204 @@ TEST_CASE("Test LNA error", "[copasijs][lna]")
 }
 
 
+TEST_CASE("Review findings", "[copasijs][review]")
+{
+    using nlohmann::ordered_json;
+
+    SECTION("empty selection survives getModelInfo")
+    {
+        Instance instance;
+        auto loaded = ordered_json::parse(loadFromFile(getTestFile("../example_files/brusselator.cps")));
+        REQUIRE(loaded["status"] == "success");
+
+        setSelectionList({});
+        REQUIRE(getSelectionList().empty());
+
+        auto info = ordered_json::parse(getModelInfo());
+        REQUIRE(info["status"] == "success");
+        REQUIRE(getSelectionList().empty());
+    }
+
+    SECTION("setValue updates a local parameter")
+    {
+        Instance instance;
+        auto loaded = ordered_json::parse(loadFromFile(getTestFile("../example_files/brusselator.cps")));
+        REQUIRE(loaded["status"] == "success");
+
+        auto names = getLocalParameterNames();
+        REQUIRE(!names.empty());
+
+        double before = getValue(names[0]);
+        REQUIRE(before == before);
+        setValue(names[0], before + 1.5);
+        REQUIRE(getValue(names[0]) == Approx(before + 1.5));
+    }
+
+    SECTION("renamed creates keep numeric values")
+    {
+        Instance instance;
+        auto loaded = ordered_json::parse(loadFromFile(getTestFile("../example_files/brusselator.cps")));
+        REQUIRE(loaded["status"] == "success");
+        const std::string compartment = loaded["compartments"][0]["name"];
+
+        ordered_json patch;
+        patch["compartments"] = ordered_json::array({
+            {{"op", "create"}, {"name", "hold"}, {"new_name", "vat"}, {"size", 4.5}}
+        });
+        patch["global_parameters"] = ordered_json::array({
+            {{"op", "create"}, {"name", "ptemp"}, {"new_name", "kextra"}, {"initial_value", 7.25}}
+        });
+        patch["species"] = ordered_json::array({
+            {{"op", "create"}, {"name", "stemp"}, {"new_name", "Zed"}, {"compartment", compartment}, {"initial_concentration", 3.5}}
+        });
+
+        auto result = ordered_json::parse(applyModelChanges(patch.dump()));
+        CAPTURE(result.dump());
+        REQUIRE(result["status"] == "success");
+
+        bool foundVat = false;
+        bool foundHold = false;
+        for (auto& item : result["compartments"])
+        {
+            if (item["name"] == "vat")
+            {
+                REQUIRE(item["size"].get<double>() == Approx(4.5));
+                foundVat = true;
+            }
+            if (item["name"] == "hold")
+                foundHold = true;
+        }
+        REQUIRE(foundVat);
+        REQUIRE(!foundHold);
+
+        bool foundParam = false;
+        for (auto& item : result["global_parameters"])
+        {
+            if (item["name"] == "kextra")
+            {
+                REQUIRE(item["initial_value"].get<double>() == Approx(7.25));
+                foundParam = true;
+            }
+        }
+        REQUIRE(foundParam);
+
+        bool foundSpecies = false;
+        for (auto& item : result["species"])
+        {
+            if (item["name"] == "Zed")
+            {
+                REQUIRE(item["initial_concentration"].get<double>() == Approx(3.5));
+                foundSpecies = true;
+            }
+        }
+        REQUIRE(foundSpecies);
+    }
+
+    SECTION("failed apply keeps the element cache in sync")
+    {
+        Instance instance;
+        auto loaded = ordered_json::parse(loadFromFile(getTestFile("../example_files/brusselator.cps")));
+        REQUIRE(loaded["status"] == "success");
+
+        auto result = ordered_json::parse(applyModelChanges(R"({
+          "species": [
+            { "op": "delete", "name": "Y" },
+            { "name": "X", "expression": "@@@" }
+          ]
+        })"));
+        CAPTURE(result.dump());
+        REQUIRE(result["status"] == "error");
+
+        auto cached = getFloatingSpeciesNames();
+        auto info = ordered_json::parse(getModelInfo());
+        std::vector<std::string> live;
+        for (auto& species : info["species"])
+        {
+            if (species["type"] != "fixed")
+                live.push_back(species["name"].get<std::string>());
+        }
+        REQUIRE_THAT(cached, Catch::Matchers::Equals(live));
+        double x = getValue("X");
+        REQUIRE(x == x);
+    }
+
+    SECTION("model info consumes pending messages")
+    {
+        Instance instance;
+        auto loaded = ordered_json::parse(loadFromFile(getTestFile("../example_files/brusselator.cps")));
+        REQUIRE(loaded["status"] == "success");
+
+        clearMessages();
+        CCopasiMessage(CCopasiMessage::WARNING, "review-token-message");
+        auto info = ordered_json::parse(getModelInfo());
+        REQUIRE(info["messages"].get<std::string>().find("review-token-message") != std::string::npos);
+        REQUIRE(getMessages().find("review-token-message") == std::string::npos);
+    }
+
+    SECTION("MCA method setting round trips")
+    {
+        Instance instance;
+        auto loaded = ordered_json::parse(loadFromFile(getTestFile("../example_files/brusselator.cps")));
+        REQUIRE(loaded["status"] == "success");
+
+        auto settings = ordered_json::parse(getMcaSettings());
+        CAPTURE(settings.dump());
+        REQUIRE(settings.contains("method"));
+        REQUIRE(settings["method"].contains("Use Reder"));
+
+        bool useReder = settings["method"]["Use Reder"].get<bool>();
+        settings["method"]["Use Reder"] = !useReder;
+        REQUIRE(setMcaSettings(settings.dump()));
+
+        auto after = ordered_json::parse(getMcaSettings());
+        REQUIRE(after["method"]["Use Reder"].get<bool>() == !useReder);
+    }
+
+    SECTION("LNA method setting round trips")
+    {
+        Instance instance;
+        auto loaded = ordered_json::parse(loadFromFile(getTestFile("../example_files/brusselator.cps")));
+        REQUIRE(loaded["status"] == "success");
+
+        auto settings = ordered_json::parse(getLNASettings());
+        CAPTURE(settings.dump());
+        REQUIRE(settings.contains("method"));
+        REQUIRE(settings["method"].contains("Resolution"));
+
+        double resolution = settings["method"]["Resolution"].get<double>();
+        settings["method"]["Resolution"] = resolution * 10;
+        REQUIRE(setLNASettings(settings.dump()));
+
+        auto after = ordered_json::parse(getLNASettings());
+        REQUIRE(after["method"]["Resolution"].get<double>() == Approx(resolution * 10));
+    }
+
+    SECTION("experiment weight method names")
+    {
+        Instance instance;
+        auto loaded = ordered_json::parse(loadFromFile(getTestFile("../example_files/LM-test1.cps")));
+        REQUIRE(loaded["status"] == "success");
+
+        auto names = getExperimentNames();
+        REQUIRE(!names.empty());
+
+        auto def = ordered_json::parse(getExperimentDefinition(names[0]));
+        REQUIRE(def["weight_method"] == "Mean");
+
+        def["weight_method"] = "Standard Deviation";
+        REQUIRE(setExperimentDefinition(names[0], def.dump()));
+        REQUIRE(ordered_json::parse(getExperimentDefinition(names[0]))["weight_method"] == "Standard Deviation");
+
+        def["weight_method"] = "Mean";
+        REQUIRE(setExperimentDefinition(names[0], def.dump()));
+        REQUIRE(ordered_json::parse(getExperimentDefinition(names[0]))["weight_method"] == "Mean");
+
+        def["weight_method"] = "Not A Method";
+        REQUIRE_FALSE(setExperimentDefinition(names[0], def.dump()));
+        REQUIRE(ordered_json::parse(getExperimentDefinition(names[0]))["weight_method"] == "Mean");
+    }
+}
+
 int main(int argc, char *argv[])
 {
   CRootContainer::init(0, NULL);

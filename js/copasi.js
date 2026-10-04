@@ -539,6 +539,37 @@ class COPASI {
     }
 
     /**
+     * Applies sparse model changes and returns the updated model information.
+     *
+     * The patch uses the same section names as {@link COPASI#modelInfo}.
+     * Omitted sections and omitted attributes are left unchanged. Array
+     * items are identified by `id` (SBML id) if present and non-empty,
+     * otherwise by `name`. Missing array items are not deleted.
+     *
+     * Each element may include `op: "update"` (default), `"create"`, or
+     * `"delete"`. Rename with `new_name` / `new_id`. Create requires `name`
+     * (plus `compartment` for species and `scheme` for reactions).
+     *
+     * @param {object|string} changes sparse model-change document
+     * @returns {object} updated model info (`status` / `messages` plus snapshot)
+     *
+     * @example
+     * copasi.applyModelChanges({
+     *   species: [
+     *     { name: "X", initial_concentration: 2.0 },
+     *     { op: "create", name: "Z", compartment: "compartment", initial_concentration: 1 },
+     *     { op: "delete", name: "Y" }
+     *   ]
+     * });
+     */
+    applyModelChanges(changes) {
+        if (typeof changes !== 'string') {
+            changes = JSON.stringify(changes);
+        }
+        return JSON.parse(this.Module.applyModelChanges(changes));
+    }
+
+    /**
      * Returns the selection list.
      *
      * The selection list controls what will be in the output of the 

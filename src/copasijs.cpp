@@ -70,6 +70,9 @@ extern "C" void __wrap___cxa_throw(void* ex, void* type, void (*dest)(void*))
 #include <cstring>
 #include <limits>
 #include <algorithm>
+#include <cctype>
+#include <type_traits>
+#include <set>
 
 #ifdef __cplusplus
 #define EXTERN extern "C"
@@ -1219,6 +1222,992 @@ std::string getModelInfo()
   if (!savedSelection.empty())
     setSelectionList(savedSelection);
   return info.dump(mIndent);
+}
+
+enum class ModelChangeOp
+{
+  Update,
+  Create,
+  Delete
+};
+
+struct ModelChangeLists
+{
+  std::vector<ordered_json> updates;
+  std::vector<ordered_json> creates;
+  std::vector<ordered_json> deletes;
+};
+
+static bool jsonContainsKey(const ordered_json& j, const std::string& key)
+{
+  if (!j.contains(key))
+    return false;
+  const auto& v = j.at(key);
+  return !v.is_null() && !v.is_discarded();
+}
+
+static std::string jsonGetString(const ordered_json& j, const std::string& key)
+{
+  if (!jsonContainsKey(j, key) || !j.at(key).is_string())
+    return {};
+  return j.at(key).get<std::string>();
+}
+
+static bool jsonGetNumber(const ordered_json& j, const std::string& key, double& value)
+{
+  if (!jsonContainsKey(j, key) || !j.at(key).is_number())
+    return false;
+  value = j.at(key).get<double>();
+  return true;
+}
+
+static std::string trimCopy(std::string s)
+{
+  auto notSpace = [](unsigned char c) { return !std::isspace(c); };
+  s.erase(s.begin(), std::find_if(s.begin(), s.end(), notSpace));
+  s.erase(std::find_if(s.rbegin(), s.rend(), notSpace).base(), s.end());
+  return s;
+}
+
+static bool parseModelChangeOp(const ordered_json& item, ModelChangeOp& op, std::string& error)
+{
+  op = ModelChangeOp::Update;
+  if (!jsonContainsKey(item, "op"))
+    return true;
+  if (!item.at("op").is_string())
+  {
+    error = "op must be a string";
+    return false;
+  }
+  const auto s = item.at("op").get<std::string>();
+  if (s.empty() || s == "update")
+    op = ModelChangeOp::Update;
+  else if (s == "create")
+    op = ModelChangeOp::Create;
+  else if (s == "delete")
+    op = ModelChangeOp::Delete;
+  else
+  {
+    error = "Unknown op '" + s + "'";
+    return false;
+  }
+  return true;
+}
+
+static std::string collectModelChanges(const ordered_json& patch, const std::string& key, ModelChangeLists& out)
+{
+  if (!patch.contains(key))
+    return {};
+  if (!patch.at(key).is_array())
+    return "'" + key + "' must be an array";
+
+  for (const auto& item : patch.at(key))
+  {
+    if (!item.is_object())
+      return "'" + key + "' items must be objects";
+    ModelChangeOp op;
+    std::string error;
+    if (!parseModelChangeOp(item, op, error))
+      return "'" + key + "': " + error;
+    if (op == ModelChangeOp::Delete)
+      out.deletes.push_back(item);
+    else if (op == ModelChangeOp::Create)
+      out.creates.push_back(item);
+    else
+      out.updates.push_back(item);
+  }
+  return {};
+}
+
+template <typename Vec>
+static auto findBySbmlId(Vec& vec, const std::string& id)
+{
+  using Ptr = std::remove_reference_t<decltype(*vec.begin())>*;
+  if (id.empty())
+    return static_cast<Ptr>(nullptr);
+  for (auto& el : vec)
+  {
+    if (el.getSBMLId() == id)
+      return &el;
+  }
+  return static_cast<Ptr>(nullptr);
+}
+
+template <typename Vec>
+static auto findByObjectName(Vec& vec, const std::string& name)
+{
+  using Ptr = std::remove_reference_t<decltype(*vec.begin())>*;
+  if (name.empty())
+    return static_cast<Ptr>(nullptr);
+  for (auto& el : vec)
+  {
+    if (el.getObjectName() == name)
+      return &el;
+  }
+  return static_cast<Ptr>(nullptr);
+}
+
+template <typename Vec>
+static auto findModelObject(Vec& vec, const ordered_json& item) -> decltype(&vec[0])
+{
+  const auto id = jsonGetString(item, "id");
+  if (!id.empty())
+  {
+    if (auto* byId = findBySbmlId(vec, id))
+      return byId;
+  }
+  return findByObjectName(vec, jsonGetString(item, "name"));
+}
+
+template <typename Vec>
+static bool objectExists(Vec& vec, const ordered_json& item)
+{
+  return findModelObject(vec, item) != nullptr;
+}
+
+static bool parseEntityStatus(const std::string& type, CModelEntity::Status& status, std::string& error)
+{
+  static const std::vector<std::string> names = { "fixed", "assignment", "reactions", "ode", "time" };
+  if (std::find(names.begin(), names.end(), type) == names.end())
+  {
+    error = "Unknown type '" + type + "'";
+    return false;
+  }
+  status = CModelEntity::StatusName.toEnum(std::string_view(type));
+  return true;
+}
+
+static std::string displayExpressionToInfix(CDataModel* dm, const std::string& expr)
+{
+  if (dm == nullptr || expr.find('{') == std::string::npos)
+    return expr;
+
+  static const std::regex braceRegex(R"(\{([^}]*)\})");
+  std::string result;
+  std::sregex_iterator it(expr.begin(), expr.end(), braceRegex);
+  std::sregex_iterator end;
+  size_t lastPos = 0;
+  for (; it != end; ++it)
+  {
+    const auto& match = *it;
+    result.append(expr, lastPos, static_cast<size_t>(match.position()) - lastPos);
+    auto name = match[1].str();
+    auto* obj = const_cast<CDataObject*>(dm->findObjectByDisplayName(name));
+    if (obj != nullptr)
+      result += "<" + obj->getCN() + ">";
+    else
+      result.append(match.str());
+    lastPos = static_cast<size_t>(match.position() + match.length());
+  }
+  result.append(expr, lastPos, std::string::npos);
+  return result;
+}
+
+static CDataObject* resolveAssignmentTarget(CModel* pModel, const std::string& name)
+{
+  if (pModel == nullptr || name.empty())
+    return nullptr;
+
+  if (auto* metab = findByObjectName(pModel->getMetabolites(), name))
+    return metab->getConcentrationReference();
+  if (auto* param = findByObjectName(pModel->getModelValues(), name))
+    return param->getValueReference();
+  if (auto* compartment = findByObjectName(pModel->getCompartments(), name))
+    return compartment->getValueReference();
+
+  if (auto* metab = findBySbmlId(pModel->getMetabolites(), name))
+    return metab->getConcentrationReference();
+  if (auto* param = findBySbmlId(pModel->getModelValues(), name))
+    return param->getValueReference();
+  if (auto* compartment = findBySbmlId(pModel->getCompartments(), name))
+    return compartment->getValueReference();
+
+  if (pDataModel != nullptr)
+  {
+    auto* obj = const_cast<CDataObject*>(pDataModel->findObjectByDisplayName(name));
+    if (obj != nullptr)
+      return obj;
+  }
+  return nullptr;
+}
+
+static std::string requireIdentity(const ordered_json& item, const std::string& section)
+{
+  if (jsonGetString(item, "name").empty() && jsonGetString(item, "id").empty())
+    return "'" + section + "' update/delete items require 'name' or 'id'";
+  return {};
+}
+
+static std::string requireCreateName(const ordered_json& item, const std::string& section)
+{
+  if (jsonGetString(item, "name").empty())
+    return "'" + section + "' create items require 'name'";
+  return {};
+}
+
+template <typename Vec, typename T>
+static std::string renameIfRequested(Vec& vec, T* obj, const ordered_json& item)
+{
+  const auto newName = jsonGetString(item, "new_name");
+  if (newName.empty())
+    return {};
+  for (auto& el : vec)
+  {
+    if (&el != obj && el.getObjectName() == newName)
+      return "Name already exists: " + newName;
+  }
+  if (!obj->setObjectName(newName))
+    return "Failed to rename to '" + newName + "'";
+  return {};
+}
+
+template <typename T>
+static void applyNewId(T* obj, const ordered_json& item)
+{
+  if (jsonContainsKey(item, "new_id") && item.at("new_id").is_string())
+    obj->setSBMLId(item.at("new_id").get<std::string>());
+}
+
+static std::string applyEntityCommon(CModelEntity* entity, const ordered_json& item)
+{
+  if (jsonContainsKey(item, "type"))
+  {
+    if (!item.at("type").is_string())
+      return "'type' must be a string";
+    CModelEntity::Status status;
+    std::string error;
+    if (!parseEntityStatus(item.at("type").get<std::string>(), status, error))
+      return error;
+    if (!entity->setStatus(status))
+      return "Failed to set type";
+  }
+  if (jsonContainsKey(item, "initial_expression"))
+  {
+    if (!item.at("initial_expression").is_string())
+      return "'initial_expression' must be a string";
+    auto infix = displayExpressionToInfix(pDataModel, item.at("initial_expression").get<std::string>());
+    if (entity->setInitialExpression(infix).isError())
+      return "Failed to set initial_expression";
+  }
+  if (jsonContainsKey(item, "expression"))
+  {
+    if (!item.at("expression").is_string())
+      return "'expression' must be a string";
+    auto infix = displayExpressionToInfix(pDataModel, item.at("expression").get<std::string>());
+    if (entity->setExpression(infix).isError())
+      return "Failed to set expression";
+  }
+  return {};
+}
+
+static std::string applyModelAttributes(CModel* pModel, const ordered_json& model)
+{
+  if (jsonContainsKey(model, "name"))
+  {
+    if (!model.at("name").is_string())
+      return "'model.name' must be a string";
+    pModel->setObjectName(model.at("name").get<std::string>());
+  }
+  if (jsonContainsKey(model, "notes"))
+  {
+    if (!model.at("notes").is_string())
+      return "'model.notes' must be a string";
+    pModel->setNotes(model.at("notes").get<std::string>());
+  }
+  if (jsonContainsKey(model, "time_unit"))
+  {
+    if (!model.at("time_unit").is_string())
+      return "'model.time_unit' must be a string";
+    pModel->setTimeUnit(model.at("time_unit").get<std::string>());
+  }
+  if (jsonContainsKey(model, "volume_unit"))
+  {
+    if (!model.at("volume_unit").is_string())
+      return "'model.volume_unit' must be a string";
+    pModel->setVolumeUnit(model.at("volume_unit").get<std::string>());
+  }
+  if (jsonContainsKey(model, "area_unit"))
+  {
+    if (!model.at("area_unit").is_string())
+      return "'model.area_unit' must be a string";
+    pModel->setAreaUnit(model.at("area_unit").get<std::string>());
+  }
+  if (jsonContainsKey(model, "length_unit"))
+  {
+    if (!model.at("length_unit").is_string())
+      return "'model.length_unit' must be a string";
+    pModel->setLengthUnit(model.at("length_unit").get<std::string>());
+  }
+  if (jsonContainsKey(model, "quantity_unit"))
+  {
+    if (!model.at("quantity_unit").is_string())
+      return "'model.quantity_unit' must be a string";
+    pModel->setQuantityUnit(model.at("quantity_unit").get<std::string>(), CCore::Framework::Concentration);
+  }
+  double number = 0;
+  if (jsonGetNumber(model, "initial_time", number))
+    pModel->setInitialTime(number);
+  if (jsonGetNumber(model, "avogadro", number))
+    pModel->setAvogadro(number, CCore::Framework::Concentration);
+  if (jsonContainsKey(model, "model_type"))
+  {
+    if (!model.at("model_type").is_string())
+      return "'model.model_type' must be a string";
+    const auto type = model.at("model_type").get<std::string>();
+    if (type != "deterministic" && type != "stochastic")
+      return "Unknown model_type '" + type + "'";
+    pModel->setModelType(CModel::ModelTypeNames.toEnum(std::string_view(type)));
+  }
+  return {};
+}
+
+static CCompartment* findCompartmentByNameOrId(CModel* pModel, const std::string& nameOrId)
+{
+  auto& vec = pModel->getCompartments();
+  auto idx = vec.getIndex(nameOrId);
+  if (idx != C_INVALID_INDEX)
+    return &vec[idx];
+  if (auto* c = findByObjectName(vec, nameOrId))
+    return c;
+  return findBySbmlId(vec, nameOrId);
+}
+
+static std::string applyCompartmentAttributes(CModel* pModel, CCompartment* compartment, const ordered_json& item)
+{
+  auto error = renameIfRequested(pModel->getCompartments(), compartment, item);
+  if (!error.empty())
+    return error;
+  applyNewId(compartment, item);
+  double size = 0;
+  if (jsonGetNumber(item, "size", size))
+  {
+    auto* obj = compartment->getInitialValueReference();
+    pModel->updateInitialValues(obj, false);
+    compartment->setInitialValue(size);
+    pModel->updateInitialValues(obj, false);
+  }
+  return applyEntityCommon(compartment, item);
+}
+
+static std::string applySpeciesAttributes(CModel* pModel, CMetab* metab, const ordered_json& item)
+{
+  auto error = renameIfRequested(pModel->getMetabolites(), metab, item);
+  if (!error.empty())
+    return error;
+  applyNewId(metab, item);
+
+  const auto compartment = jsonGetString(item, "compartment");
+  if (!compartment.empty())
+  {
+    auto* found = findCompartmentByNameOrId(pModel, compartment);
+    if (found == nullptr)
+      return "Unknown compartment '" + compartment + "'";
+    auto* current = metab->getCompartment();
+    if (current != found && !metab->setCompartment(found->getObjectName()))
+      return "Failed to move species to compartment '" + found->getObjectName() + "'";
+  }
+
+  error = applyEntityCommon(metab, item);
+  if (!error.empty())
+    return error;
+
+  double number = 0;
+  if (jsonGetNumber(item, "initial_particle_number", number))
+  {
+    auto* obj = metab->getInitialValueReference();
+    pModel->updateInitialValues(obj, false);
+    metab->setInitialValue(number);
+    pModel->updateInitialValues(obj, false);
+  }
+  if (jsonGetNumber(item, "initial_concentration", number))
+  {
+    auto* obj = metab->getInitialConcentrationReference();
+    pModel->updateInitialValues(obj, false);
+    metab->setInitialConcentration(number);
+    pModel->updateInitialValues(obj, false);
+  }
+  return {};
+}
+
+static std::string applyParameterAttributes(CModel* pModel, CModelValue* param, const ordered_json& item)
+{
+  auto error = renameIfRequested(pModel->getModelValues(), param, item);
+  if (!error.empty())
+    return error;
+  applyNewId(param, item);
+  error = applyEntityCommon(param, item);
+  if (!error.empty())
+    return error;
+  double number = 0;
+  if (jsonGetNumber(item, "initial_value", number))
+  {
+    auto* obj = param->getInitialValueReference();
+    pModel->updateInitialValues(obj, false);
+    param->setInitialValue(number);
+    pModel->updateInitialValues(obj, false);
+  }
+  if (jsonGetNumber(item, "value", number))
+    param->setValue(number);
+  return {};
+}
+
+static std::string applyLocalParameters(CReaction* reaction, const ordered_json& item)
+{
+  if (!jsonContainsKey(item, "local_parameters"))
+    return {};
+  if (!item.at("local_parameters").is_array())
+    return "'local_parameters' must be an array";
+
+  for (const auto& lp : item.at("local_parameters"))
+  {
+    if (!lp.is_object())
+      return "local parameter items must be objects";
+    const auto name = jsonGetString(lp, "name");
+    if (name.empty())
+      return "local parameter items require 'name'";
+    double value = 0;
+    if (!jsonGetNumber(lp, "value", value))
+      return "local parameter '" + name + "' requires numeric 'value'";
+    if (!reaction->isLocalParameter(name))
+      return "Not a local parameter: " + name;
+    reaction->setParameterValue(name, value);
+  }
+  return {};
+}
+
+static std::string applyReactionScheme(CReaction* reaction, const ordered_json& item)
+{
+  const bool hasScheme = jsonContainsKey(item, "scheme");
+  const bool hasReversible = jsonContainsKey(item, "reversible");
+  if (!hasScheme && !hasReversible)
+    return {};
+
+  if (hasScheme && !item.at("scheme").is_string())
+    return "'scheme' must be a string";
+  if (hasReversible && !item.at("reversible").is_boolean())
+    return "'reversible' must be a boolean";
+
+  CReactionInterface ri;
+  ri.init(*reaction);
+  if (hasScheme)
+    ri.setChemEqString(item.at("scheme").get<std::string>(), "");
+  if (hasReversible)
+    ri.setReversibility(item.at("reversible").get<bool>(), "");
+  ri.createMetabolites();
+  ri.createOtherObjects();
+  if (!ri.writeBackToReaction(reaction, false))
+    return "Failed to apply reaction scheme";
+  return {};
+}
+
+static std::string applyReactionAttributes(CModel* pModel, CReaction* reaction, const ordered_json& item)
+{
+  auto error = renameIfRequested(pModel->getReactions(), reaction, item);
+  if (!error.empty())
+    return error;
+  applyNewId(reaction, item);
+  error = applyReactionScheme(reaction, item);
+  if (!error.empty())
+    return error;
+  return applyLocalParameters(reaction, item);
+}
+
+static std::string parseEventAssignments(const ordered_json& assignments, std::vector<std::pair<std::string, std::string>>& out)
+{
+  if (assignments.is_string())
+  {
+    std::stringstream ss(assignments.get<std::string>());
+    std::string part;
+    while (std::getline(ss, part, ';'))
+    {
+      auto trimmed = trimCopy(part);
+      if (trimmed.empty())
+        continue;
+      auto eq = trimmed.find('=');
+      if (eq == std::string::npos)
+        return "Event assignment string must contain '='";
+      auto target = trimCopy(trimmed.substr(0, eq));
+      auto expression = trimCopy(trimmed.substr(eq + 1));
+      if (target.empty())
+        return "Event assignment is missing a target";
+      out.emplace_back(target, expression);
+    }
+    return {};
+  }
+
+  if (!assignments.is_array())
+    return "'assignments' must be an array or string";
+
+  for (const auto& a : assignments)
+  {
+    if (!a.is_object())
+      return "event assignments must be objects";
+    const auto target = jsonGetString(a, "target");
+    if (target.empty())
+      return "event assignments require 'target'";
+    if (!jsonContainsKey(a, "expression") || !a.at("expression").is_string())
+      return "event assignments require string 'expression'";
+    out.emplace_back(target, a.at("expression").get<std::string>());
+  }
+  return {};
+}
+
+static std::string applyEventAssignments(CModel* pModel, CEvent* event, const ordered_json& item)
+{
+  if (!jsonContainsKey(item, "assignments"))
+    return {};
+
+  std::vector<std::pair<std::string, std::string>> assignments;
+  auto error = parseEventAssignments(item.at("assignments"), assignments);
+  if (!error.empty())
+    return error;
+
+  std::vector<std::string> keys;
+  for (auto& assignment : event->getAssignments())
+    keys.push_back(assignment.getKey());
+  for (const auto& key : keys)
+    event->deleteAssignment(key);
+
+  for (const auto& [target, expression] : assignments)
+  {
+    auto* targetObj = resolveAssignmentTarget(pModel, target);
+    if (targetObj == nullptr)
+      return "Unknown event assignment target '" + target + "'";
+    auto* assignment = new CEventAssignment(targetObj->getCN(), event);
+    if (!event->getAssignments().add(assignment, true))
+    {
+      delete assignment;
+      return "Failed to add event assignment for '" + target + "'";
+    }
+    auto infix = displayExpressionToInfix(pDataModel, expression);
+    if (!assignment->setExpression(infix))
+      return "Failed to set event assignment expression for '" + target + "'";
+  }
+  return {};
+}
+
+static std::string applyEventAttributes(CModel* pModel, CEvent* event, const ordered_json& item)
+{
+  auto error = renameIfRequested(pModel->getEvents(), event, item);
+  if (!error.empty())
+    return error;
+  applyNewId(event, item);
+
+  if (jsonContainsKey(item, "trigger"))
+  {
+    if (!item.at("trigger").is_string())
+      return "'trigger' must be a string";
+    auto infix = displayExpressionToInfix(pDataModel, item.at("trigger").get<std::string>());
+    if (!event->setTriggerExpression(infix))
+      return "Failed to set event trigger";
+  }
+  if (jsonContainsKey(item, "delay"))
+  {
+    if (!item.at("delay").is_string())
+      return "'delay' must be a string";
+    auto infix = displayExpressionToInfix(pDataModel, item.at("delay").get<std::string>());
+    if (!event->setDelayExpression(infix))
+      return "Failed to set event delay";
+  }
+  if (jsonContainsKey(item, "priority"))
+  {
+    if (!item.at("priority").is_string())
+      return "'priority' must be a string";
+    auto infix = displayExpressionToInfix(pDataModel, item.at("priority").get<std::string>());
+    if (!event->setPriorityExpression(infix))
+      return "Failed to set event priority";
+  }
+  return applyEventAssignments(pModel, event, item);
+}
+
+static std::string validateCreateNames(const ModelChangeLists& lists, const std::string& section)
+{
+  std::set<std::string> names;
+  for (const auto& item : lists.creates)
+  {
+    auto name = jsonGetString(item, "name");
+    if (name.empty())
+      continue;
+    if (!names.insert(name).second)
+      return "'" + section + "' create lists a duplicate name '" + name + "'";
+  }
+  return {};
+}
+
+template <typename Vec>
+static std::string validateExisting(Vec& vec, const std::vector<ordered_json>& items, const std::string& section)
+{
+  for (const auto& item : items)
+  {
+    auto error = requireIdentity(item, section);
+    if (!error.empty())
+      return error;
+    if (!objectExists(vec, item))
+      return "Unknown " + section + " '" + (jsonGetString(item, "id").empty() ? jsonGetString(item, "name") : jsonGetString(item, "id")) + "'";
+  }
+  return {};
+}
+
+template <typename Vec>
+static std::string validateCreates(Vec& vec, const ModelChangeLists& lists, const std::string& section)
+{
+  auto error = validateCreateNames(lists, section);
+  if (!error.empty())
+    return error;
+  for (const auto& item : lists.creates)
+  {
+    error = requireCreateName(item, section);
+    if (!error.empty())
+      return error;
+    const auto name = jsonGetString(item, "name");
+    bool deleting = false;
+    for (const auto& del : lists.deletes)
+    {
+      auto* existing = findModelObject(vec, del);
+      if (existing != nullptr && existing->getObjectName() == name)
+      {
+        deleting = true;
+        break;
+      }
+    }
+    if (findByObjectName(vec, name) != nullptr && !deleting)
+      return "'" + section + "' '" + name + "' already exists";
+  }
+  return {};
+}
+
+static std::string validateSpeciesCreates(CModel* pModel, const ModelChangeLists& species, const ModelChangeLists& compartments)
+{
+  auto error = validateCreates(pModel->getMetabolites(), species, "species");
+  if (!error.empty())
+    return error;
+
+  std::set<std::string> createdCompartments;
+  for (const auto& item : compartments.creates)
+  {
+    auto name = jsonGetString(item, "name");
+    if (!name.empty())
+      createdCompartments.insert(name);
+  }
+
+  for (const auto& item : species.creates)
+  {
+    const auto compartment = jsonGetString(item, "compartment");
+    if (compartment.empty())
+      return "'species' create items require 'compartment'";
+    if (findCompartmentByNameOrId(pModel, compartment) == nullptr && createdCompartments.count(compartment) == 0)
+      return "Unknown compartment '" + compartment + "'";
+  }
+  return {};
+}
+
+static std::string validateReactionCreates(const ModelChangeLists& reactions)
+{
+  auto error = validateCreateNames(reactions, "reactions");
+  if (!error.empty())
+    return error;
+  for (const auto& item : reactions.creates)
+  {
+    error = requireCreateName(item, "reactions");
+    if (!error.empty())
+      return error;
+    if (jsonGetString(item, "scheme").empty())
+      return "'reactions' create items require 'scheme'";
+  }
+  return {};
+}
+
+std::string applyModelChanges(const std::string& json)
+{
+  ordered_json patch;
+  try
+  {
+    patch = ordered_json::parse(json);
+  }
+  catch (const std::exception& e)
+  {
+    return jsonError(std::string("Invalid JSON: ") + e.what());
+  }
+
+  if (!patch.is_object())
+    return jsonError("Model changes must be a JSON object");
+
+  if (pDataModel == nullptr)
+    initCps();
+  ensureModel();
+  if (pDataModel == nullptr || pDataModel->getModel() == nullptr)
+    return jsonError("No model loaded");
+
+  auto* pModel = pDataModel->getModel();
+
+  try
+  {
+    if (patch.contains("model") && !patch.at("model").is_object())
+      return jsonError("'model' must be an object");
+
+    ModelChangeLists compartments;
+    ModelChangeLists parameters;
+    ModelChangeLists species;
+    ModelChangeLists reactions;
+    ModelChangeLists events;
+
+    auto error = collectModelChanges(patch, "compartments", compartments);
+    if (error.empty())
+      error = collectModelChanges(patch, "global_parameters", parameters);
+    if (error.empty())
+      error = collectModelChanges(patch, "species", species);
+    if (error.empty())
+      error = collectModelChanges(patch, "reactions", reactions);
+    if (error.empty())
+      error = collectModelChanges(patch, "events", events);
+    if (!error.empty())
+      return jsonError(error);
+
+    error = validateExisting(pModel->getEvents(), events.deletes, "events");
+    if (error.empty())
+      error = validateExisting(pModel->getEvents(), events.updates, "events");
+    if (error.empty())
+      error = validateExisting(pModel->getReactions(), reactions.deletes, "reactions");
+    if (error.empty())
+      error = validateExisting(pModel->getReactions(), reactions.updates, "reactions");
+    if (error.empty())
+      error = validateExisting(pModel->getMetabolites(), species.deletes, "species");
+    if (error.empty())
+      error = validateExisting(pModel->getMetabolites(), species.updates, "species");
+    if (error.empty())
+      error = validateExisting(pModel->getModelValues(), parameters.deletes, "global_parameters");
+    if (error.empty())
+      error = validateExisting(pModel->getModelValues(), parameters.updates, "global_parameters");
+    if (error.empty())
+      error = validateExisting(pModel->getCompartments(), compartments.deletes, "compartments");
+    if (error.empty())
+      error = validateExisting(pModel->getCompartments(), compartments.updates, "compartments");
+    if (error.empty())
+      error = validateCreates(pModel->getCompartments(), compartments, "compartments");
+    if (error.empty())
+      error = validateCreates(pModel->getModelValues(), parameters, "global_parameters");
+    if (error.empty())
+      error = validateSpeciesCreates(pModel, species, compartments);
+    if (error.empty())
+      error = validateCreates(pModel->getReactions(), reactions, "reactions");
+    if (error.empty())
+      error = validateReactionCreates(reactions);
+    if (error.empty())
+      error = validateCreates(pModel->getEvents(), events, "events");
+    if (!error.empty())
+      return jsonError(error);
+
+    if (patch.contains("model"))
+    {
+      error = applyModelAttributes(pModel, patch.at("model"));
+      if (!error.empty())
+        return jsonError(error);
+    }
+
+    for (const auto& item : events.deletes)
+    {
+      auto* event = findModelObject(pModel->getEvents(), item);
+      if (event == nullptr || !pModel->removeEvent(event, true))
+        return jsonError("Failed to delete event");
+    }
+    for (const auto& item : reactions.deletes)
+    {
+      auto* reaction = findModelObject(pModel->getReactions(), item);
+      if (reaction == nullptr || !pModel->removeReaction(reaction, true))
+        return jsonError("Failed to delete reaction");
+    }
+    for (const auto& item : species.deletes)
+    {
+      auto* metab = findModelObject(pModel->getMetabolites(), item);
+      if (metab == nullptr || !pModel->removeMetabolite(metab, true))
+        return jsonError("Failed to delete species");
+    }
+    for (const auto& item : parameters.deletes)
+    {
+      auto* param = findModelObject(pModel->getModelValues(), item);
+      if (param == nullptr || !pModel->removeModelValue(param, true))
+        return jsonError("Failed to delete global parameter");
+    }
+    for (const auto& item : compartments.deletes)
+    {
+      auto* compartment = findModelObject(pModel->getCompartments(), item);
+      if (compartment == nullptr || !pModel->removeCompartment(compartment, true))
+        return jsonError("Failed to delete compartment");
+    }
+
+    for (const auto& item : compartments.creates)
+    {
+      double size = 1.0;
+      jsonGetNumber(item, "size", size);
+      auto* compartment = pModel->createCompartment(jsonGetString(item, "name"), size);
+      if (compartment == nullptr)
+        return jsonError("Failed to create compartment '" + jsonGetString(item, "name") + "'");
+      error = applyCompartmentAttributes(pModel, compartment, item);
+      if (!error.empty())
+        return jsonError(error);
+    }
+    for (const auto& item : parameters.creates)
+    {
+      double value = 0.0;
+      if (!jsonGetNumber(item, "initial_value", value))
+        jsonGetNumber(item, "value", value);
+      auto* param = pModel->createModelValue(jsonGetString(item, "name"), value);
+      if (param == nullptr)
+        return jsonError("Failed to create global parameter '" + jsonGetString(item, "name") + "'");
+      error = applyParameterAttributes(pModel, param, item);
+      if (!error.empty())
+        return jsonError(error);
+    }
+    for (const auto& item : species.creates)
+    {
+      double concentration = 1.0;
+      jsonGetNumber(item, "initial_concentration", concentration);
+      auto status = CModelEntity::Status::REACTIONS;
+      if (jsonContainsKey(item, "type") && item.at("type").is_string())
+      {
+        std::string statusError;
+        if (!parseEntityStatus(item.at("type").get<std::string>(), status, statusError))
+          return jsonError(statusError);
+      }
+      auto compartment = jsonGetString(item, "compartment");
+      if (auto* found = findCompartmentByNameOrId(pModel, compartment))
+        compartment = found->getObjectName();
+      auto* metab = pModel->createMetabolite(jsonGetString(item, "name"), compartment, concentration, status);
+      if (metab == nullptr)
+        return jsonError("Failed to create species '" + jsonGetString(item, "name") + "'");
+      error = applySpeciesAttributes(pModel, metab, item);
+      if (!error.empty())
+        return jsonError(error);
+    }
+    for (const auto& item : reactions.creates)
+    {
+      auto* reaction = pModel->createReaction(jsonGetString(item, "name"));
+      if (reaction == nullptr)
+        return jsonError("Failed to create reaction '" + jsonGetString(item, "name") + "'");
+      error = applyReactionAttributes(pModel, reaction, item);
+      if (!error.empty())
+        return jsonError(error);
+    }
+    for (const auto& item : events.creates)
+    {
+      auto* event = pModel->createEvent(jsonGetString(item, "name"));
+      if (event == nullptr)
+        return jsonError("Failed to create event '" + jsonGetString(item, "name") + "'");
+      error = applyEventAttributes(pModel, event, item);
+      if (!error.empty())
+        return jsonError(error);
+    }
+
+    for (const auto& item : compartments.updates)
+    {
+      auto* compartment = findModelObject(pModel->getCompartments(), item);
+      error = applyCompartmentAttributes(pModel, compartment, item);
+      if (!error.empty())
+        return jsonError(error);
+    }
+    for (const auto& item : parameters.updates)
+    {
+      auto* param = findModelObject(pModel->getModelValues(), item);
+      error = applyParameterAttributes(pModel, param, item);
+      if (!error.empty())
+        return jsonError(error);
+    }
+    for (const auto& item : species.updates)
+    {
+      auto* metab = findModelObject(pModel->getMetabolites(), item);
+      error = applySpeciesAttributes(pModel, metab, item);
+      if (!error.empty())
+        return jsonError(error);
+    }
+    for (const auto& item : reactions.updates)
+    {
+      auto* reaction = findModelObject(pModel->getReactions(), item);
+      error = applyReactionAttributes(pModel, reaction, item);
+      if (!error.empty())
+        return jsonError(error);
+    }
+    for (const auto& item : events.updates)
+    {
+      auto* event = findModelObject(pModel->getEvents(), item);
+      error = applyEventAttributes(pModel, event, item);
+      if (!error.empty())
+        return jsonError(error);
+    }
+
+    if (!pModel->forceCompile(nullptr))
+      return jsonError(std::string("Failed to compile model: ") + getMessages());
+
+    // Numeric initials must be applied after compile; compile refreshes the
+    // math container and can otherwise restore previous initial values.
+    for (const auto& item : compartments.creates)
+    {
+      auto* compartment = findByObjectName(pModel->getCompartments(), jsonGetString(item, "name"));
+      if (compartment == nullptr)
+        compartment = findModelObject(pModel->getCompartments(), item);
+      if (compartment != nullptr)
+        applyCompartmentAttributes(pModel, compartment, item);
+    }
+    for (const auto& item : compartments.updates)
+    {
+      auto* compartment = findModelObject(pModel->getCompartments(), item);
+      if (compartment != nullptr)
+        applyCompartmentAttributes(pModel, compartment, item);
+    }
+    for (const auto& item : parameters.creates)
+    {
+      auto* param = findByObjectName(pModel->getModelValues(), jsonGetString(item, "name"));
+      if (param == nullptr)
+        param = findModelObject(pModel->getModelValues(), item);
+      if (param != nullptr)
+        applyParameterAttributes(pModel, param, item);
+    }
+    for (const auto& item : parameters.updates)
+    {
+      auto* param = findModelObject(pModel->getModelValues(), item);
+      if (param != nullptr)
+        applyParameterAttributes(pModel, param, item);
+    }
+    for (const auto& item : species.creates)
+    {
+      auto* metab = findByObjectName(pModel->getMetabolites(), jsonGetString(item, "name"));
+      if (metab == nullptr)
+        metab = findModelObject(pModel->getMetabolites(), item);
+      if (metab != nullptr)
+        applySpeciesAttributes(pModel, metab, item);
+    }
+    for (const auto& item : species.updates)
+    {
+      auto* metab = findModelObject(pModel->getMetabolites(), item);
+      if (metab != nullptr)
+        applySpeciesAttributes(pModel, metab, item);
+    }
+    for (const auto& item : reactions.creates)
+    {
+      auto* reaction = findByObjectName(pModel->getReactions(), jsonGetString(item, "name"));
+      if (reaction == nullptr)
+        reaction = findModelObject(pModel->getReactions(), item);
+      if (reaction != nullptr)
+        applyLocalParameters(reaction, item);
+    }
+    for (const auto& item : reactions.updates)
+    {
+      auto* reaction = findModelObject(pModel->getReactions(), item);
+      if (reaction != nullptr)
+        applyLocalParameters(reaction, item);
+    }
+
+    pModel->applyInitialValues();
+  }
+  catch (CCopasiException&)
+  {
+    return jsonError(getMessages());
+  }
+  catch (const std::exception& e)
+  {
+    return jsonError(e.what());
+  }
+
+  return getModelInfo();
 }
 
 void _removeFixedElementsFromSet(CModelParameterGroup* group)
@@ -3562,6 +4551,7 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
     { return getMessages(start, std::string()); }));
   emscripten::function("getMessages", &getMessages);
   emscripten::function("getModelInfo", &getModelInfo);
+  emscripten::function("applyModelChanges", &applyModelChanges);
   emscripten::function("loadFromFile", &loadFromFile);
   emscripten::function("loadCombineArchive", &loadCombineArchive);
   emscripten::function("loadModel", &loadModel);

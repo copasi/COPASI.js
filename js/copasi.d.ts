@@ -73,6 +73,89 @@ export interface EventInfo {
     assignments: string;
 }
 
+export type ModelChangeOp = "update" | "create" | "delete";
+
+export interface ModelChangeAssignment {
+    target: string;
+    expression: string;
+}
+
+export interface SpeciesChange {
+    op?: ModelChangeOp;
+    name?: string;
+    id?: string;
+    new_name?: string;
+    new_id?: string;
+    compartment?: string;
+    initial_concentration?: number;
+    initial_particle_number?: number;
+    type?: string;
+    initial_expression?: string;
+    expression?: string;
+}
+
+export interface CompartmentChange {
+    op?: ModelChangeOp;
+    name?: string;
+    id?: string;
+    new_name?: string;
+    new_id?: string;
+    size?: number;
+    type?: string;
+    initial_expression?: string;
+    expression?: string;
+}
+
+export interface LocalParameterChange {
+    name: string;
+    value: number;
+}
+
+export interface ReactionChange {
+    op?: ModelChangeOp;
+    name?: string;
+    id?: string;
+    new_name?: string;
+    new_id?: string;
+    scheme?: string;
+    reversible?: boolean;
+    local_parameters?: LocalParameterChange[];
+}
+
+export interface ParameterChange {
+    op?: ModelChangeOp;
+    name?: string;
+    id?: string;
+    new_name?: string;
+    new_id?: string;
+    value?: number;
+    initial_value?: number;
+    type?: string;
+    initial_expression?: string;
+    expression?: string;
+}
+
+export interface EventChange {
+    op?: ModelChangeOp;
+    name?: string;
+    id?: string;
+    new_name?: string;
+    new_id?: string;
+    trigger?: string;
+    delay?: string;
+    priority?: string;
+    assignments?: ModelChangeAssignment[] | string;
+}
+
+export interface ModelChanges {
+    model?: Partial<ModelName> & { model_type?: string };
+    species?: SpeciesChange[];
+    compartments?: CompartmentChange[];
+    reactions?: ReactionChange[];
+    global_parameters?: ParameterChange[];
+    events?: EventChange[];
+}
+
 export interface ModelInfo {
     species: SpeciesInfo[];
     compartments: CompartmentInfo[];
@@ -96,6 +179,8 @@ export default class COPASI {
     loadModel(modelCode: string): ModelInfo;
     loadFromFile(modelFile: string): ModelInfo;
     loadCombineArchive(modelFile: string): ModelInfo;
+    applyModelChanges(changes: ModelChanges | string): ModelInfo;
+    readonly modelInfo: ModelInfo;
     simulate() : object;
     simulate2D() : number[][];
     simulateEx(startTime : number, endTime : number, numPoints : number) : SimResult;

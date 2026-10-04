@@ -677,6 +677,114 @@ TEST_CASE("Test Messages", "[copasijs][messages]")
 }
 
 
+TEST_CASE("applyModelChanges", "[copasijs][modelchanges]")
+{
+    using nlohmann::ordered_json;
+
+    Instance instance;
+    auto loaded = loadFromFile(getTestFile("../example_files/brusselator.cps"));
+    auto info = ordered_json::parse(loaded);
+    REQUIRE(info["status"] == "success");
+
+    const std::string compartment = info["compartments"][0]["name"];
+    const std::string reactionName = info["reactions"][0]["name"];
+
+    SECTION("sparse update")
+    {
+        auto result = ordered_json::parse(applyModelChanges(R"({
+          "species": [{ "name": "X", "initial_concentration": 5.0 }],
+          "model": { "name": "Patched Brusselator" }
+        })"));
+        REQUIRE(result["status"] == "success");
+        REQUIRE(result["model"]["name"] == "Patched Brusselator");
+        bool found = false;
+        for (auto& species : result["species"])
+        {
+            if (species["name"] == "X")
+            {
+                REQUIRE(species["initial_concentration"].get<double>() == Approx(5.0));
+                found = true;
+            }
+        }
+        REQUIRE(found);
+    }
+
+    SECTION("unknown name is an error")
+    {
+        auto result = ordered_json::parse(applyModelChanges(R"({
+          "species": [{ "name": "does_not_exist", "initial_concentration": 1.0 }]
+        })"));
+        REQUIRE(result["status"] == "error");
+        REQUIRE(!result["messages"].get<std::string>().empty());
+    }
+
+    SECTION("rename via new_name")
+    {
+        auto result = ordered_json::parse(applyModelChanges(R"({
+          "species": [{ "name": "X", "new_name": "Xrenamed" }]
+        })"));
+        REQUIRE(result["status"] == "success");
+        bool renamed = false;
+        bool oldName = false;
+        for (auto& species : result["species"])
+        {
+            if (species["name"] == "Xrenamed")
+                renamed = true;
+            if (species["name"] == "X")
+                oldName = true;
+        }
+        REQUIRE(renamed);
+        REQUIRE(!oldName);
+    }
+
+    SECTION("create species and reaction then simulate")
+    {
+        ordered_json spec;
+        spec["op"] = "create";
+        spec["name"] = "Z";
+        spec["compartment"] = compartment;
+        spec["initial_concentration"] = 1.0;
+        ordered_json rxn;
+        rxn["op"] = "create";
+        rxn["name"] = "R_XZ";
+        rxn["scheme"] = "X -> Z";
+        rxn["reversible"] = false;
+        ordered_json patch;
+        patch["species"] = ordered_json::array({spec});
+        patch["reactions"] = ordered_json::array({rxn});
+        auto result = ordered_json::parse(applyModelChanges(patch.dump()));
+        CAPTURE(result.dump());
+        CAPTURE(info["compartments"].dump());
+        REQUIRE(result["status"] == "success");
+        bool foundZ = false;
+        bool foundR = false;
+        for (auto& species : result["species"])
+            if (species["name"] == "Z")
+                foundZ = true;
+        for (auto& reaction : result["reactions"])
+            if (reaction["name"] == "R_XZ")
+                foundR = true;
+        REQUIRE(foundZ);
+        REQUIRE(foundR);
+
+        auto sim = ordered_json::parse(simulateEx(0, 1, 3));
+        REQUIRE(sim["status"] == "success");
+    }
+
+    SECTION("delete a reaction")
+    {
+        ordered_json patch;
+        patch["reactions"] = ordered_json::array({
+            { {"op", "delete"}, {"name", reactionName} }
+        });
+        auto result = ordered_json::parse(applyModelChanges(patch.dump()));
+        CAPTURE(result.dump());
+        REQUIRE(result["status"] == "success");
+        for (auto& reaction : result["reactions"])
+            REQUIRE(reaction["name"] != reactionName);
+    }
+}
+
 TEST_CASE("Test GEPASI", "[copasijs][gepasi]")
 {
     Instance instance;

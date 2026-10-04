@@ -99,6 +99,35 @@ nlohmann::ordered_json buildModelInfo();
 /// @see buildModelInfo
 std::string getModelInfo();
 
+/// @brief applies sparse model changes and returns the updated model info
+///
+/// The patch uses the same section names as @see buildModelInfo. Omitted
+/// sections and omitted attributes are left unchanged. Array items are
+/// identified by `id` (SBML id) if present and non-empty, otherwise by
+/// `name`. Missing array items are not deleted.
+///
+/// Each element may include `"op": "update"` (default), `"create"`, or
+/// `"delete"`. Rename with `new_name` / `new_id` so identity fields stay
+/// lookup keys. Create requires `name` (plus `compartment` for species and
+/// `scheme` for reactions).
+///
+/// ```json
+/// {
+///   "model": { "name": "Renamed" },
+///   "species": [
+///     { "name": "X", "initial_concentration": 2.0 },
+///     { "op": "create", "name": "Z", "compartment": "compartment", "initial_concentration": 1 },
+///     { "op": "delete", "name": "Y" }
+///   ]
+/// }
+/// ```
+///
+/// Deletes run before creates, then updates. On success the return value is
+/// the same snapshot as @see getModelInfo. On failure `{ "status": "error",
+/// "messages": "..." }` is returned and no changes are applied if
+/// validation fails.
+std::string applyModelChanges(const std::string& json);
+
 /// @brief loads a model from a file
 /// @param modelFile the file to load
 /// @return the model info as string

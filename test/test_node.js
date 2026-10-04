@@ -208,3 +208,47 @@ test('loads YeastGlycolysis model', async () => {
     // cleanup
     instance.destroy();
 });
+
+test('applies sparse model changes', async () => {
+    const Module = await getModule();
+    const instance = createInstance(Module);
+    const data = fs.readFileSync(path.resolve(__dirname, '../example_files/brusselator.cps'), 'utf8');
+    const loaded = instance.loadModel(data);
+    assert.equal(loaded.status, 'success');
+
+    const compartment = loaded.compartments[0].name;
+    const updated = instance.applyModelChanges({
+        species: [{ name: 'X', initial_concentration: 5.0 }],
+        model: { name: 'Patched Brusselator' }
+    });
+    assert.equal(updated.status, 'success');
+    assert.equal(updated.model.name, 'Patched Brusselator');
+    const x = updated.species.find((s) => s.name === 'X');
+    assert.ok(x);
+    assert.equal(x.initial_concentration, 5);
+
+    const created = instance.applyModelChanges({
+        species: [{ op: 'create', name: 'Z', compartment, initial_concentration: 1 }],
+        reactions: [{ op: 'create', name: 'R_XZ', scheme: 'X -> Z', reversible: false }]
+    });
+    assert.equal(created.status, 'success');
+    assert.ok(created.species.some((s) => s.name === 'Z'));
+    assert.ok(created.reactions.some((r) => r.name === 'R_XZ'));
+
+    const sim = instance.simulateEx(0, 1, 3);
+    assert.equal(sim.status, 'success');
+
+    const missing = instance.applyModelChanges({
+        species: [{ name: 'does_not_exist', initial_concentration: 1 }]
+    });
+    assert.equal(missing.status, 'error');
+
+    const renamed = instance.applyModelChanges({
+        species: [{ name: 'X', new_name: 'Xrenamed' }]
+    });
+    assert.equal(renamed.status, 'success');
+    assert.ok(renamed.species.some((s) => s.name === 'Xrenamed'));
+    assert.ok(!renamed.species.some((s) => s.name === 'X'));
+
+    instance.destroy();
+});

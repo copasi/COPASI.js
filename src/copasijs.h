@@ -144,6 +144,10 @@ std::string loadCombineArchive(const std::string& modelFile);
 /// @return the model info as string
 std::string loadModel(const std::string& modelString);
 
+/// @brief creates a new empty model
+/// @return the model info as string
+std::string newModel();
+
 /// @brief resets the model
 ///
 /// This function resets the models floating species and entities with 

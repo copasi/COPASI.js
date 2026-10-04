@@ -52,6 +52,28 @@ TEST_CASE("Test version", "[copasijs]") {
     REQUIRE(!version.empty());
 }
 
+TEST_CASE("New Model", "[copasijs][newmodel]")
+{
+    using nlohmann::ordered_json;
+
+    Instance instance;
+    std::string loaded = loadFromFile(getTestFile("../example_files/brusselator.cps"));
+    REQUIRE(!loaded.empty());
+    auto loadedInfo = ordered_json::parse(loaded);
+    REQUIRE(loadedInfo["status"] == "success");
+    REQUIRE(!loadedInfo["species"].empty());
+
+    auto info = ordered_json::parse(newModel());
+    CAPTURE(info.dump());
+    REQUIRE(info["status"] == "success");
+    REQUIRE(info["species"].empty());
+    REQUIRE(info["reactions"].empty());
+    REQUIRE(info.contains("model"));
+
+    auto selectionList = getSelectionList();
+    REQUIRE_THAT(selectionList, Catch::Matchers::Equals(std::vector<std::string>{"Time"}));
+}
+
 TEST_CASE("Load Model", "[copasijs][brusselator]") 
 {
     Instance instance;

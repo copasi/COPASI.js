@@ -209,6 +209,24 @@ test('loads YeastGlycolysis model', async () => {
     instance.destroy();
 });
 
+test('creates a new empty model', async () => {
+    const Module = await getModule();
+    const instance = createInstance(Module);
+    const data = fs.readFileSync(path.resolve(__dirname, '../example_files/brusselator.cps'), 'utf8');
+    const loaded = instance.loadModel(data);
+    assert.equal(loaded.status, 'success');
+    assert.ok(loaded.species.length > 0);
+
+    const info = instance.newModel();
+    assert.equal(info.status, 'success');
+    assert.equal(info.species.length, 0);
+    assert.equal(info.reactions.length, 0);
+    assert.ok(info.model);
+    assert.deepEqual(instance.selectionList, ['Time']);
+
+    instance.destroy();
+});
+
 test('applies sparse model changes', async () => {
     const Module = await getModule();
     const instance = createInstance(Module);

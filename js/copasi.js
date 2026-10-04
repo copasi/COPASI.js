@@ -161,6 +161,16 @@ class COPASI {
     }
 
     /**
+     * Creates a new empty model.
+     *
+     * @returns model information as an object
+     */
+    newModel()
+    {
+        return JSON.parse(this.Module.newModel());
+    }
+
+    /**
      * Loads a model from a COMBINE archive.
      *
      * @param {string} path the path to the COMBINE archive

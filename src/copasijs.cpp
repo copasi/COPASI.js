@@ -2506,6 +2506,37 @@ std::string loadModel(const std::string& cpsCode)
   return buildModelInfo().dump(mIndent);
 }
 
+std::string newModel()
+{
+  try
+  {
+    destroyAPI();
+    initCps();
+
+    CCopasiMessage::clearDeque();
+
+    pDataModel->newModel(nullptr, true);
+
+    loadCommon();
+  }
+  catch (CCopasiException& e)
+  {
+    ordered_json modelInfo;
+    modelInfo["status"] = "error";
+    modelInfo["messages"] = getMessages();
+    return modelInfo.dump(mIndent);
+  }
+  catch (std::exception& e)
+  {
+    ordered_json modelInfo;
+    modelInfo["status"] = "error";
+    modelInfo["messages"] = e.what();
+    return modelInfo.dump(mIndent);
+  }
+
+  return buildModelInfo().dump(mIndent);
+}
+
 void reset()
 {
   if (pDataModel == nullptr)
@@ -4683,6 +4714,7 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
   emscripten::function("loadFromFile", &loadFromFile);
   emscripten::function("loadCombineArchive", &loadCombineArchive);
   emscripten::function("loadModel", &loadModel);
+  emscripten::function("newModel", &newModel);
   emscripten::function("reset", &reset);
   emscripten::function("resetAll", &resetAll);
   emscripten::function("simulate", &simulate);

@@ -177,6 +177,7 @@ export default class COPASI {
     _vectorToArray(v: any): any[];
     loadExample(path: string) : ModelInfo;
     loadModel(modelCode: string): ModelInfo;
+    newModel(): ModelInfo;
     loadFromFile(modelFile: string): ModelInfo;
     loadCombineArchive(modelFile: string): ModelInfo;
     applyModelChanges(changes: ModelChanges | string): ModelInfo;

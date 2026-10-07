@@ -644,6 +644,28 @@ TEST_CASE("Test PE omex", "[copasijs][parameter_estimation][omex]")
     REQUIRE(!currentFit.empty());
 }
 
+TEST_CASE("Test create model with event and simulate", "[copasijs][event]")
+{
+  Instance instance;
+  std::string model = newModel();
+  REQUIRE(!model.empty());
+
+  std::string changedModel = applyModelChanges(R"({
+     "species":[{"op":"create", "compartment":"v","initial_concentration":13.0,"name":"s1","type":"reactions"}],
+     "compartments":[{"op":"create", "name":"v","size":1.0}],
+     "events":[{"op":"create", "name":"e1","trigger":"{Time} > 1","assignments":"s1 = 2"}]
+  })");
+
+  REQUIRE(!changedModel.empty());
+
+  auto json = nlohmann::json::parse(changedModel, nullptr, false, true);
+  REQUIRE(json["status"] == "success");
+  REQUIRE(json["events"][0]["name"] == "e1");
+  REQUIRE(json["events"][0]["trigger"] == "{Time} > 1");
+  REQUIRE(json["events"][0]["assignments"] == "s1 = 2");
+
+}
+
 TEST_CASE("Test access to data files", "[copasijs][parameter_estimation][data]")
 {
   Instance instance;

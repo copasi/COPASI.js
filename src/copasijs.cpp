@@ -1224,9 +1224,14 @@ ordered_json buildModelInfo()
     {
       if (!assignment.getTargetObject())
         continue;
-      targets << assignment.getTargetObject()->getObjectName() << " = " << expressionToString(assignment.getExpressionPtr()) << "; ";
+      auto* assignmentObj = assignment.getTargetObject();
+      auto assignmentObjName = cnToDisplayName(assignmentObj->getCN());
+      targets << assignmentObjName << " = " << expressionToString(assignment.getExpressionPtr()) << "; ";
     }
-    e["assignments"] = targets.str();
+    auto assignments = targets.str();
+    if (!assignments.empty())
+      assignments = assignments.substr(0, assignments.size() - 2);
+    e["assignments"] = assignments;
     modelInfo["events"].push_back(e);
   }
 
@@ -2064,7 +2069,7 @@ std::string applyModelChanges(const std::string& json)
   ordered_json patch;
   try
   {
-    patch = ordered_json::parse(json);
+    patch = ordered_json::parse(json, nullptr, true, true);
   }
   catch (const std::exception& e)
   {

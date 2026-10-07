@@ -4593,18 +4593,15 @@ std::vector<std::string> getAvailableMethods(const std::string& taskName)
     return {};
 
   auto& task = (*pDataModel->getTaskList())[taskName];
-  auto* pMethods = task.getValidMethods();
+  auto& methods = task.getValidMethods();
   std::vector<std::string> methodNames;
-  if (pMethods)
+  int count = 0;
+  for (const auto & a : methods.annotations())
   {
-    int count = 0;
-    while (pMethods[count] != CTaskEnum::Method::UnsetMethod)
-    {
-      methodNames.push_back(CTaskEnum::MethodName[pMethods[count]]);
-      count++;
-    }
+    methodNames.push_back(a);
+    count++;
   }
-  return methodNames;
+return methodNames;
 }
 
 void setTimeCourseSettings(const std::string& settings)

@@ -188,6 +188,9 @@ export default class COPASI {
     loadFromFile(modelFile: string): ModelInfo;
     loadCombineArchive(modelFile: string): ModelInfo;
     applyModelChanges(changes: ModelChanges | string): ModelInfo;
+    selectionList: string[];
+    readonly selectedValues: number[];
+    resetSelectionList(): void;
     readonly modelInfo: ModelInfo;
     simulate(includeData?: boolean) : object;
     simulate2D() : number[][];

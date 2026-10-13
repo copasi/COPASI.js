@@ -882,8 +882,16 @@ void setSelectionList(const std::vector<std::string>& selectionList)
     {
       if (el == nullptr || el->pValue == nullptr)
         return false;
-      mSelectedValues.push_back(el->pValue);
-      mpDataHandler->addDuringName(el->cn);
+      // resolve object to get the correct CN for the data handler
+      auto* obj = dynamic_cast<const CDataObject*> (pDataModel->getObject(el->cn));
+      if (obj == nullptr)
+        return false;
+      auto cn = el->cn;
+      if (obj->getObjectType() != "Reference")
+        cn = obj->getValueObject()->getCN();
+      
+      mSelectedValues.push_back(el->pValue);      
+      mpDataHandler->addDuringName(cn);
       return true;
     };
 
@@ -4782,6 +4790,39 @@ std::vector<std::string> getSelectionList()
   return mSelectionList;
 }
 
+void resetSelectionList()
+{
+  ensureModel();
+
+  mSelectionList.clear();
+  mSelectionList.push_back("Time");
+
+  if (pDataModel == nullptr || pDataModel->getModel() == nullptr)
+    return;
+
+  auto* pModel = pDataModel->getModel();
+
+  for (auto& metab : pModel->getMetabolites())
+  {
+    if (metab.getStatus() != CModelEntity::Status::FIXED)
+      mSelectionList.push_back(metab.getObjectName());
+  }
+
+  for (auto& compartment : pModel->getCompartments())
+  {
+    if (compartment.getStatus() != CModelEntity::Status::FIXED)
+      mSelectionList.push_back(compartment.getObjectName());
+  }
+
+  for (auto& param : pModel->getModelValues())
+  {
+    if (param.getStatus() != CModelEntity::Status::FIXED)
+      mSelectionList.push_back(param.getObjectName());
+  }
+
+  setSelectionList(mSelectionList);
+}
+
 std::vector<double> getSelectionValues()
 {
   std::vector<double> values;
@@ -4922,6 +4963,7 @@ EMSCRIPTEN_BINDINGS(copasi_binding)
   emscripten::function("getSelectionList", &getSelectionList);
   emscripten::function("getSelectedValues", &getSelectionValues);
   emscripten::function("setSelectionList", &setSelectionList);
+  emscripten::function("resetSelectionList", &resetSelectionList);
 
   emscripten::function("getJacobian", &getJacobian);
   emscripten::function("getJacobian2D", &getJacobian2D);

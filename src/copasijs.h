@@ -35,6 +35,11 @@ void setSelectionList(const std::vector<std::string>& selectionList);
 /// @return the current selection list
 std::vector<std::string> getSelectionList();
 
+/// @brief resets the selection list to the default values
+/// by default floating species concentration, as well as elements with ODEs / assignments 
+/// are selected.
+void resetSelectionList();
+
 /// @return the current selected values
 std::vector<double> getSelectionValues();
 

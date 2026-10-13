@@ -609,6 +609,16 @@ class COPASI {
     }
 
     /**
+     * Resets the selection list to the default values.
+     *
+     * By default floating species concentrations, as well as elements
+     * with ODEs / assignments, are selected.
+     */
+    resetSelectionList() {
+        this.Module.resetSelectionList();
+    }
+
+    /**
      * The jacobian as object.
      * @type {object}
      */

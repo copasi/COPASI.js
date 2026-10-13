@@ -1243,6 +1243,32 @@ TEST_CASE("Review findings", "[copasijs][review]")
     }
 }
 
+
+TEST_CASE("Test Selection List", "[copasijs][selectionlist]")
+{
+    Instance instance;
+    std::string model = loadFromFile(getTestFile("../example_files/brusselator.cps"));
+    REQUIRE(!model.empty());
+    REQUIRE(model != "Error loading model");
+    auto selectionList = getSelectionList();
+    auto selectedValues = getSelectionValues();
+    REQUIRE(!selectionList.empty());
+    // set a new selection list
+    std::vector<std::string> newSelectionList = {"Time", "X", "R1", "(R1).k1", "X.Rate"};
+    setSelectionList(newSelectionList);
+    auto updatedSelectionList = getSelectionList();
+    REQUIRE_THAT(updatedSelectionList, Catch::Matchers::Equals(newSelectionList));
+    // now run a time course, checking, that the values are returned
+    auto structure = simulate(false);
+    auto results = getSimulationResults2D();
+
+
+    // reset the selection list to the default
+    resetSelectionList();
+    auto resetSelectionList = getSelectionList();
+    REQUIRE(resetSelectionList.size() == selectionList.size());
+}
+
 int main(int argc, char *argv[])
 {
   CRootContainer::init(0, NULL);

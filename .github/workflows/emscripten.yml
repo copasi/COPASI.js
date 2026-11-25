@@ -11,9 +11,14 @@ on:
         - "CMakeModules/**"
         - "CMakeLists.txt"
         - "VERSION.txt"
+        - "npm/**"
+        - "dev/**"
         - "!.github/**"
         - "!docs/**"
         - ".github/workflows/emscripten.yml"
+  release:
+    types:
+      - published
   workflow_dispatch:
       
 
@@ -132,6 +137,11 @@ jobs:
         retention-days: 90
         if-no-files-found: error
 
+    - name: Build npm package
+      env:
+        COPASIJS_DEPENDENCY_DIR: ${{ github.workspace }}/em-dependencies
+      run: ./dev/em-npm.sh
+  
     - name: copasijs archive (for web use, js only)
       uses: actions/upload-artifact@v4
       with:
@@ -147,4 +157,46 @@ jobs:
         path: ${{github.workspace}}/dist-node/*
         retention-days: 90
         if-no-files-found: error
+
+    - name: copasijs npm package
+      uses: actions/upload-artifact@v4
+      with:
+        name: copasijs-npm
+        path: ${{github.workspace}}/dist-npm/*
+        retention-days: 90
+        if-no-files-found: error
+
+  publish:
+    if: github.event_name == 'release' && github.event.action == 'published'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: actions/download-artifact@v4
+      with:
+        name: copasijs-npm
+        path: dist-npm
+
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+        registry-url: https://registry.npmjs.org
+
+    - name: Publish to npmjs
+      working-directory: dist-npm
+      env:
+        RELEASE_TAG: ${{ github.event.release.tag_name }}
+      run: |
+        npm install -g npm@^11.5.1
+        version="$(tr -d '[:space:]' < "$GITHUB_WORKSPACE/VERSION.txt")"
+        tag="${RELEASE_TAG#v}"
+        if [ "$tag" != "$version" ]; then
+          echo "Release tag ${RELEASE_TAG} does not match VERSION.txt (${version})" >&2
+          exit 1
+        fi
+        npm publish --access public
   

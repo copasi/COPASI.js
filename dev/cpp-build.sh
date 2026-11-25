@@ -12,3 +12,6 @@ cmake -B $BUILD_DIR \
 
 cmake --build $BUILD_DIR --config $BUILD_TYPE
 cmake --install $BUILD_DIR --config $BUILD_TYPE
+pushd $BUILD_DIR
+ctest --output-on-failure . 
+popd

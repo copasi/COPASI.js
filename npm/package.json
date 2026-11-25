@@ -1,0 +1,36 @@
+{
+  "name": "@copasi/copasijs",
+  "version": "0.0.0",
+  "description": "Browser build of COPASI.js for bundlers",
+  "type": "module",
+  "main": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js",
+      "default": "./index.js"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.d.ts",
+    "copasijs.js",
+    "copasijs.wasm",
+    "copasi.js",
+    "copasi.d.ts",
+    "LICENSE",
+    "README.md"
+  ],
+  "sideEffects": [
+    "./copasijs.js"
+  ],
+  "license": "BSD-2-Clause",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/copasi/COPASI.js.git"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

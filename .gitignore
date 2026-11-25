@@ -31,6 +31,15 @@
 *.out
 *.app
 
+# specs and plans
+/tasks/
+*SPEC*md
+
+# temp files
+
+/*yaml
+/*rule*
+
 /docs/Doxyfile
 /docs/build/
 /docs/_build/
@@ -66,6 +75,8 @@
 
 /dist-node/
 /dist-web/
+/dist-npm/
+/em-build-npm/
 /em-build/
 /cpp-build/
 
